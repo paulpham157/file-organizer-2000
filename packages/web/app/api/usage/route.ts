@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
     if (!userUsage.length) {
       return NextResponse.json({
         tokenUsage: 0,
-        maxTokenUsage: 100000, // Default free tier tokens
+        maxTokenUsage: 100000, // Default legacy plan tokens
         subscriptionStatus: "active",
-        currentPlan: "Free Tier",
+        currentPlan: "Legacy Plan",
         isActive: true
       });
     }
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       tokenUsage: userUsage[0].tokenUsage || 0,
       maxTokenUsage: userUsage[0].maxTokenUsage || 100000,
       subscriptionStatus: userUsage[0].subscriptionStatus || "inactive",
-      currentPlan: userUsage[0].currentPlan || "Free Tier",
+      currentPlan: userUsage[0].currentPlan || "Legacy Plan",
       isActive: userUsage[0].subscriptionStatus === "active"
     });
     
