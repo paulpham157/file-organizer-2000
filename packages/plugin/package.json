@@ -15,7 +15,7 @@
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "builtin-modules": "3.3.0",
-    "esbuild": "0.17.3",
+    "esbuild": "0.25.0",
     "esbuild-postcss": "^0.0.4",
     "obsidian": "^1.7.2",
     "postcss": "^8.4.31",
