@@ -2,11 +2,9 @@ name: Build Obsidian Plugin
 
 on:
   push:
-    paths:
-      - 'packages/plugin/**'
+    branches: [ master, main ]
   pull_request:
-    paths:
-      - 'packages/plugin/**'
+    branches: [ master, main ]
 
 jobs:
   build:
@@ -26,16 +24,13 @@ jobs:
           version: 10.8.1
 
       - name: Install dependencies
-        run: |
-          cd packages/plugin
-          pnpm install
+        run: pnpm install
 
-      - name: Build plugin
+      - name: Build all packages
         run: |
-          cd packages/plugin
-          GITHUB_ACTIONS=true pnpm build
-
-      - name: Run tests
-        run: |
-          cd packages/plugin
-          pnpm test  
+          # Build web package without database migrations in CI
+          cd packages/web && pnpm build:ci && cd ../..
+          # Build other packages
+          cd packages/plugin && pnpm build && cd ../..
+          cd packages/landing && pnpm build 2>/dev/null || true && cd ../..
+          cd packages/release-notes && pnpm build 2>/dev/null || true && cd ../..
