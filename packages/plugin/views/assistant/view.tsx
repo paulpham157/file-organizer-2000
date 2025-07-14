@@ -7,9 +7,9 @@ import { InboxLogs } from "./inbox-logs";
 import { SectionHeader } from "./section-header";
 import { AppContext } from "./provider";
 import AIChatSidebar from "./ai-chat/container";
-import { TooltipProvider } from "@radix-ui/react-tooltip";
 import ReactMarkdown from 'react-markdown';
 import { SyncTab } from "./synchronizer/sync-tab";
+import { StyledContainer } from "../../components/ui/utils";
 
 export const ORGANIZER_VIEW_TYPE = "fo2k.assistant.sidebar2";
 
@@ -247,7 +247,7 @@ export class AssistantViewWrapper extends ItemView {
     this.root?.render(
       <AppContext.Provider value={{ plugin: this.plugin, root: this.root }}>
         <React.StrictMode>
-          <TooltipProvider>
+          <StyledContainer>
             <AssistantContent
               plugin={this.plugin}
               leaf={this.leaf}
@@ -256,7 +256,7 @@ export class AssistantViewWrapper extends ItemView {
                 this.setActiveTab = setTab;
               }}
             />
-          </TooltipProvider>
+          </StyledContainer>
         </React.StrictMode>
       </AppContext.Provider>
     );

@@ -1,11 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Mic, Square } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 interface AudioRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -54,28 +49,22 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
   };
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={isRecording ? stopRecording : startRecording}
-          className={`h-8 w-8 ${
-            isRecording
-              ? 'bg-[--text-error] text-[--text-on-accent]'
-              : 'bg-[--background-modifier-form-field] text-[--text-muted]'
-          } hover:bg-[--background-modifier-hover]`}
-        >
-          {isRecording ? (
-            <Square className="h-4 w-4" />
-          ) : (
-            <Mic className="h-4 w-4" />
-          )}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>{isRecording ? 'Stop recording' : 'Start recording'}</p>
-      </TooltipContent>
-    </Tooltip>
+    <Button
+      variant="outline"
+      size="icon"
+      onClick={isRecording ? stopRecording : startRecording}
+      className={`h-8 w-8 ${
+        isRecording
+          ? 'bg-[--text-error] text-[--text-on-accent]'
+          : 'bg-[--background-modifier-form-field] text-[--text-muted]'
+      } hover:bg-[--background-modifier-hover]`}
+      title={isRecording ? 'Stop recording' : 'Start recording'}
+    >
+      {isRecording ? (
+        <Square className="h-4 w-4" />
+      ) : (
+        <Mic className="h-4 w-4" />
+      )}
+    </Button>
   );
 }; 

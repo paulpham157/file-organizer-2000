@@ -4,7 +4,6 @@ import { makeApiRequest } from "../../../apiUtils";
 import { requestUrl, Notice, TFolder } from "obsidian";
 import FileOrganizer from "../../../index";
 import { Button } from "../../../components/ui/button";
-import { Skeleton } from "@radix-ui/react-tooltip";
 
 // Import icons for file types
 import {

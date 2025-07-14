@@ -1,10 +1,5 @@
 import React from 'react';
 import { Progress } from '@/components/ui/progress';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 interface ContextLimitIndicatorProps {
   unifiedContext: string;
@@ -27,22 +22,15 @@ export const ContextLimitIndicator: React.FC<ContextLimitIndicatorProps> = ({
   };
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="flex items-center gap-2">
-          <Progress
-            value={percentage}
-            className="w-24 h-2"
-            indicatorClassName={getStatusColor()}
-          />
-          <span className="text-xs text-[--text-muted]">
-            {Math.round(percentage)}%
-          </span>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>Context size: {contextSize} / {maxContextSize} characters</p>
-      </TooltipContent>
-    </Tooltip>
+    <div className="flex items-center gap-2" title={`Context size: ${contextSize} / ${maxContextSize} characters`}>
+      <Progress
+        value={percentage}
+        className="w-24 h-2"
+        indicatorClassName={getStatusColor()}
+      />
+      <span className="text-xs text-[--text-muted]">
+        {Math.round(percentage)}%
+      </span>
+    </div>
   );
 }; 

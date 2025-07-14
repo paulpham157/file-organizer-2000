@@ -23,28 +23,6 @@ import { Inbox } from "../../inbox";
 import { VALID_MEDIA_EXTENSIONS, VALID_AUDIO_EXTENSIONS, VALID_IMAGE_EXTENSIONS } from "../../constants";
 import { TFile, Notice } from "obsidian";
 
-// Add a tooltip component for error details
-const ErrorTooltip: React.FC<{ error: LogEntry["error"] }> = ({
-  error,
-  children,
-}) => {
-  return (
-    <div className="group relative inline-block">
-      {children}
-      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50">
-        <div className="bg-[--background-modifier-error] text-[--text-on-accent] p-3 rounded-lg shadow-lg whitespace-pre-wrap max-w-md">
-          <div className="font-medium mb-1">Error Details</div>
-          <div className="text-sm">{error.message}</div>
-          {error.stack && (
-            <div className="mt-2 text-xs opacity-80 font-mono">
-              {error.stack}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Enhanced log entry display component
 const LogEntryDisplay: React.FC<{ entry: LogEntry; step: Action }> = ({
@@ -121,14 +99,15 @@ const LogEntryDisplay: React.FC<{ entry: LogEntry; step: Action }> = ({
 
       {/* Error display */}
       {entry.error && (
-        <ErrorTooltip error={entry.error}>
-          <div className="flex items-center gap-1 text-[--text-error] text-sm ml-auto">
-            <AlertCircle className="w-4 h-4" />
-            <span className="truncate max-w-[200px]">
-              {entry.error.message}
-            </span>
-          </div>
-        </ErrorTooltip>
+        <div 
+          className="flex items-center gap-1 text-[--text-error] text-sm ml-auto"
+          title={`Error: ${entry.error.message}${entry.error.stack ? '\n\n' + entry.error.stack : ''}`}
+        >
+          <AlertCircle className="w-4 h-4" />
+          <span className="truncate max-w-[200px]">
+            {entry.error.message}
+          </span>
+        </div>
       )}
     </div>
   );
