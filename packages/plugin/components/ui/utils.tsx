@@ -18,7 +18,7 @@ export function StyledContainer({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("fo-container", className)} {...props}>
+    <div className={cn("fo-container h-full", className)} {...props}>
       {children}
     </div>
   );
