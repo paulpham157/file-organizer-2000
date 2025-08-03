@@ -30,7 +30,7 @@ export class FileOrganizerSettings {
   stagingFolder = ".notecompanion/staging";
   enableSelfHosting = false;
   selfHostingURL = "http://localhost:3000";
-  enableScreenpipe = false;
+
   enableFabric = false;
   useFolderEmbeddings = false;
   useVaultTitles = true;

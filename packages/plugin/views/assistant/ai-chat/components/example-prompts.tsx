@@ -37,11 +37,7 @@ const examples: Example[] = [
 //     description: "Vault analysis",
 //     icon: "📊"
 //   },
-  {
-    prompt: "Get a summary of my day from Screenpipe",
-    description: "Daily summary",
-    icon: "📅"
-  },
+
   {
     prompt: "Help me set up my vault organization settings",
     description: "Vault setup",

@@ -110,7 +110,6 @@ export const useContextItems = create<ContextItemsState>((set, get) => ({
   folders: {},
   youtubeVideos: {},
   tags: {},
-  screenpipe: {},
   searchResults: {},
   textSelections: {},
   currentFile: null,

@@ -132,7 +132,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
 
   const chatBody = {
     currentDatetime: window.moment().format("YYYY-MM-DDTHH:mm:ssZ"),
-    enableScreenpipe: plugin.settings.enableScreenpipe,
+
     newUnifiedContext: contextString,
     model: plugin.settings.selectedModel, // Pass selected model to server
     enableSearchGrounding: plugin.settings.enableSearchGrounding || 

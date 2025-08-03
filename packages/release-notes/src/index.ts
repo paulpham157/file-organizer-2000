@@ -165,7 +165,7 @@ Organizer is in:
 You can do things like:
 - Tag my book notes with relevant categories
 - Analyze my vault structure and suggest improvements
-- Get a summary of my day from Screenpipe
+
 - Help me set up my vault organization settings
 - Show me my recently modified files
 - Add notes from this YouTube video (and more)

@@ -48,7 +48,7 @@ The system implements the PARA method for file organization:
 - Natural language processing for file management
 
 ### 3. Activity Tracking
-- ScreenpipeHandler for monitoring daily activities
+
 - LastModifiedHandler for tracking recent changes
 - Automated activity summaries
 
