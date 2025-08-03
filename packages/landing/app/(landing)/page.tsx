@@ -9,15 +9,11 @@ import {
   Inbox,
   MessageSquare,
   Video,
-  Star,
-  ExternalLink,
-  Smartphone,
 } from "lucide-react";
 import { Demo } from "./demo/demo";
 import { PricingCards } from "./components/pricing-cards";
 import { FaqSection } from "./components/faq-section";
 import Image from 'next/image';
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "note companion — your ai-powered knowledge partner",
@@ -97,12 +93,9 @@ export default function Page() {
       {/* Stats Section */}
       <div className="w-full py-12 bg-white/5 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="grid grid-cols-2 gap-8 text-center">
+          <div className="grid grid-cols-1 gap-8 text-center">
             <div>
-              <h2 className="text-lg font-normal">+2k users</h2>
-            </div>
-            <div>
-              <h2 className="text-lg font-normal">1M notes organized</h2>
+              <h2 className="text-lg font-normal">Trusted by thousands of knowledge workers</h2>
             </div>
           </div>
         </div>

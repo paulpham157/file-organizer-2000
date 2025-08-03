@@ -8,7 +8,8 @@ import Providers from "../providers";
 import { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
-import { Smartphone, ExternalLink, ArrowRight } from "lucide-react";
+import { Smartphone, ExternalLink } from "lucide-react";
+import { getGitHubStars } from "@/lib/github";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://notecompanion.com"),
@@ -39,11 +40,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const starCount = await getGitHubStars();
   return (
     <html lang="en" className={GeistSans.className} suppressHydrationWarning>
       <body className="bg-background">
@@ -97,7 +99,7 @@ export default function RootLayout({
                           className="inline-flex items-center space-x-2 bg-[#1F2937] text-white px-3 py-1.5 rounded-full text-sm font-semibold"
                         >
                           <Star className="h-4 w-4" />
-                          <span>530</span>
+                          <span>{starCount}</span>
                         </a>
                         <Link href="https://accounts.notecompanion.ai/sign-up">
                           <Button
