@@ -342,6 +342,35 @@ export const chatTools = {
     }),
   },
 
+  findBrokenLinks: {
+    description:
+      'Find broken/unresolved [[wikilinks]] in the vault, a folder, or specific files. Useful for vault maintenance, health checks, and cleaning up dead links. When the user asks about broken links "in this file" or specific files, pass their paths in filePaths to scope the scan.',
+    parameters: z.object({
+      folder: z
+        .string()
+        .describe(
+          'Folder path to limit scan to. Use empty string "" for entire vault. Ignored when filePaths is non-empty.'
+        ),
+      filePaths: z
+        .array(z.string())
+        .describe(
+          'Specific file paths to check for broken links. Use empty array [] to scan by folder or entire vault.'
+        ),
+      groupBySource: z
+        .boolean()
+        .describe(
+          'If true, group results by source file. If false, group by broken link target (default: true)'
+        ),
+      limit: z
+        .number()
+        .min(1)
+        .max(200)
+        .describe(
+          'Max number of broken-link entries to return (default: 100). Results are truncated with a total count if exceeded.'
+        ),
+    }),
+  },
+
   extractHighlights: {
     description:
       'Get content from the current note, selection, or specified files so the assistant can extract key quotes and insights. Use when the user asks for highlights, key takeaways, main points, or memorable quotes. Prefer selection when the user has selected text. When the user refers to "this note", "current file", or @-mentioned files, use the exact file paths from the "Attached file paths" / Current File section in the context for filePath or filePaths.',

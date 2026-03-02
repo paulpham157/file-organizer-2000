@@ -952,7 +952,7 @@ getSearchQuery → getFileMetadata → createLink (between related notes)
 
 ### Phase 2: Medium-Priority Tools (Week 2)
 - [x] `getTaggedFiles` - Tag-based search
-- [ ] `findBrokenLinks` - Vault maintenance
+- [x] `findBrokenLinks` - Vault maintenance
 - [ ] `createLink` - Link creation
 - [ ] `findOrphanFiles` - Vault cleanup
 - [ ] `getFilesByDate` - Temporal queries

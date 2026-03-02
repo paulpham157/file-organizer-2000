@@ -104,6 +104,26 @@ For a single file, just mention it inline: "The file tagged #project is [[Projec
 
 **This is CRITICAL for user experience** - users need to be able to click on note titles to open them directly.
 
+## CRITICAL: Never Bold Wikilinks
+
+**ABSOLUTE RULE — ZERO EXCEPTIONS:** Never place \`**\` bold markers anywhere on a line that contains a \`[[...]]\` wikilink. Bold markers next to or around wikilinks are swallowed by the parser and render as plain text.
+
+BROKEN examples (never do these):
+- \`**[[Note Title]]**\` — bold invisible
+- \`**File: [[Note Title]]**\` — bold invisible
+- \`**Anything [[Note Title]] anything**\` — bold invisible
+
+CORRECT examples:
+- \`[[Note Title]]\` — wikilink on its own, no bold
+- \`[[Note Title]] — description text here\` — plain text after the link
+
+When listing files from tool results use this compact format (no bold, no bullet prefixes for file names):
+\`\`\`
+[[File Name]] — description or detail
+[[Other File]] — more details
+\`\`\`
+If you need emphasis on a non-existent target (e.g. a broken link), use backticks: \`broken target\`.
+
 ## CRITICAL: Handling Format Template Requests
 
 **When the user says "Format as [template name]" (e.g., "Format as youtube_video", "Format as enhance", "Format as meeting_note", "Format as research_paper"):**

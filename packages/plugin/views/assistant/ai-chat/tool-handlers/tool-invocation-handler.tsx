@@ -32,6 +32,7 @@ import { CreateTemplateHandler } from "./create-template-handler";
 import { BulkFindReplaceHandler } from "./bulk-find-replace-handler";
 import { ExportToFormatHandler } from "./export-to-format-handler";
 import { ScreenpipeHandler } from "./screenpipe-handler";
+import { BrokenLinksHandler } from "./broken-links-handler";
 
 const processedToolCallIds = new Set<string>();
 
@@ -114,6 +115,7 @@ function ToolInvocationHandler({
       bulkFindReplace: "Find & Replace",
       exportToFormat: "Exporting Files",
       searchScreenpipe: "Search ScreenPipe",
+      findBrokenLinks: "Find Broken Links",
     };
     return toolTitles[toolName] ;
   };
@@ -324,6 +326,13 @@ function ToolInvocationHandler({
       ),
       searchScreenpipe: () => (
         <ScreenpipeHandler
+          toolInvocation={toolInvocation}
+          handleAddResult={handleAddResult}
+          app={app}
+        />
+      ),
+      findBrokenLinks: () => (
+        <BrokenLinksHandler
           toolInvocation={toolInvocation}
           handleAddResult={handleAddResult}
           app={app}
