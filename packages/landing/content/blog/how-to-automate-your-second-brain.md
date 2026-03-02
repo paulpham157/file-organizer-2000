@@ -7,6 +7,8 @@ tags: ['automation', 'ai', 'obsidian', 'productivity', 'second-brain']
 excerpt: 'Your brain is great at thinking—but terrible at remembering everything. Learn how to automate your second brain using Obsidian and AI so your knowledge compounds without extra effort.'
 ---
 
+# How to Automate Your Second Brain (Using Obsidian + AI)
+
 Your brain is great at thinking—but terrible at remembering everything.
 
 That's why more creators, researchers, and knowledge workers are building a second brain: a system that stores, connects, and surfaces ideas automatically.

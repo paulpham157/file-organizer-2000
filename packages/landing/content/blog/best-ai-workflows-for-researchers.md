@@ -7,6 +7,8 @@ tags: ['research', 'ai', 'obsidian', 'workflow', 'productivity']
 excerpt: "Researchers today don't struggle with a lack of information. They struggle with too much information, scattered across tools. Learn proven AI-powered research workflows you can implement today."
 ---
 
+# Best AI Workflows for Researchers (Using Obsidian as a Second Brain)
+
 Researchers today don't struggle with a lack of information.
 
 They struggle with too much information, scattered across tools.

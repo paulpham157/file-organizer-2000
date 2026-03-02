@@ -7,6 +7,8 @@ tags: ['ai', 'second-brain', 'productivity', 'automation', 'thinking']
 excerpt: 'Most people try to automate their second brain too early. Learn the right role for AI in your thinking system—and what should stay human.'
 ---
 
+# How to Build an AI-Powered Second Brain (Before You Automate Anything)
+
 Most people try to automate their second brain too early.
 
 They wire up workflows, summaries, and smart connections before they've answered a simpler question:
