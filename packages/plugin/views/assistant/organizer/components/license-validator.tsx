@@ -1,6 +1,5 @@
 import * as React from "react";
 import { ErrorBox } from "./error-box";
-import { EmptyState } from "./empty-state";
 import FileOrganizer from "../../..";
 
 interface LicenseValidatorProps {
@@ -14,44 +13,27 @@ export const LicenseValidator: React.FC<LicenseValidatorProps> = ({
   onValidationComplete,
   plugin,
 }) => {
-  const [isValidating, setIsValidating] = React.useState(true);
   const [licenseError, setLicenseError] = React.useState<string | null>(null);
 
   const validateLicense = React.useCallback(async () => {
     // Skip validation if self-hosting is enabled
     // The server will accept any key when ENABLE_USER_MANAGEMENT=false
     if (plugin.settings.enableSelfHosting) {
-      setIsValidating(false);
       onValidationComplete();
       return;
     }
 
     try {
-      setIsValidating(true);
       setLicenseError(null);
 
-      // should be replaced with a hardcoded value
-      const response = await fetch(`${plugin.getServerUrl()}/api/check-key`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setLicenseError(data.error || "Invalid license key");
-      } else if (data.message !== "Valid key") {
-        setLicenseError("Invalid license key response");
-      } else {
+      const isValid = await plugin.isLicenseKeyValid(apiKey);
+      if (isValid) {
         onValidationComplete();
+      } else {
+        setLicenseError("Invalid license key");
       }
     } catch (err) {
       setLicenseError("Failed to validate license key");
-    } finally {
-      setIsValidating(false);
     }
   }, [apiKey, onValidationComplete, plugin]);
 
