@@ -6,7 +6,7 @@ const nextConfig = {
   // Required for pnpm monorepo: ensures files outside app directory are traced
   outputFileTracingRoot: path.join(__dirname, '../../'),
   // Don't bundle these (native binaries); load from node_modules at runtime
-  serverExternalPackages: ['ffmpeg-static', '@ffprobe-installer/ffprobe'],
+  serverExternalPackages: ['ffmpeg-static', '@ffprobe-installer/ffprobe', 'postgres'],
   // Include ffmpeg/ffprobe binaries in the transcribe API route bundle (Vercel)
   outputFileTracingIncludes: {
     '/api/(newai)/transcribe': [

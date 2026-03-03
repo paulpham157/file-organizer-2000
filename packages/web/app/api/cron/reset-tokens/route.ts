@@ -2,7 +2,7 @@ import { db, UserUsageTable } from '@/drizzle/schema';
 import { eq, and, or, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 async function resetTokenUsage() {
   const monthlyTokenLimit = 5000 * 1000; // 5M tokens
@@ -61,9 +61,8 @@ async function resetTokenUsage() {
       )
     );
 
-  // Get number of affected rows
-  const affectedRows = result.rowCount || 0;
-  const freeTierAffectedRows = freeTierResult.rowCount || 0;
+  const affectedRows = (result as unknown as { count: number }).count || 0;
+  const freeTierAffectedRows = (freeTierResult as unknown as { count: number }).count || 0;
 
   // return amount of users reset
   return {

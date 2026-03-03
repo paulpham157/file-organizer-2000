@@ -1,4 +1,4 @@
-import { drizzle } from 'drizzle-orm/vercel-postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import {
   pgTable,
   serial,
@@ -9,10 +9,10 @@ import {
   boolean,
 } from 'drizzle-orm/pg-core';
 import { eq, sql } from 'drizzle-orm';
-import { sql as psql } from '@vercel/postgres';
+import postgres from 'postgres';
 
-// Use this object to send drizzle queries to your DB
-export const db = drizzle(psql);
+const client = postgres(process.env.POSTGRES_URL || process.env.DATABASE_URL!);
+export const db = drizzle(client);
 
 // Table to store tier configurations
 export const TierConfigTable = pgTable('tier_config', {
