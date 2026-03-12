@@ -90,3 +90,35 @@ export async function trackLoopsEvent({
     console.error('Error tracking Loops event:', error);
   }
 }
+
+export async function updateLoopsContactBillingCycle(
+  email: string,
+  billingCycle: string,
+  userId?: string
+): Promise<void> {
+  if (!process.env.LOOPS_API_KEY) {
+    console.error('LOOPS_API_KEY is not set');
+    return;
+  }
+
+  try {
+    const body: Record<string, string> = { email, billingCycle };
+    if (userId) body.userId = userId;
+
+    const response = await fetch('https://app.loops.so/api/v1/contacts/update', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.LOOPS_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Loops contact update failed:', errorText);
+    }
+  } catch (error) {
+    console.error('Error updating Loops contact billingCycle:', error);
+  }
+}

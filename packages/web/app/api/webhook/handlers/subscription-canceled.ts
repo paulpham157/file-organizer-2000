@@ -1,10 +1,15 @@
 import { createWebhookHandler } from "../handler-factory";
-import { WebhookEvent, WebhookHandlerResponse, CustomerData } from "../types";
+import { CustomerData } from "../types";
 import { updateClerkMetadata } from "@/lib/services/clerk";
+import { updateLoopsContactBillingCycle } from "@/lib/services/loops";
 import { db, UserUsageTable } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { updateUserSubscriptionData } from "../utils";
 import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2024-06-20",
+});
 
 function getSubscriptionProduct(subscription: any): string | null {
   const productKey =
@@ -50,6 +55,14 @@ export const handleSubscriptionCanceled = createWebhookHandler(
 
     await updateUserSubscriptionData(customerData);
     await updateClerkMetadata(customerData);
+
+    const customer = await stripe.customers.retrieve(
+      subscription.customer as string
+    ) as Stripe.Customer;
+    const email = typeof customer === "string" ? "" : customer.email ?? "";
+    if (email) {
+      await updateLoopsContactBillingCycle(email, "none", userId);
+    }
 
     return {
       success: true,
