@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BlogPost } from "@/types/blog";
@@ -11,7 +12,18 @@ interface BlogCardProps {
 export function BlogCard({ post }: BlogCardProps) {
   return (
     <Link href={`/blog/${post.slug}`}>
-      <Card className="h-full transition-all hover:shadow-lg hover:border-primary/50">
+      <Card className="h-full transition-all hover:shadow-lg hover:border-primary/50 overflow-hidden">
+        {post.image && (
+          <div className="relative w-full aspect-video bg-muted">
+            <Image
+              src={post.image}
+              alt={post.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          </div>
+        )}
         <CardHeader>
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="secondary">{post.category}</Badge>

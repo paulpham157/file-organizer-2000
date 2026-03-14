@@ -5,6 +5,7 @@ export interface BlogPostMetadata {
   category: string;
   tags: string[];
   excerpt: string;
+  image?: string;
 }
 
 export interface BlogPost extends BlogPostMetadata {

@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,7 @@ export async function generateMetadata({
     };
   }
 
-  return {
+  const metadata: Metadata = {
     title: post.title,
     description: post.excerpt,
     openGraph: {
@@ -40,8 +41,16 @@ export async function generateMetadata({
       description: post.excerpt,
       type: "article",
       publishedTime: post.date,
+      ...(post.image && { images: [post.image] }),
     },
+    ...(post.image && {
+      twitter: {
+        card: "summary_large_image",
+        images: [post.image],
+      },
+    }),
   };
+  return metadata;
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
@@ -94,6 +103,19 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             ))}
           </div>
         </header>
+
+        {post.image && (
+          <div className="relative w-full aspect-video max-w-4xl mx-auto mb-12 rounded-lg overflow-hidden bg-muted">
+            <Image
+              src={post.image}
+              alt={post.title}
+              fill
+              className="object-cover"
+              priority
+              sizes="(max-width: 896px) 100vw, 896px"
+            />
+          </div>
+        )}
 
         {/* Article Content */}
         <BlogContent post={post} />
