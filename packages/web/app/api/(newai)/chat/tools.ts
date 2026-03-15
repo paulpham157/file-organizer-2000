@@ -85,6 +85,28 @@ export const chatTools = {
         ),
     }),
   },
+  createLink: {
+    description:
+      'Add a wikilink from one note to another. Use when the user wants to link notes, connect notes, or add a link from/to a note. Use empty sourcePath for the current/active file (from context). The target is the note to link to (path or title). Obsidian backlinks are automatic.',
+    parameters: z.object({
+      sourcePath: z
+        .string()
+        .describe(
+          'Full path or basename of the note to add the link from. Use "" for the current/active file (from context).'
+        ),
+      targetPath: z
+        .string()
+        .describe('Full path or basename of the note to link to'),
+      alias: z
+        .string()
+        .describe(
+          'Display text for the link, e.g. [[target|alias]]. Use "" for no alias.'
+        ),
+      message: z
+        .string()
+        .describe('Short explanation of what link is being added'),
+    }),
+  },
   addTextToDocument: {
     description:
       'Add new sections or content to notes with proper formatting and structure',

@@ -10,6 +10,7 @@ import { OpenFileHandler } from "./open-file-handler";
 
 import { SettingsUpdateHandler } from "./settings-update-handler";
 import { AppendContentHandler } from "./append-content-handler";
+import { CreateLinkHandler } from "./create-link-handler";
 import { OnboardHandler } from "./onboard-handler";
 import { MoveFilesHandler } from "./move-files-handler";
 import { RenameFilesHandler } from "./rename-files-handler";
@@ -38,7 +39,8 @@ const processedToolCallIds = new Set<string>();
 
 interface ToolInvocationHandlerProps {
   toolInvocation: ToolInvocation;
-  addToolResult: (result: { toolCallId: string; result: string }) => void;
+  // eslint-disable-next-line no-unused-vars -- callback type; param name is for documentation only
+  addToolResult: (payload: { toolCallId: string; result: string }) => void;
   app: App;
   chatStatus: string;
 }
@@ -89,6 +91,7 @@ function ToolInvocationHandler({
 
       generateSettings: "Settings Update",
       appendContentToFile: "Append Content",
+      createLink: "Creating link",
       analyzeVaultStructure: "Vault Analysis",
       moveFiles: "Moving Files",
       renameFiles: "Renaming Files",
@@ -173,6 +176,13 @@ function ToolInvocationHandler({
         <AppendContentHandler
           toolInvocation={toolInvocation}
           handleAddResult={handleAddResult}
+        />
+      ),
+      createLink: () => (
+        <CreateLinkHandler
+          toolInvocation={toolInvocation}
+          handleAddResult={handleAddResult}
+          app={app}
         />
       ),
       analyzeVaultStructure: () => (
