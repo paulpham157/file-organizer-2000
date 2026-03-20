@@ -59,6 +59,17 @@ export const chatTools = {
         ),
     }),
   },
+  fetchUrlContent: {
+    description:
+      'Fetch the main text content of a web page at the given URL so you can summarize it, answer questions about it, or explain what it is. Use when the user pastes a non-YouTube link (http/https) and asks for a summary, explanation, or "what is this?". For YouTube videos, use getYoutubeVideoId instead.',
+    parameters: z.object({
+      url: z
+        .string()
+        .describe(
+          'The full URL of the web page to fetch (e.g. https://example.com/article)'
+        ),
+    }),
+  },
   getLastModifiedFiles: {
     description:
       'Retrieve recently modified files to track changes and activity in the vault',

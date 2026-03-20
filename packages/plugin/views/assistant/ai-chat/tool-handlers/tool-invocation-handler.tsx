@@ -34,6 +34,7 @@ import { BulkFindReplaceHandler } from "./bulk-find-replace-handler";
 import { ExportToFormatHandler } from "./export-to-format-handler";
 import { ScreenpipeHandler } from "./screenpipe-handler";
 import { BrokenLinksHandler } from "./broken-links-handler";
+import { UrlFetchHandler } from "./url-fetch-handler";
 
 const processedToolCallIds = new Set<string>();
 
@@ -52,33 +53,19 @@ function ToolInvocationHandler({
   chatStatus,
 }: ToolInvocationHandlerProps) {
   const toolCallId = toolInvocation.toolCallId;
-  const pendingResultRef = React.useRef<string | null>(null);
 
+  // Call addToolResult as soon as the tool finishes. Do NOT defer until chatStatus === "ready":
+  // useChat often stays in "streaming"/other states until tool results are sent; deferring creates
+  // a deadlock for fast tools (e.g. fetchUrlContent) where the UI spins forever with no reply.
   const handleAddResult = (result: string) => {
     if (processedToolCallIds.has(toolCallId)) {
       console.log("[ToolInvocationHandler] Skipping duplicate addToolResult for:", toolCallId);
       return;
     }
-    if (chatStatus !== "ready") {
-      console.log("[ToolInvocationHandler] Deferring addToolResult until stream finishes for:", toolCallId, "status:", chatStatus);
-      pendingResultRef.current = result;
-      return;
-    }
     processedToolCallIds.add(toolCallId);
-    console.log("[ToolInvocationHandler] Calling addToolResult for:", toolCallId);
+    console.log("[ToolInvocationHandler] Calling addToolResult for:", toolCallId, "chatStatus:", chatStatus);
     addToolResult({ toolCallId, result });
   };
-
-  // Flush pending result when chat status becomes "ready"
-  React.useEffect(() => {
-    if (chatStatus === "ready" && pendingResultRef.current !== null && !processedToolCallIds.has(toolCallId)) {
-      const result = pendingResultRef.current;
-      pendingResultRef.current = null;
-      processedToolCallIds.add(toolCallId);
-      console.log("[ToolInvocationHandler] Flushing deferred addToolResult for:", toolCallId);
-      addToolResult({ toolCallId, result });
-    }
-  }, [chatStatus, toolCallId, addToolResult]);
 
   const getToolTitle = (toolName: string) => {
     const toolTitles = {
@@ -86,6 +73,7 @@ function ToolInvocationHandler({
       getSearchQuery: "Searching Notes",
       askForConfirmation: "Confirmation Required",
       getYoutubeVideoId: "YouTube Transcript",
+      fetchUrlContent: "Fetching page content",
       modifyCurrentNote: "Note Modification",
       getLastModifiedFiles: "Recent File Activity",
 
@@ -140,6 +128,12 @@ function ToolInvocationHandler({
       ),
       getYoutubeVideoId: () => (
         <YouTubeHandler
+          toolInvocation={toolInvocation}
+          handleAddResult={handleAddResult}
+        />
+      ),
+      fetchUrlContent: () => (
+        <UrlFetchHandler
           toolInvocation={toolInvocation}
           handleAddResult={handleAddResult}
         />
