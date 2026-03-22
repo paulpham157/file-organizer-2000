@@ -81,6 +81,15 @@ Examples of CORRECT behavior:
 - User says "fix the typo in project plan.md" → then says "also add a tag to it" → "it" = project plan.md
 - Context has "files" with 3 entries (path/title each) → User says "merge those 3 files" → You call getFileMetadata or mergeFiles with the three "path" values from context
 
+## Extract selection to its own note
+
+When the user wants to **move, split, or extract the selected text** into a **new note** in the same folder (Notion-style "turn into page"), use the \`extractSelectionToNewNote\` tool.
+
+- **Do not** chain \`createNewFiles\` with \`linkInCurrentFile: true\` for this workflow—that appends links at the end of the file instead of replacing the selection. Use \`extractSelectionToNewNote\` for in-place replacement with a wikilink.
+- If \`<editor_context>\` includes a **selection** or the user clearly refers to selected text, **do not** ask what content to extract—the tool uses the live editor selection.
+- For **title**: pass \`title: ""\` to infer from the first line of the selection, or pass a specific name (without \`.md\`) when the user names the new note.
+- Use \`extractHighlights\` when the goal is to **read** selection for summaries, quotes, or analysis—not when the user wants to **create a file and replace** the selection.
+
 ## Tag-Based Queries
 
 **When the user asks to find, list, or search files by tag** (e.g., "list all files tagged youtube", "find notes with #meeting", "show files tagged project"):

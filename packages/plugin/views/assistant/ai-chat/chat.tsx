@@ -1894,6 +1894,18 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
             } as React.ChangeEvent<HTMLInputElement>);
           }
           break;
+        case "extractToNote": {
+          const extractPrompt =
+            "Extract my current editor selection into a new note in the same folder as this file, then replace the selection with a wikilink. Use the extractSelectionToNewNote tool with title \"\" unless I specified a name.";
+          if (editor) {
+            editor.chain().focus().insertContent(extractPrompt).run();
+          } else {
+            handleInputChange({
+              target: { value: extractPrompt },
+            } as React.ChangeEvent<HTMLInputElement>);
+          }
+          break;
+        }
         default:
           console.warn("Unknown slash command action:", action);
           break;

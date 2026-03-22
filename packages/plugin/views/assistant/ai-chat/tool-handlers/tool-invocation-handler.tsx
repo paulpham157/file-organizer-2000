@@ -26,6 +26,7 @@ import { BacklinksHandler } from "./backlinks-handler";
 import { OutgoingLinksHandler } from "./outgoing-links-handler";
 import { HeadingsHandler } from "./headings-handler";
 import { ExtractHighlightsHandler } from "./extract-highlights-handler";
+import { ExtractSelectionToNewNoteHandler } from "./extract-selection-to-new-note-handler";
 import { CreateFilesHandler } from "./create-files-handler";
 import { DeleteFilesHandler } from "./delete-files-handler";
 import { MergeFilesHandler } from "./merge-files-handler";
@@ -99,6 +100,7 @@ function ToolInvocationHandler({
       getOutgoingLinks: "Get Outgoing Links",
       getHeadings: "Get Document Structure",
       extractHighlights: "Extracting content for highlights",
+      extractSelectionToNewNote: "Extract selection to new note",
       createNewFiles: "Creating New Files",
       deleteFiles: "Deleting Files",
       mergeFiles: "Merging Files",
@@ -281,6 +283,13 @@ function ToolInvocationHandler({
       ),
       extractHighlights: () => (
         <ExtractHighlightsHandler
+          toolInvocation={toolInvocation}
+          handleAddResult={handleAddResult}
+          app={app}
+        />
+      ),
+      extractSelectionToNewNote: () => (
+        <ExtractSelectionToNewNoteHandler
           toolInvocation={toolInvocation}
           handleAddResult={handleAddResult}
           app={app}

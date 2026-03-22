@@ -11,6 +11,7 @@ import {
   Wand2,
   BookOpen,
   FileCode,
+  FilePlus,
 } from "lucide-react";
 
 interface CommandItem {
@@ -87,6 +88,14 @@ const baseCommands: CommandItem[] = [
     icon: <Zap className="w-4 h-4" />,
     category: "ai",
     action: "explain",
+  },
+  {
+    id: "extract-to-note",
+    label: "Extract to new note",
+    description: "Turn editor selection into its own linked note",
+    icon: <FilePlus className="w-4 h-4" />,
+    category: "ai",
+    action: "extractToNote",
   },
 ];
 

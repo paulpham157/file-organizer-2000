@@ -429,6 +429,21 @@ export const chatTools = {
     }),
   },
 
+  extractSelectionToNewNote: {
+    description:
+      'Turn the current editor selection into a new note in the same folder as the active markdown file, then replace the selection with a wikilink to that note. Runs only in the Obsidian plugin (client). Use when the user wants to split, move, or extract the selected block into its own note (Notion-style "turn into page"). Requires a non-empty selection and an active markdown note. Prefer this over createNewFiles when they want the source note updated in place with a link. Pass title as the note name without .md when they specify one; otherwise pass empty string "" to infer the title from the first line of the selection.',
+    parameters: z.object({
+      title: z
+        .string()
+        .describe(
+          'Note title without .md. Use "" to infer from the first line of the selection.'
+        ),
+      message: z
+        .string()
+        .describe('Short explanation of what is being extracted and why'),
+    }),
+  },
+
   createNewFiles: {
     description:
       'Create new notes/documents in the vault with content and optionally link them together. Use this to split content into multiple files, create referenced documents, or create a single merged note after combining content from multiple files.',

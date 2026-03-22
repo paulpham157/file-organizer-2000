@@ -42,6 +42,7 @@ import Jimp from "jimp/es/index";
 
 import { FileOrganizerSettings, DEFAULT_SETTINGS } from "./settings";
 
+import { extractSelectionToNewNote } from "./commands/extract-selection-to-note";
 import { registerEventHandlers } from "./handlers/eventHandlers";
 import {
   initializeOrganizer,
@@ -1723,6 +1724,43 @@ export default class FileOrganizer extends Plugin {
         }
       },
     });
+
+    this.addCommand({
+      id: "extract-selection-to-new-note",
+      name: "Extract selection to new note",
+      editorCallback: async () => {
+        const result = await extractSelectionToNewNote(this.app);
+        if (!result.ok) {
+          new Notice(result.error, 4000);
+          return;
+        }
+        const name = result.newFilePath.split("/").pop() ?? result.newFilePath;
+        new Notice(`Extracted to ${name}`, 3500);
+      },
+    });
+
+    this.registerEvent(
+      this.app.workspace.on("editor-menu", (menu, editor) => {
+        if (!editor.getSelection()?.trim()) return;
+        const active = this.app.workspace.getActiveFile();
+        if (!active || active.extension !== "md") return;
+        menu.addItem(item => {
+          item
+            .setTitle("Extract selection to new note")
+            .setIcon("file-plus")
+            .onClick(async () => {
+              const result = await extractSelectionToNewNote(this.app);
+              if (!result.ok) {
+                new Notice(result.error, 4000);
+                return;
+              }
+              const name =
+                result.newFilePath.split("/").pop() ?? result.newFilePath;
+              new Notice(`Extracted to ${name}`, 3500);
+            });
+        });
+      })
+    );
 
     this.addCommand({
       id: "test-screenpipe",
