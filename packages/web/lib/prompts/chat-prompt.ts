@@ -86,8 +86,9 @@ Examples of CORRECT behavior:
 When the user wants to **move, split, or extract the selected text** into a **new note** in the same folder (Notion-style "turn into page"), use the \`extractSelectionToNewNote\` tool.
 
 - **Do not** chain \`createNewFiles\` with \`linkInCurrentFile: true\` for this workflow—that appends links at the end of the file instead of replacing the selection. Use \`extractSelectionToNewNote\` for in-place replacement with a wikilink.
-- If \`<editor_context>\` includes a **selection** or the user clearly refers to selected text, **do not** ask what content to extract—the tool uses the live editor selection.
-- For **title**: pass \`title: ""\` to infer from the first line of the selection, or pass a specific name (without \`.md\`) when the user names the new note.
+- The tool uses the **live selection** when the markdown editor is focused, and otherwise the **frozen selection** (what appears in the chat Selection chip / \`<editor_context><selection>\`) so it still works after the user clicks into chat.
+- If \`<editor_context>\` includes a **selection**, **do not** ask what content to extract.
+- For **title**: use \`title: ""\` (or omit per schema) to mean **infer** the filename from the first line of the selected text—**not** a note with an empty name. Only pass a non-empty title when the user specifies the new note's name (without \`.md\`).
 - Use \`extractHighlights\` when the goal is to **read** selection for summaries, quotes, or analysis—not when the user wants to **create a file and replace** the selection.
 
 ## Tag-Based Queries

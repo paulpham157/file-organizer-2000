@@ -431,12 +431,12 @@ export const chatTools = {
 
   extractSelectionToNewNote: {
     description:
-      'Turn the current editor selection into a new note in the same folder as the active markdown file, then replace the selection with a wikilink to that note. Runs only in the Obsidian plugin (client). Use when the user wants to split, move, or extract the selected block into its own note (Notion-style "turn into page"). Requires a non-empty selection and an active markdown note. Prefer this over createNewFiles when they want the source note updated in place with a link. Pass title as the note name without .md when they specify one; otherwise pass empty string "" to infer the title from the first line of the selection.',
+      'Turn the editor selection into a new note in that note\'s folder, then replace the selection with a wikilink. Client-only. When the user is typing in chat, Obsidian clears the live selection—the plugin uses the frozen selection shown in the chat "Selection" chip (same text as in <editor_context><selection>). Prefer this over createNewFiles for in-place replacement. For title: omit the parameter or pass "" to infer the note name from the first line of the selected text (not a blank title). Only pass title when the user gives a specific name (without .md).',
     parameters: z.object({
       title: z
         .string()
         .describe(
-          'Note title without .md. Use "" to infer from the first line of the selection.'
+          'Note name without .md. Use "" or omit meaning from context when the user did not name the new note—inferred from the first line of the selection, never a file named empty string.'
         ),
       message: z
         .string()

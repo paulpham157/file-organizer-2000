@@ -51,8 +51,8 @@ Repository: Nexus-JPF/note-companion
 - **Test Credentials**: benjamin.shafii+testinglove@gmail.com
 
 ### Git Workflow
-- Commit after each significant change
-- Use descriptive commit messages
+- Do **not** run `git add` or `git commit` unless the user explicitly asks to commit or stage—allow time to test changes locally first
+- When committing: use descriptive commit messages
 - Main branch: `master`
 
 ## AI Integration

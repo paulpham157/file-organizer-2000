@@ -160,20 +160,26 @@ const suggestion = {
           console.log("Slash command executed:", item, props);
           const { editor, range } = props;
 
+          // Remove `/query` from the document for every slash pick (same as format).
+          // Otherwise the trigger text stays and the chat handler may run with a stale/null editor ref when the menu is clicked.
+          if (editor && range) {
+            try {
+              editor.chain().focus().deleteRange(range).run();
+            } catch (error) {
+              console.error("Error deleting slash range:", error);
+            }
+          }
+
           // Handle format commands - trigger actual formatting (not just insert text)
           if (item.action === "format" && item.templateName) {
-            // Delete the slash command text
-            if (editor && range) {
-              try {
-                editor.chain().focus().deleteRange(range).run();
-              } catch (error) {
-                console.error("Error deleting range:", error);
-              }
-            }
-            // Dispatch format event to be handled by chat component
             setTimeout(() => {
               const event = new CustomEvent("slashCommand", {
-                detail: { action: "format", templateName: item.templateName, item },
+                detail: {
+                  action: "format",
+                  templateName: item.templateName,
+                  item,
+                  editor,
+                },
                 bubbles: true,
                 cancelable: true,
               });
@@ -183,14 +189,12 @@ const suggestion = {
             return true;
           }
 
-          // Handle action commands (these will be handled by the parent component via events)
+          // Handle action commands (parent listens on document)
           if (item.action) {
             console.log("Dispatching action command:", item.action);
-            // Trigger a custom event that the parent can listen to
-            // Use a small delay to ensure the DOM is ready
             setTimeout(() => {
               const event = new CustomEvent("slashCommand", {
-                detail: { action: item.action, item },
+                detail: { action: item.action, item, editor },
                 bubbles: true,
                 cancelable: true,
               });

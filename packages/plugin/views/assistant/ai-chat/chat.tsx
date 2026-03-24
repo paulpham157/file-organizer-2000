@@ -1754,9 +1754,15 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
   // Handle slash command actions
   useEffect(() => {
     const handleSlashCommand = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const { action, item } = customEvent.detail;
-      const editor = tiptapEditorRef.current;
+      const customEvent = event as CustomEvent<{
+        action: string;
+        item?: unknown;
+        templateName?: string;
+        editor?: Editor | null;
+      }>;
+      const { action, item, editor: editorFromEvent } = customEvent.detail;
+      // Prefer editor from the slash menu (same instance that had focus); ref can be unset when clicking the popup.
+      const editor = editorFromEvent ?? tiptapEditorRef.current;
 
       console.log("Slash command received:", action, item);
 
@@ -1896,7 +1902,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           break;
         case "extractToNote": {
           const extractPrompt =
-            "Extract my current editor selection into a new note in the same folder as this file, then replace the selection with a wikilink. Use the extractSelectionToNewNote tool with title \"\" unless I specified a name.";
+            "Turn my selected text into a new note in the same folder as this file, and replace the selection with a wikilink to that note. Use the extractSelectionToNewNote tool. Name the new note from the first line of the selection unless I ask for a specific title below.";
           if (editor) {
             editor.chain().focus().insertContent(extractPrompt).run();
           } else {

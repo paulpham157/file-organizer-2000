@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { App, MarkdownView, EditorPosition, EditorSelection } from "obsidian";
+import { syncFrozenEditorSelectionForTools } from "../../../services/editor-selection-store";
 
 export interface EditorSelectionContext {
   selectedText: string;
@@ -178,6 +179,15 @@ export function useEditorSelection(app: App): EditorSelectionResult {
       app.workspace.offref(fileOpenRef);
     };
   }, [app, isManuallyCleared]);
+
+  useEffect(() => {
+    syncFrozenEditorSelectionForTools({
+      hasSelection: frozenContext.hasSelection,
+      selectedText: frozenContext.selectedText,
+      filePath: frozenContext.filePath,
+      selection: frozenContext.selection,
+    });
+  }, [frozenContext]);
 
   return {
     current: currentContext,
