@@ -68,6 +68,7 @@ import {
 } from "./constants";
 import { initializeInboxQueue, Inbox } from "./inbox";
 import { logger } from "./services/logger";
+import { layoutPdfTextItems } from "./lib/pdf-text-layout";
 import { addTextSelectionContext } from "./views/assistant/ai-chat/use-context-items";
 import { ProcessingStatusBar } from "./components/processing-status-bar";
 import * as React from "react";
@@ -599,16 +600,16 @@ export default class FileOrganizer extends Plugin {
       const arrayBuffer = await this.app.vault.readBinary(file);
       const bytes = new Uint8Array(arrayBuffer);
       const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
-      let text = "";
+      const pageTexts: string[] = [];
 
       // Use pdfPageLimit to cap the maximum pages read.
       const pageLimit = Math.min(doc.numPages, this.settings.pdfPageLimit);
       for (let pageNum = 1; pageNum <= pageLimit; pageNum++) {
         const page = await doc.getPage(pageNum);
         const textContent = await page.getTextContent();
-        text += textContent.items.map(item => item.str).join(" ");
+        pageTexts.push(layoutPdfTextItems(textContent.items));
       }
-      return text;
+      return pageTexts.join("\n\n");
     } catch (error) {
       logger.error(`Error extracting text from PDF: ${error}`);
       return "";
