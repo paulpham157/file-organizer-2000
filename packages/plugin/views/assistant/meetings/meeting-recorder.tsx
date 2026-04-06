@@ -33,26 +33,47 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
       .padStart(2, "0")}`;
   };
 
+  /** Prefer MP4/AAC for local playback; WebM Opus as fallback. */
+  const createMediaRecorder = (stream: MediaStream): MediaRecorder => {
+    const audioBitsPerSecond = 128000;
+    const mimeCandidates = [
+      "audio/mp4;codecs=mp4a.40.2",
+      "audio/mp4",
+      "audio/webm;codecs=opus",
+      "audio/webm",
+    ];
+
+    for (const mimeType of mimeCandidates) {
+      if (!MediaRecorder.isTypeSupported(mimeType)) continue;
+      try {
+        return new MediaRecorder(stream, { mimeType, audioBitsPerSecond });
+      } catch (e) {
+        logger.warn(`MediaRecorder init failed for ${mimeType}`, e);
+      }
+    }
+
+    return new MediaRecorder(stream, { audioBitsPerSecond });
+  };
+
+  const fileExtensionForRecorder = (recorder: MediaRecorder): "m4a" | "webm" => {
+    const mime = recorder.mimeType.toLowerCase();
+    if (mime.includes("mp4")) return "m4a";
+    if (mime.includes("webm")) return "webm";
+    return "m4a";
+  };
+
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = stream;
 
-      // Prefer WebM for compatibility (avoids fragmented M4A in Electron that ffmpeg/Whisper can't read)
-      // 32 kbps, fallback to mp4 if WebM not supported (e.g. older Safari)
-      let mediaRecorder: MediaRecorder;
-      try {
-        mediaRecorder = new MediaRecorder(stream, {
-          mimeType: "audio/webm;codecs=opus",
-          audioBitsPerSecond: 32000,
-        });
-      } catch (e) {
-        logger.warn("WebM not supported, falling back to mp4", e);
-        mediaRecorder = new MediaRecorder(stream, {
-          mimeType: "audio/mp4",
-          audioBitsPerSecond: 32000,
-        });
-      }
+      const mediaRecorder = createMediaRecorder(stream);
 
       mediaRecorderRef.current = mediaRecorder;
       audioChunks.current = [];
@@ -82,10 +103,10 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
   };
 
   const stopRecording = async () => {
-    if (!mediaRecorderRef.current) return;
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
 
     try {
-      mediaRecorderRef.current.stop();
       setIsRecording(false);
 
       if (intervalRef.current) {
@@ -93,19 +114,17 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
         intervalRef.current = null;
       }
 
-      // Stop all tracks
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-
       await new Promise<void>(resolve => {
-        if (!mediaRecorderRef.current) {
-          resolve();
-          return;
-        }
+        const mimeType = recorder.mimeType;
 
-        mediaRecorderRef.current.onstop = async () => {
+        recorder.onstop = async () => {
+          mediaRecorderRef.current = null;
+
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+          }
+
           try {
             if (audioChunks.current.length === 0) {
               throw new Error("No audio data recorded");
@@ -114,35 +133,32 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
             setIsSaving(true);
 
             const blob = new Blob(audioChunks.current, {
-              type: mediaRecorderRef.current?.mimeType || "audio/webm",
+              type: mimeType || "audio/webm",
             });
 
-            // Convert blob to ArrayBuffer
             const arrayBuffer = await blob.arrayBuffer();
 
-            // Generate filename: YYYY-MM-DD Meeting.webm (or .m4a if WebM not supported)
             const now = new Date();
             const dateStr = now.toISOString().split("T")[0];
-            const extension = blob.type.includes("mp4") ? "m4a" : "webm";
+            const extension = fileExtensionForRecorder(recorder);
             const baseFileName = `${dateStr} Meeting.${extension}`;
             const desiredPath = `${plugin.settings.recordingsFolderPath}/${baseFileName}`;
 
-            // Ensure folder exists
             await plugin.app.vault.adapter.mkdir(
               plugin.settings.recordingsFolderPath
             );
 
-            // Get available path (handles duplicates by appending number)
             const filePath = await getAvailablePath(plugin.app, desiredPath);
 
-            // Save to vault
             await plugin.app.vault.createBinary(filePath, arrayBuffer);
 
-            // Load existing metadata first to preserve discovered recordings
             await metadataManager.loadMetadata();
 
-            // Add to metadata (convert seconds to minutes)
-            const recordingDurationInMinutes = duration / 60;
+            const elapsedSeconds = startTimeRef.current
+              ? (Date.now() - startTimeRef.current.getTime()) / 1000
+              : duration;
+            const recordingDurationInMinutes = elapsedSeconds / 60;
+
             await metadataManager.updateMetadata({
               filePath,
               createdAt: now.toISOString(),
@@ -156,10 +172,7 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
             setDuration(0);
             audioChunks.current = [];
 
-            // Trigger refresh of recent meetings list
             window.dispatchEvent(new CustomEvent("meeting-recorded"));
-
-            resolve();
           } catch (error) {
             logger.error("Error saving recording:", error);
             new Notice(
@@ -167,11 +180,22 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
                 error instanceof Error ? error.message : "Unknown error"
               }`
             );
-            resolve();
           } finally {
+            startTimeRef.current = null;
             setIsSaving(false);
+            resolve();
           }
         };
+
+        try {
+          if (recorder.state === "recording") {
+            recorder.requestData();
+          }
+        } catch (e) {
+          logger.warn("requestData before stop failed", e);
+        }
+
+        recorder.stop();
       });
     } catch (error) {
       logger.error("Error stopping recording:", error);
