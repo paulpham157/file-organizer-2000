@@ -43,6 +43,14 @@ _Record meetings, then enhance notes with transcript, discussion points, and act
 
 **Obsidian → Settings → Community plugins → Browse → "Note Companion" → Install → Enable**
 
+### Platform support (Obsidian)
+
+**This plugin is for Obsidian on desktop only** (Windows, macOS, and Linux). It is marked **desktop-only** in the plugin manifest, so **Obsidian on iPhone, iPad, and Android will not load it** and may show it as unsupported on mobile.
+
+The plugin is built and tested for desktop Obsidian. Some features assume a typical desktop environment (for example, certain local integrations). **We do not test or support the Obsidian plugin on mobile** today.
+
+**Related:** This repo also includes a separate **Note Companion mobile app** for capture and cloud-backed workflows. Development on that app is currently **on pause**. It is not a replacement for running the Obsidian plugin inside the mobile Obsidian app.
+
 ---
 
 ## 60-second setup
