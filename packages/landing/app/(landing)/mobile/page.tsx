@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function MobilePage() {
   return (
-    <main className="flex min-h-screen flex-col items-center bg-background text-gray-700">
+    <div className="flex min-h-screen w-full flex-col items-center bg-background text-gray-700">
       {/* Hero Section with OCR Highlight */}
       <div className="w-full max-w-5xl px-6 py-12 sm:py-12 lg:px-8 bg-transparent">
         <div className="mx-auto max-w-2xl text-center">
@@ -173,6 +173,6 @@ export default function MobilePage() {
           </p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

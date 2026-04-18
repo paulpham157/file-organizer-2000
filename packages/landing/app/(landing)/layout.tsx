@@ -5,11 +5,14 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import Providers from '../providers';
 import { Metadata } from 'next';
 import { Button } from '@/components/ui/button';
-import { Star, Smartphone, ExternalLink } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { getGitHubStars } from '@/lib/github';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.notecompanion.ai');
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'https://www.notecompanion.ai');
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -46,6 +49,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const starCount = await getGitHubStars();
+  const year = new Date().getFullYear();
   return (
     <TooltipProvider>
       <Providers>
@@ -72,52 +76,52 @@ export default async function RootLayout({
               </div>
             </div> */}
 
-            <div className="w-full border-b border-gray-700 bg-background backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <div className="mx-auto max-w-7xl px-6 py-4">
                 <div className="flex items-center justify-between">
                   <Link
                     href="/"
-                    className="flex items-center gap-2 text-2xl"
+                    className="flex items-center gap-2.5 text-foreground"
+                    aria-label="Note Companion home"
                   >
                     <Image
                       src="/notecompanion.png"
-                      alt="note companion Logo"
+                      alt=""
                       width={30}
                       height={30}
                     />
+                    <span className="text-lg font-semibold tracking-tight sm:text-xl">
+                      Note Companion
+                    </span>
                   </Link>
                   <div className="flex items-center space-x-4">
                     <a
                       href="https://www.youtube.com/watch?v=NQjZcL4sThs&list=PLgRcC-DFR5jdUxbSBuNeymwYTH_FSVxio"
-                      className="text-sm text-gray-900 font-semibold"
+                      className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      tutorials
+                      Tutorials
                     </a>
 
                     <Link
                       href="/blog"
-                      className="text-sm text-gray-900 font-semibold"
+                      className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      blog
+                      Blog
                     </Link>
 
                     <a
                       href="https://github.com/Nexus-JPF/note-companion"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-2 bg-[#1F2937] text-white px-3 py-1.5 rounded-full text-sm font-semibold"
+                      className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-sm font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80"
                     >
                       <Star className="h-4 w-4" />
                       <span>{starCount}</span>
                     </a>
                     <Link href="https://accounts.notecompanion.ai/sign-up">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-primary text-white hover:bg-primary/90"
-                      >
+                      <Button variant="default" size="sm">
                         Start
                       </Button>
                     </Link>
@@ -126,7 +130,13 @@ export default async function RootLayout({
               </div>
             </div>
 
-            <div className="flex flex-col w-full">{children}</div>
+            <div className="flex w-full flex-1 flex-col">{children}</div>
+
+            <footer className="mt-auto w-full border-t border-border bg-muted/20">
+              <div className="mx-auto max-w-7xl px-6 py-8 text-center text-sm text-muted-foreground">
+                Copyright © {year} JPF Nexus Inc. All rights reserved.
+              </div>
+            </footer>
           </div>
         </main>
         <Toaster />

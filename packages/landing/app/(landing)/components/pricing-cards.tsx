@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Check, Star } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import Link from 'next/link';
 import { Switch } from '@/components/ui/switch';
 
@@ -42,19 +42,9 @@ export function PricingCards() {
     },
   };
 
-  // Helper function to render a feature with optional highlighting
-  const renderFeature = (feature: string, index: number, plan: string) => {
-    return (
-      <div key={index} className="flex items-start gap-3">
-        <Check className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-        <span className="text-muted-foreground">{feature}</span>
-      </div>
-    );
-  };
-
   return (
-    <div className="flex flex-col items-center justify-center w-full">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 max-w-6xl mx-auto px-4">
+    <div className="flex w-full flex-col items-center justify-center">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 justify-items-center gap-6 px-4">
         {/* Self-Hosted */}
         {/* <div className="relative group h-full">
         <div className="absolute -inset-0.5 border border-2 border-black-500 rounded-2xl bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 group-hover:from-primary/40 group-hover:via-primary/25 group-hover:to-primary/40 transition-all duration-300" />
@@ -81,15 +71,15 @@ export function PricingCards() {
           </div>
         </div> */}
 
-        {/* Subscription - Most Popular */}
-        <div className="relative group h-full">
-          <div className="absolute -inset-0.5 border border-2 border-black-500 rounded-2xl bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 group-hover:from-primary/40 group-hover:via-primary/25 group-hover:to-primary/40 transition-all duration-300" />
+        {/* Subscription - Most Popular (single card: centered, max width) */}
+        <div className="group relative h-full w-full max-w-md md:max-w-lg">
+          <div className="absolute -inset-0.5 rounded-2xl border-2 border-border bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 transition-all duration-300 group-hover:from-primary/40 group-hover:via-primary/25 group-hover:to-primary/40" />
           <div className="relative h-full rounded-2xl bg-background/100 backdrop-blur-sm p-6 flex flex-col justify-between">
             <div>
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <Badge
                   variant="default"
-                  className="bg-primary hover:bg-primary text-white"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                 >
                   Most Popular
                 </Badge>
@@ -110,7 +100,7 @@ export function PricingCards() {
                 <Switch
                   checked={isYearly}
                   onCheckedChange={setIsYearly}
-                  className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-200 data-[state=unchecked]:border-gray-300"
+                  className="data-[state=checked]:bg-primary data-[state=unchecked]:border-border data-[state=unchecked]:bg-muted"
                 />
                 <span
                   className={`text-sm ${
@@ -150,7 +140,7 @@ export function PricingCards() {
               </div>
             </div>
             <Link href="https://accounts.notecompanion.ai/sign-up" passHref>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-white">
+              <Button className="w-full">
                 Start Free Trial
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>

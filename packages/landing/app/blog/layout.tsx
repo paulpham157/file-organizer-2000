@@ -14,21 +14,28 @@ export default async function BlogLayout({
   return (
     <div className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col items-center">
-        <div className="w-full border-b border-gray-700 bg-background backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto max-w-7xl px-6 py-4">
             <div className="flex items-center justify-between">
-              <Link href="/" className="flex items-center gap-2 text-2xl">
+              <Link
+                href="/"
+                className="flex items-center gap-2.5 text-foreground"
+                aria-label="Note Companion home"
+              >
                 <Image
                   src="/notecompanion.png"
-                  alt="note companion Logo"
+                  alt=""
                   width={30}
                   height={30}
                 />
+                <span className="text-lg font-semibold tracking-tight sm:text-xl">
+                  Note Companion
+                </span>
               </Link>
               <div className="flex items-center space-x-4">
                 <a
                   href="https://www.youtube.com/watch?v=NQjZcL4sThs&list=PLgRcC-DFR5jdUxbSBuNeymwYTH_FSVxio"
-                  className="text-sm text-gray-900 font-semibold"
+                  className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -37,7 +44,7 @@ export default async function BlogLayout({
 
                 <Link
                   href="/blog"
-                  className="text-sm text-gray-900 font-semibold"
+                  className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 >
                   blog
                 </Link>
@@ -46,17 +53,13 @@ export default async function BlogLayout({
                   href="https://github.com/Nexus-JPF/note-companion"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center space-x-2 bg-[#1F2937] text-white px-3 py-1.5 rounded-full text-sm font-semibold"
+                  className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-sm font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80"
                 >
                   <Star className="h-4 w-4" />
                   <span>{starCount}</span>
                 </a>
                 <Link href="https://accounts.notecompanion.ai/sign-up">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="bg-primary text-white hover:bg-primary/90"
-                  >
+                  <Button variant="default" size="sm">
                     Start
                   </Button>
                 </Link>

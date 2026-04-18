@@ -69,7 +69,6 @@ export function BetaRequestForm({
             </div>
             <Button 
               type="submit" 
-              className="bg-primary text-white hover:bg-primary/90"
               disabled={isPending}
             >
               {isPending ? "Requesting..." : "Get Access Now"}

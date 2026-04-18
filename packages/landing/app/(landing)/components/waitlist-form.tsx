@@ -56,11 +56,7 @@ export function WaitlistForm() {
         required
         className="bg-background/60 backdrop-blur-sm"
       />
-      <Button 
-        type="submit" 
-        disabled={isLoading}
-        className="bg-[#6E45FE] hover:bg-[#5A37E8] text-white"
-      >
+      <Button type="submit" disabled={isLoading}>
         {isLoading ? "Joining..." : "Join Waitlist"}
       </Button>
     </form>

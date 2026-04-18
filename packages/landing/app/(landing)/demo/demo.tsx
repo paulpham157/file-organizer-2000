@@ -851,9 +851,7 @@ export const Demo = () => {
                   variant={activeTab === tab.id ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`text-sm ${
-                    activeTab === tab.id ? 'bg-primary text-white' : ''
-                  }`}
+                  className="text-sm"
                 >
                   {tab.label}
                 </Button>
