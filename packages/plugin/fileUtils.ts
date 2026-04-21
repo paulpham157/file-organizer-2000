@@ -174,13 +174,15 @@ summary: "{{short summary of the video's main theme and key takeaways}}"
 
 ![](https://www.youtube.com/watch?v=VIDEO_ID)
 
-3. A comprehensive, detailed summary of the key points from the video (below the embed link).
+3. A **Channel** section: a \`## Channel\` heading followed by a single line containing the channel/uploader name (same value as the \`channel\` frontmatter field). If the channel is unknown, use \`## Channel\` with the text \`Unknown\` or omit the section.
+
+4. A comprehensive, detailed summary of the key points from the video (below the Channel section).
 
 **Instructions:**
 
 - Extract the video title from the "YouTube Video Information" section if provided, or infer from the transcript content.
 
-- Use the **Channel** and **Date Published** values from the "YouTube Video Information" section when present for the frontmatter \`channel\` and \`date_published\` fields. If not provided in that section, leave them empty.
+- Use the **Channel** line from the "YouTube Video Information" section when present. Set frontmatter \`channel\` and the body \`## Channel\` section to **exactly** that name (they must match). If no Channel line is present, leave \`channel\` empty and omit or minimalize the Channel section. Use **Date Published** for \`date_published\` when present.
 
 - Extract topics by analyzing the main themes discussed in the transcript. Use 2-5 specific, relevant topics.
 
@@ -225,6 +227,10 @@ summary: "A comprehensive guide to building modern React applications with hooks
 ---
 
 ![](https://www.youtube.com/watch?v=VIDEO_ID)
+
+## Channel
+
+Tech Tutorials
 
 ## Detailed Summary
 
