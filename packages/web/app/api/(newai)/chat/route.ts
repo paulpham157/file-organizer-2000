@@ -9,7 +9,10 @@ import { incrementAndLogTokenUsage } from '@/lib/incrementAndLogTokenUsage';
 import { handleAuthorizationV2 } from '@/lib/handleAuthorization';
 import { openai } from '@ai-sdk/openai';
 import { getModel, getResponsesModel } from '@/lib/models';
-import { getChatSystemPrompt } from '@/lib/prompts/chat-prompt';
+import {
+  buildChatSystemPrompt,
+  computeChatPromptHints,
+} from '@/lib/prompts/chat-prompt';
 import {
   applyYoutubeToolDedupToCoreMessages,
   YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS,
@@ -176,6 +179,8 @@ export async function POST(req: NextRequest) {
         // Handle both formats: array of files (old) or JSON stringified contextItems (new)
         // newUnifiedContext may be a JSON string, or a string containing JSON + editor context
         let contextString = '';
+        let parsedContextItemsForHints: Record<string, unknown> | null = null;
+        let contextJsonParseFailed = false;
 
         if (newUnifiedContext) {
           // Check if it's a string (new format with contextItems)
@@ -209,6 +214,10 @@ export async function POST(req: NextRequest) {
 
             try {
               const contextItems = JSON.parse(jsonStr);
+              parsedContextItemsForHints = contextItems as Record<
+                string,
+                unknown
+              >;
               if (
                 contextItems.youtubeVideos &&
                 typeof contextItems.youtubeVideos === 'object'
@@ -431,6 +440,8 @@ export async function POST(req: NextRequest) {
                 `[Chat API] Built context string, length: ${contextString.length}, parts: ${parts.length}`
               );
             } catch (e) {
+              contextJsonParseFailed = true;
+              parsedContextItemsForHints = null;
               console.error(`[Chat API] Failed to parse context JSON:`, e);
               console.error(
                 `[Chat API] JSON string was:`,
@@ -719,9 +730,20 @@ export async function POST(req: NextRequest) {
             );
           }
 
+          const searchChatPromptHints = computeChatPromptHints({
+            contextItems: parsedContextItemsForHints,
+            contextParseFailed: contextJsonParseFailed,
+            contextString: searchContextString,
+            messages: messagesToProcess,
+          });
+
           const result = await streamText({
             model: getResponsesModel() as any,
-            system: getChatSystemPrompt(searchContextString, currentDatetime),
+            system: buildChatSystemPrompt(
+              searchContextString,
+              currentDatetime,
+              searchChatPromptHints
+            ),
             maxSteps: adaptiveMaxSteps,
             messages: finalCoreMessages,
             tools: {
@@ -950,9 +972,20 @@ export async function POST(req: NextRequest) {
             );
           }
 
+          const defaultChatPromptHints = computeChatPromptHints({
+            contextItems: parsedContextItemsForHints,
+            contextParseFailed: contextJsonParseFailed,
+            contextString,
+            messages: messagesToProcess,
+          });
+
           const result = await streamText({
             model: getModel() as any,
-            system: getChatSystemPrompt(contextString, currentDatetime),
+            system: buildChatSystemPrompt(
+              contextString,
+              currentDatetime,
+              defaultChatPromptHints
+            ),
             maxSteps: adaptiveMaxSteps,
             messages: finalCoreMessages, // Use messages with extracted toolCallId/toolName
             tools: chatTools, // Regular tools, no web search
