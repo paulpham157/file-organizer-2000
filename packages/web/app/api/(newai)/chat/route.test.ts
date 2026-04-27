@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { streamText } from 'ai';
 import { POST } from './route';
 
 // Mock the AI SDK
@@ -282,9 +283,8 @@ describe('Chat API Route', () => {
     // Wait a bit for async operations
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Check that transcript extraction was logged
     const extractionLog = consoleLogSpy.mock.calls.find((call) =>
-      call[0]?.includes('Extracting YouTube transcript') && call[0]?.includes('from tool result')
+      call[0]?.includes('Hoisting YouTube transcript from tool')
     );
     expect(extractionLog).toBeDefined();
 
@@ -309,11 +309,10 @@ describe('Chat API Route', () => {
             toolInvocations: [
               {
                 toolCallId: 'call_test456',
-                toolName: 'getYoutubeVideoId',
+                toolName: 'getSearchQuery',
                 state: 'result',
-                args: { videoId: 'test456' },
-                result:
-                  'YouTube Video Transcript Retrieved\n\nFULL TRANSCRIPT:\nTest content',
+                args: { query: 'notes' },
+                result: '[]',
               },
             ],
           },
@@ -340,6 +339,79 @@ describe('Chat API Route', () => {
       call[0]?.includes('Extracting toolCallId/toolName from content array')
     );
     expect(extractionLog).toBeDefined();
+
+    consoleLogSpy.mockRestore();
+  });
+
+  it('should not duplicate hoisted YouTube block when transcript is already in client context', async () => {
+    const unifiedContext = {
+      files: {},
+      youtubeVideos: {
+        'youtube-test123': {
+          id: 'youtube-test123',
+          videoId: 'test123',
+          title: 'Test Video',
+          transcript: 'This is a test transcript with content.',
+          reference: 'YouTube Video: Test Video',
+        },
+      },
+    };
+
+    const mockRequest = new NextRequest('http://localhost:3000/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content:
+              'Summarize this video: https://www.youtube.com/watch?v=test123',
+          },
+          {
+            role: 'assistant',
+            content: '',
+            toolInvocations: [
+              {
+                toolCallId: 'call_test123',
+                toolName: 'getYoutubeVideoId',
+                state: 'result',
+                args: { videoId: 'test123' },
+                result:
+                  'YouTube Video Transcript Retrieved\n\nTitle: Test Video\n\nVideo ID: test123\n\nFULL TRANSCRIPT:\nThis is a test transcript with content.',
+              },
+            ],
+          },
+        ],
+        newUnifiedContext: JSON.stringify(unifiedContext),
+        enableSearchGrounding: false,
+      }),
+      headers: {
+        'x-user-id': 'test-user',
+      },
+    });
+
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+    const response = await POST(mockRequest);
+    expect(response instanceof Response).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    const skipLog = consoleLogSpy.mock.calls.find((call) =>
+      call[0]?.includes('Skipping redundant YouTube hoist')
+    );
+    expect(skipLog).toBeDefined();
+
+    expect(streamText).toHaveBeenCalled();
+    const streamOptions = (streamText as jest.Mock).mock.calls[0][0];
+    expect(streamOptions.system).not.toContain('YouTube Video Transcript 1:');
+    expect(streamOptions.system).toContain('Full Transcript:');
+    const toolMessage = streamOptions.messages.find(
+      (m: { role: string }) => m.role === 'tool'
+    );
+    expect(toolMessage).toBeDefined();
+    const firstPart = toolMessage.content[0];
+    expect(firstPart.result).not.toContain('FULL TRANSCRIPT');
+    expect(firstPart.result).toContain('test123');
 
     consoleLogSpy.mockRestore();
   });

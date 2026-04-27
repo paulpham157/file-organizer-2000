@@ -10,6 +10,11 @@ import { handleAuthorizationV2 } from '@/lib/handleAuthorization';
 import { openai } from '@ai-sdk/openai';
 import { getModel, getResponsesModel } from '@/lib/models';
 import { getChatSystemPrompt } from '@/lib/prompts/chat-prompt';
+import {
+  applyYoutubeToolDedupToCoreMessages,
+  YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS,
+  YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPT_LENGTH,
+} from '@/lib/chat/youtube-tool-dedup';
 import { chatTools } from './tools';
 
 export const maxDuration = 300; // Allow for complex multi-step tool calls and long conversations
@@ -55,6 +60,8 @@ export async function POST(req: NextRequest) {
           enableSearchGrounding = false,
           deepSearch = false,
         } = await req.json();
+
+        const youtubeVideoIdsWithClientTranscript = new Set<string>();
 
         // CRITICAL: Strip unmatched tool calls - every tool call must have a corresponding tool result
         // This prevents "ToolInvocation must have a result" errors from convertToCoreMessages
@@ -202,6 +209,23 @@ export async function POST(req: NextRequest) {
 
             try {
               const contextItems = JSON.parse(jsonStr);
+              if (
+                contextItems.youtubeVideos &&
+                typeof contextItems.youtubeVideos === 'object'
+              ) {
+                Object.values(contextItems.youtubeVideos).forEach(
+                  (video: any) => {
+                    const vid = video?.videoId;
+                    if (
+                      vid != null &&
+                      String(vid).length > 0 &&
+                      (video.transcript?.length ?? 0) > 0
+                    ) {
+                      youtubeVideoIdsWithClientTranscript.add(String(vid));
+                    }
+                  }
+                );
+              }
               console.log(`[Chat API] Parsed context items:`, {
                 hasFiles: !!(
                   contextItems.files &&
@@ -273,12 +297,10 @@ export async function POST(req: NextRequest) {
                 contextItems.youtubeVideos &&
                 Object.keys(contextItems.youtubeVideos).length > 0
               ) {
-                const MAX_YOUTUBE_TRANSCRIPTS = 10; // Limit to prevent timeout
-                const MAX_TRANSCRIPT_LENGTH = 8000; // Truncate very long transcripts
                 const youtubeVideos = Object.values(contextItems.youtubeVideos);
                 const videosToProcess = youtubeVideos.slice(
                   0,
-                  MAX_YOUTUBE_TRANSCRIPTS
+                  YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS
                 );
                 const skippedCount =
                   youtubeVideos.length - videosToProcess.length;
@@ -286,10 +308,9 @@ export async function POST(req: NextRequest) {
                 videosToProcess.forEach((video: any) => {
                   let transcript = video.transcript || '';
 
-                  // Truncate very long transcripts
-                  if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
+                  if (transcript.length > YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPT_LENGTH) {
                     transcript =
-                      transcript.substring(0, MAX_TRANSCRIPT_LENGTH) +
+                      transcript.substring(0, YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPT_LENGTH) +
                       `\n\n[Transcript truncated - original length: ${video.transcript.length} chars]`;
                   }
 
@@ -304,20 +325,18 @@ export async function POST(req: NextRequest) {
 
                 if (skippedCount > 0) {
                   console.warn(
-                    `[Chat API] WARNING: ${youtubeVideos.length} YouTube videos in context, but only ${MAX_YOUTUBE_TRANSCRIPTS} processed to prevent timeout. ${skippedCount} video(s) skipped.`
+                    `[Chat API] WARNING: ${youtubeVideos.length} YouTube videos in context, but only ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} processed to prevent timeout. ${skippedCount} video(s) skipped.`
                   );
 
-                  // Send user-facing notification via data stream
                   dataStream.writeData(
                     JSON.stringify({
                       type: 'notification',
-                      message: `⚠️ Processing limit: Only the first ${MAX_YOUTUBE_TRANSCRIPTS} YouTube videos will be processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.`,
+                      message: `⚠️ Processing limit: Only the first ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} YouTube videos will be processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.`,
                     })
                   );
 
-                  // Add notice to context so AI can inform user
                   parts.push(
-                    `\n\n[IMPORTANT NOTICE: Due to processing limits, only the first ${MAX_YOUTUBE_TRANSCRIPTS} YouTube video transcripts were processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.]`
+                    `\n\n[IMPORTANT NOTICE: Due to processing limits, only the first ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} YouTube video transcripts were processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.]`
                   );
                 }
               }
@@ -658,8 +677,39 @@ export async function POST(req: NextRequest) {
             `[Chat API] Converted ${messages.length} messages to ${coreMessages.length} core messages (search mode)`
           );
 
+          const { finalCoreMessages, state: searchYoutubeDedup } =
+            applyYoutubeToolDedupToCoreMessages(
+              coreMessages,
+              youtubeVideoIdsWithClientTranscript
+            );
+          let searchContextString = contextString;
+          if (searchYoutubeDedup.youtubeTranscriptsInContext) {
+            searchContextString += searchYoutubeDedup.youtubeTranscriptsInContext;
+            console.log(
+              `[Chat API] (search) Added ${searchYoutubeDedup.hoistedLabelCount} YouTube transcript(s) to context string (${searchYoutubeDedup.youtubeTranscriptsInContext.length} chars)`
+            );
+          }
+          if (
+            searchYoutubeDedup.youtubeTranscriptCount >
+            YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS
+          ) {
+            const skippedCount =
+              searchYoutubeDedup.youtubeTranscriptCount -
+              YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS;
+            console.warn(
+              `[Chat API] (search) WARNING: ${searchYoutubeDedup.youtubeTranscriptCount} YouTube transcripts in tool results, but only ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} were eligible for full hoist; extras stubbed.`
+            );
+            dataStream.writeData(
+              JSON.stringify({
+                type: 'notification',
+                message: `⚠️ Processing limit: Only the first ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} YouTube videos will be processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.`,
+              })
+            );
+            searchContextString += `\n\n[IMPORTANT NOTICE: Due to processing limits, only the first ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} YouTube video transcripts were processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.]`;
+          }
+
           // Reduce maxSteps when context is very large to prevent timeout
-          const contextSize = contextString.length;
+          const contextSize = searchContextString.length;
           const isLargeContext = contextSize > 100000; // > 100KB
           const adaptiveMaxSteps = isLargeContext ? 3 : 5;
 
@@ -671,9 +721,9 @@ export async function POST(req: NextRequest) {
 
           const result = await streamText({
             model: getResponsesModel() as any,
-            system: getChatSystemPrompt(contextString, currentDatetime),
+            system: getChatSystemPrompt(searchContextString, currentDatetime),
             maxSteps: adaptiveMaxSteps,
-            messages: coreMessages, // Use converted messages
+            messages: finalCoreMessages,
             tools: {
               ...chatTools,
               web_search_preview: openai.tools.webSearchPreview({
@@ -793,127 +843,39 @@ export async function POST(req: NextRequest) {
             `[Chat API] Converted ${messages.length} messages to ${coreMessages.length} core messages`
           );
 
-          // Extract toolCallId/toolName and YouTube transcripts from tool messages
-          // Also add YouTube transcripts to contextString so model can definitely see them
-          let youtubeTranscriptsInContext = '';
-          let youtubeTranscriptCount = 0;
-          const MAX_YOUTUBE_TRANSCRIPTS = 10; // Limit to prevent timeout
-          const MAX_TRANSCRIPT_LENGTH = 8000; // Truncate very long transcripts
-
-          const finalCoreMessages = coreMessages
-            .map((message) => {
-              if (message.role !== 'tool') {
-                return message;
-              }
-
-              const tool = message as any;
-
-              // If toolCallId/toolName are missing but content is an array with tool-result objects
-              if (
-                (!tool.toolCallId || !tool.toolName) &&
-                Array.isArray(tool.content) &&
-                tool.content.length > 0
-              ) {
-                const firstItem = tool.content[0];
-                if (
-                  firstItem &&
-                  typeof firstItem === 'object' &&
-                  firstItem.type === 'tool-result' &&
-                  firstItem.toolCallId &&
-                  firstItem.toolName
-                ) {
-                  console.log(
-                    `[Chat API] Extracting toolCallId/toolName from content array: ${firstItem.toolCallId}, ${firstItem.toolName}`
-                  );
-
-                  // If this is a YouTube video tool result, extract the transcript and add to context
-                  if (
-                    firstItem.toolName === 'getYoutubeVideoId' &&
-                    firstItem.result &&
-                    typeof firstItem.result === 'string' &&
-                    firstItem.result.includes('FULL TRANSCRIPT')
-                  ) {
-                    youtubeTranscriptCount++;
-
-                    // Limit number of transcripts to prevent timeout
-                    if (youtubeTranscriptCount <= MAX_YOUTUBE_TRANSCRIPTS) {
-                      let transcript = firstItem.result;
-
-                      // Truncate very long transcripts
-                      if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
-                        transcript =
-                          transcript.substring(0, MAX_TRANSCRIPT_LENGTH) +
-                          `\n\n[Transcript truncated - original length: ${firstItem.result.length} chars]`;
-                        console.log(
-                          `[Chat API] Truncated YouTube transcript from ${firstItem.result.length} to ${transcript.length} chars`
-                        );
-                      }
-
-                      console.log(
-                        `[Chat API] Extracting YouTube transcript ${youtubeTranscriptCount} from tool result to add to context (${transcript.length} chars)`
-                      );
-                      youtubeTranscriptsInContext += `\n\nYouTube Video Transcript ${youtubeTranscriptCount}:\n${transcript}\n`;
-
-                      // Return the message (include it in finalCoreMessages)
-                      return {
-                        ...message,
-                        toolCallId: firstItem.toolCallId,
-                        toolName: firstItem.toolName,
-                      } as any;
-                    } else {
-                      console.log(
-                        `[Chat API] Skipping YouTube transcript ${youtubeTranscriptCount} - exceeded limit of ${MAX_YOUTUBE_TRANSCRIPTS} transcripts. Filtering out tool message.`
-                      );
-                      // Return null to filter out this message
-                      return null as any;
-                    }
-                  }
-                }
-
-                return {
-                  ...message,
-                  toolCallId: firstItem.toolCallId,
-                  toolName: firstItem.toolName,
-                } as any;
-              }
-
-              return message;
-            })
-            .filter(
-              (message): message is NonNullable<typeof message> =>
-                message !== null
-            ); // Filter out null messages (exceeded limit)
-
-          // Add YouTube transcripts to context string if found
-          if (youtubeTranscriptsInContext) {
-            contextString += youtubeTranscriptsInContext;
-            console.log(
-              `[Chat API] Added ${Math.min(
-                youtubeTranscriptCount,
-                MAX_YOUTUBE_TRANSCRIPTS
-              )} YouTube transcript(s) to context string (${
-                youtubeTranscriptsInContext.length
-              } chars)`
+          // YouTube: hoist transcript into context only when missing from client JSON; stub tool results to avoid duplicate tokens
+          const { finalCoreMessages, state: youtubeDedupState } =
+            applyYoutubeToolDedupToCoreMessages(
+              coreMessages,
+              youtubeVideoIdsWithClientTranscript
             );
 
-            if (youtubeTranscriptCount > MAX_YOUTUBE_TRANSCRIPTS) {
-              const skippedCount =
-                youtubeTranscriptCount - MAX_YOUTUBE_TRANSCRIPTS;
-              console.warn(
-                `[Chat API] WARNING: ${youtubeTranscriptCount} YouTube transcripts found, but only ${MAX_YOUTUBE_TRANSCRIPTS} added to context to prevent timeout`
-              );
+          if (youtubeDedupState.youtubeTranscriptsInContext) {
+            contextString += youtubeDedupState.youtubeTranscriptsInContext;
+            console.log(
+              `[Chat API] Added ${youtubeDedupState.hoistedLabelCount} YouTube transcript(s) to context string (${youtubeDedupState.youtubeTranscriptsInContext.length} chars)`
+            );
+          }
 
-              // Send user-facing notification via data stream
-              dataStream.writeData(
-                JSON.stringify({
-                  type: 'notification',
-                  message: `⚠️ Processing limit: Only the first ${MAX_YOUTUBE_TRANSCRIPTS} YouTube videos will be processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.`,
-                })
-              );
+          if (
+            youtubeDedupState.youtubeTranscriptCount >
+            YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS
+          ) {
+            const skippedCount =
+              youtubeDedupState.youtubeTranscriptCount -
+              YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS;
+            console.warn(
+              `[Chat API] WARNING: ${youtubeDedupState.youtubeTranscriptCount} YouTube transcripts in tool results; only ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} receive full hoist—extras are stubbed to prevent timeout`
+            );
 
-              // Add notice to context so AI can also mention it naturally
-              contextString += `\n\n[IMPORTANT NOTICE: Due to processing limits, only the first ${MAX_YOUTUBE_TRANSCRIPTS} YouTube video transcripts were processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.]`;
-            }
+            dataStream.writeData(
+              JSON.stringify({
+                type: 'notification',
+                message: `⚠️ Processing limit: Only the first ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} YouTube videos will be processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.`,
+              })
+            );
+
+            contextString += `\n\n[IMPORTANT NOTICE: Due to processing limits, only the first ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} YouTube video transcripts were processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.]`;
           }
 
           // Log tool messages to verify format
