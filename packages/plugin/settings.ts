@@ -46,6 +46,11 @@ export class FileOrganizerSettings {
     "Analyze the image and provide a clear, detailed description focusing on the main elements, context, and any text visible in the image. Include relevant details that would be useful for searching and organizing the image later.";
   debugMode = false;
   enableTitleSuggestions = false;
+  /**
+   * Chat tool rounds (maxSteps hint to API). Server clamps by subscription tier and context size.
+   * 'auto' = omit request field; use server tier default (free 3, paid 5).
+   */
+  chatMaxStepsPreference: 'auto' | 3 | 5 = 'auto';
   // use for sampling of the recommend fucntions
   contentCutoffChars = 1000;
   // use to prevent formatting of big file

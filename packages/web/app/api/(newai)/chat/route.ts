@@ -18,6 +18,13 @@ import {
   YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS,
   YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPT_LENGTH,
 } from '@/lib/chat/youtube-tool-dedup';
+import {
+  computeEffectiveMaxSteps,
+  fetchUserTierForChat,
+  getMaxStepsForUserTier,
+  LARGE_CONTEXT_CHAR_THRESHOLD,
+  parseRequestedMaxSteps,
+} from '@/lib/chat/chat-max-steps';
 import { chatTools } from './tools';
 
 export const maxDuration = 300; // Allow for complex multi-step tool calls and long conversations
@@ -62,7 +69,19 @@ export async function POST(req: NextRequest) {
           unifiedContext: oldUnifiedContext,
           enableSearchGrounding = false,
           deepSearch = false,
+          requestedMaxSteps: requestedMaxStepsRaw,
         } = await req.json();
+
+        const userTier = await fetchUserTierForChat(userId);
+        const tierMaxSteps = getMaxStepsForUserTier(userTier);
+        const requestedMaxStepsParsed =
+          parseRequestedMaxSteps(requestedMaxStepsRaw);
+
+        console.log('[Chat API] Chat tool steps', {
+          userTier,
+          tierMaxSteps,
+          clientRequested: requestedMaxStepsParsed ?? '(none)',
+        });
 
         const youtubeVideoIdsWithClientTranscript = new Set<string>();
 
@@ -719,16 +738,21 @@ export async function POST(req: NextRequest) {
             searchContextString += `\n\n[IMPORTANT NOTICE: Due to processing limits, only the first ${YOUTUBE_TOOL_DEDUP_MAX_TRANSCRIPTS} YouTube video transcripts were processed in this request. ${skippedCount} additional video(s) were skipped to prevent timeout. Please make a separate request to process the remaining videos.]`;
           }
 
-          // Reduce maxSteps when context is very large to prevent timeout
           const contextSize = searchContextString.length;
-          const isLargeContext = contextSize > 100000; // > 100KB
-          const adaptiveMaxSteps = isLargeContext ? 3 : 5;
-
-          if (isLargeContext) {
+          const effectiveMaxStepsSearch = computeEffectiveMaxSteps({
+            tierMaxSteps,
+            requestedMaxSteps: requestedMaxStepsParsed,
+            contextCharLength: contextSize,
+          });
+          if (contextSize > LARGE_CONTEXT_CHAR_THRESHOLD) {
             console.log(
-              `[Chat API] Large context detected (${contextSize} chars) - reducing maxSteps to ${adaptiveMaxSteps} to prevent timeout`
+              `[Chat API] Large context (${contextSize} chars); effectiveMaxSteps=${effectiveMaxStepsSearch}`
             );
           }
+          console.log('[Chat API] effectiveMaxSteps (search)', {
+            effectiveMaxSteps: effectiveMaxStepsSearch,
+            contextSize,
+          });
 
           const searchChatPromptHints = computeChatPromptHints({
             contextItems: parsedContextItemsForHints,
@@ -744,7 +768,7 @@ export async function POST(req: NextRequest) {
               currentDatetime,
               searchChatPromptHints
             ),
-            maxSteps: adaptiveMaxSteps,
+            maxSteps: effectiveMaxStepsSearch,
             messages: finalCoreMessages,
             tools: {
               ...chatTools,
@@ -961,16 +985,21 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          // Reduce maxSteps when context is very large to prevent timeout
           const contextSize = contextString.length;
-          const isLargeContext = contextSize > 100000; // > 100KB
-          const adaptiveMaxSteps = isLargeContext ? 3 : 5;
-
-          if (isLargeContext) {
+          const effectiveMaxStepsDefault = computeEffectiveMaxSteps({
+            tierMaxSteps,
+            requestedMaxSteps: requestedMaxStepsParsed,
+            contextCharLength: contextSize,
+          });
+          if (contextSize > LARGE_CONTEXT_CHAR_THRESHOLD) {
             console.log(
-              `[Chat API] Large context detected (${contextSize} chars) - reducing maxSteps to ${adaptiveMaxSteps} to prevent timeout`
+              `[Chat API] Large context (${contextSize} chars); effectiveMaxSteps=${effectiveMaxStepsDefault}`
             );
           }
+          console.log('[Chat API] effectiveMaxSteps (default)', {
+            effectiveMaxSteps: effectiveMaxStepsDefault,
+            contextSize,
+          });
 
           const defaultChatPromptHints = computeChatPromptHints({
             contextItems: parsedContextItemsForHints,
@@ -986,7 +1015,7 @@ export async function POST(req: NextRequest) {
               currentDatetime,
               defaultChatPromptHints
             ),
-            maxSteps: adaptiveMaxSteps,
+            maxSteps: effectiveMaxStepsDefault,
             messages: finalCoreMessages, // Use messages with extracted toolCallId/toolName
             tools: chatTools, // Regular tools, no web search
             onFinish: async ({ usage, sources }) => {

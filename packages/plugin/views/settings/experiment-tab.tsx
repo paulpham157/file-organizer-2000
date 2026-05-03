@@ -36,6 +36,13 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
   const [queryScreenpipeLimit, setQueryScreenpipeLimit] = useState(
     plugin.settings.queryScreenpipeLimit
   );
+  const [chatMaxStepsPref, setChatMaxStepsPref] = useState<
+    "auto" | "3" | "5"
+  >(() => {
+    const p = plugin.settings.chatMaxStepsPreference;
+    if (p === "auto" || p == null) return "auto";
+    return p === 3 ? "3" : "5";
+  });
 
   useEffect(() => {
     setEnableScreenpipe(plugin.settings.enableScreenpipe);
@@ -178,7 +185,34 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                   />
                 </div>
               )}
-              
+
+              <div className="setting-item p-4 bg-[--background-primary] rounded-lg border border-[--background-modifier-border] space-y-2">
+                <div className="font-medium text-[--text-normal]">
+                  Assistant: tool steps preference
+                </div>
+                <p className="text-sm text-[--text-muted]">
+                  Optional hint for how many tool rounds the cloud chat may run per
+                  message. The server always applies your plan limits (e.g. free vs
+                  paid) and caps when context is very large. Choose &quot;Auto&quot; to
+                  use your tier default only.
+                </p>
+                <select
+                  className="w-full max-w-xs px-2 py-1.5 bg-[--background-primary] border border-[--background-modifier-border] rounded text-[--text-normal]"
+                  value={chatMaxStepsPref}
+                  onChange={async e => {
+                    const v = e.target.value as "auto" | "3" | "5";
+                    setChatMaxStepsPref(v);
+                    plugin.settings.chatMaxStepsPreference =
+                      v === "auto" ? "auto" : (Number(v) as 3 | 5);
+                    await plugin.saveSettings();
+                  }}
+                >
+                  <option value="auto">Auto (plan default)</option>
+                  <option value="3">Prefer 3 steps</option>
+                  <option value="5">Prefer 5 steps</option>
+                </select>
+              </div>
+
               <ToggleSetting
                 name="Title Suggestions (Deprecated)"
                 description={

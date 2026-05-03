@@ -114,6 +114,8 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     enableSearchGrounding: boolean;
     deepSearch: boolean;
     newUnifiedContext: string;
+    /** Sent only when settings preference is not "auto"; server clamps to tier. */
+    requestedMaxSteps?: number;
   }
   const forcedReloadBodyRef = useRef<ReloadBody | null>(null);
 
@@ -258,6 +260,9 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         selectedModel === "gpt-4o-search-preview" ||
         selectedModel === "gpt-4o-mini-search-preview",
       deepSearch: plugin.settings.enableDeepSearch,
+      ...(plugin.settings.chatMaxStepsPreference !== "auto"
+        ? { requestedMaxSteps: plugin.settings.chatMaxStepsPreference }
+        : {}),
     }),
     [
       currentDatetime,
@@ -265,6 +270,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       plugin.settings.selectedModel,
       plugin.settings.enableSearchGrounding,
       plugin.settings.enableDeepSearch,
+      plugin.settings.chatMaxStepsPreference,
       selectedModel,
     ]
   );
@@ -512,7 +518,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         );
       }
 
-      const requestBody = {
+      const requestBody: Record<string, unknown> = {
         messages: normalizedMessages,
         currentDatetime,
         newUnifiedContext: contextToSend,
@@ -523,6 +529,9 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           selectedModel === "gpt-4o-mini-search-preview",
         deepSearch: plugin.settings.enableDeepSearch,
       };
+      if (plugin.settings.chatMaxStepsPreference !== "auto") {
+        requestBody.requestedMaxSteps = plugin.settings.chatMaxStepsPreference;
+      }
 
       // Return OBJECT (not string) — callChatApi will JSON.stringify it
       return requestBody;
@@ -572,6 +581,13 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         contextPreview: newUnifiedContext.slice(0, 200),
         messageCount: messages.length,
       });
+      // Local Ollama runs on the user's machine — there is no cloud tier to cap against.
+      // Keep "auto" at 5 so multi-step tools are not arbitrarily limited; cloud chat still
+      // uses server-side free/paid caps via requestedMaxSteps + tier.
+      const localMaxSteps =
+        plugin.settings.chatMaxStepsPreference === "auto"
+          ? 5
+          : plugin.settings.chatMaxStepsPreference;
       const result = await streamText({
         model: ollama(selectedModel),
         system: `
@@ -579,6 +595,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           currentDatetime: ${currentDatetime},
           `,
         messages: convertToCoreMessages(messages),
+        maxSteps: localMaxSteps,
       });
 
       return result.toDataStreamResponse();
@@ -1732,6 +1749,9 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           selectedModel === "gpt-4o-mini-search-preview",
         deepSearch: plugin.settings.enableDeepSearch,
         newUnifiedContext: snapshot, // ✅ the important part
+        ...(plugin.settings.chatMaxStepsPreference !== "auto"
+          ? { requestedMaxSteps: plugin.settings.chatMaxStepsPreference }
+          : {}),
       };
 
       console.log(
