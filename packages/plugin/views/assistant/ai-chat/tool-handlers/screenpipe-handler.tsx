@@ -460,28 +460,37 @@ export function ScreenpipeHandler({
               }
             }
 
+            const ts = items.map(i => i.timestamp);
+            const tsLocal = items.map(i => formatLocalTime(i.timestamp));
+            const MAX_TS_ENTRIES = 24;
+            const capTs = (arr: string[]) =>
+              arr.length <= MAX_TS_ENTRIES
+                ? arr
+                : [
+                    ...arr.slice(0, MAX_TS_ENTRIES / 2),
+                    ...arr.slice(-MAX_TS_ENTRIES / 2),
+                  ];
+
             return {
               app: app,
               window: window,
               count: items.length,
-              firstTimestamp: items[0].timestamp, // Keep UTC for API
-              lastTimestamp: items[items.length - 1].timestamp, // Keep UTC for API
-              firstTimestampLocal: formatLocalTime(items[0].timestamp), // Local time for display
+              firstTimestamp: items[0].timestamp,
+              lastTimestamp: items[items.length - 1].timestamp,
+              firstTimestampLocal: formatLocalTime(items[0].timestamp),
               lastTimestampLocal: formatLocalTime(
                 items[items.length - 1].timestamp
-              ), // Local time for display
-              // Combine text from all snapshots
+              ),
               combinedText: items
                 .map(i => i.text)
                 .filter(Boolean)
                 .join(" ")
                 .substring(0, 500),
-              // Include URL if available
               url: extractedUrl,
-              // Include all timestamps for reference (UTC)
-              timestamps: items.map(i => i.timestamp),
-              // Include local time versions for display
-              timestampsLocal: items.map(i => formatLocalTime(i.timestamp)),
+              timestampTotalCount: ts.length,
+              timestamps: capTs(ts),
+              timestampsLocal: capTs(tsLocal),
+              timestampsTruncated: ts.length > MAX_TS_ENTRIES,
               type: items[0].type,
             };
           }

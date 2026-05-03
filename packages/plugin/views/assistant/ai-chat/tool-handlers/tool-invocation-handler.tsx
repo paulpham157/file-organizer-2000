@@ -36,6 +36,7 @@ import { ExportToFormatHandler } from "./export-to-format-handler";
 import { ScreenpipeHandler } from "./screenpipe-handler";
 import { BrokenLinksHandler } from "./broken-links-handler";
 import { UrlFetchHandler } from "./url-fetch-handler";
+import { capToolResultString } from "./truncate-tool-result";
 
 const processedToolCallIds = new Set<string>();
 
@@ -65,7 +66,10 @@ function ToolInvocationHandler({
     }
     processedToolCallIds.add(toolCallId);
     console.log("[ToolInvocationHandler] Calling addToolResult for:", toolCallId, "chatStatus:", chatStatus);
-    addToolResult({ toolCallId, result });
+    addToolResult({
+      toolCallId,
+      result: capToolResultString(result),
+    });
   };
 
   const getToolTitle = (toolName: string) => {

@@ -30,7 +30,7 @@ import {
   limitMessagesToLastUserTurns,
   summarizeConversationWindow,
 } from '@/lib/chat/conversation-window';
-import { chatTools } from './tools';
+import { buildChatToolsForMode } from './tools';
 
 export const maxDuration = 300; // Allow for complex multi-step tool calls and long conversations
 
@@ -786,7 +786,7 @@ export async function POST(req: NextRequest) {
             maxSteps: effectiveMaxStepsSearch,
             messages: finalCoreMessages,
             tools: {
-              ...chatTools,
+              ...buildChatToolsForMode('full'),
               web_search_preview: openai.tools.webSearchPreview({
                 // low = default search (less context / tokens); deep search uses medium
                 searchContextSize: deepSearch ? 'medium' : 'low',
@@ -1033,7 +1033,7 @@ export async function POST(req: NextRequest) {
             ),
             maxSteps: effectiveMaxStepsDefault,
             messages: finalCoreMessages, // Use messages with extracted toolCallId/toolName
-            tools: chatTools, // Regular tools, no web search
+            tools: buildChatToolsForMode('full'), // Regular tools, no web search
             onFinish: async ({ usage, sources }) => {
               console.log('Token usage:', usage);
               console.log('Sources:', sources);

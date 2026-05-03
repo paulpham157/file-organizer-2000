@@ -14,6 +14,7 @@ export function HeadingsHandler({
   app,
 }: HeadingsHandlerProps) {
   const hasFetchedRef = useRef(false);
+  const MAX_HEADINGS_PER_FILE = 250;
 
   const getHeadings = (
     filePath: string,
@@ -51,11 +52,18 @@ export function HeadingsHandler({
           },
         })) || [];
 
+    const totalHeadingsAll = headings.length;
+    const capped =
+      headings.length > MAX_HEADINGS_PER_FILE
+        ? headings.slice(0, MAX_HEADINGS_PER_FILE)
+        : headings;
+
     return {
       path: filePath,
       success: true,
-      headings,
-      totalHeadings: headings.length,
+      headings: capped,
+      totalHeadings: totalHeadingsAll,
+      headingsTruncated: capped.length < totalHeadingsAll,
     };
   };
 

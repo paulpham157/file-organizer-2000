@@ -1,8 +1,70 @@
 import React, { useState } from "react";
-import { TFile, TFolder } from "obsidian";
+import { TFile } from "obsidian";
 import { ToolHandlerProps } from "./types";
 import { useContextItems } from "../use-context-items";
 import { usePlugin } from "../../provider";
+
+const ONBOARD_MAX_FILES_ROOT = 200;
+const ONBOARD_MAX_FILES_NESTED = 100;
+const ONBOARD_MAX_SUBFOLDERS_PER_NODE = 40;
+
+interface OnboardNode {
+  path: string;
+  depth: number;
+  files: Array<{ name: string; path: string; type: "file"; depth: number }>;
+  subfolders: OnboardNode[];
+}
+
+function aggregateVaultScanStats(node: OnboardNode): {
+  totalFiles: number;
+  fileTypes: Record<string, number>;
+} {
+  /** Same path appears on parent nodes (whole subtree) and child nodes — count once per file. */
+  const seenPaths = new Set<string>();
+  const fileTypes: Record<string, number> = {};
+  const walk = (n: OnboardNode) => {
+    for (const f of n.files) {
+      if (seenPaths.has(f.path)) continue;
+      seenPaths.add(f.path);
+      const ext = f.name.split(".").pop() || "no-extension";
+      fileTypes[ext] = (fileTypes[ext] || 0) + 1;
+    }
+    for (const s of n.subfolders || []) walk(s);
+  };
+  walk(node);
+  return { totalFiles: seenPaths.size, fileTypes };
+}
+
+function capOnboardStructure(
+  node: OnboardNode,
+  depth: number
+): { capped: OnboardNode; truncated: boolean } {
+  let truncated = false;
+  const maxFiles =
+    depth === 0 ? ONBOARD_MAX_FILES_ROOT : ONBOARD_MAX_FILES_NESTED;
+  const origFiles = node.files.length;
+  const files = node.files.slice(0, maxFiles);
+  if (origFiles > files.length) truncated = true;
+
+  const subs = (node.subfolders || []).slice(0, ONBOARD_MAX_SUBFOLDERS_PER_NODE);
+  if ((node.subfolders || []).length > subs.length) truncated = true;
+
+  const cappedSubfolders: OnboardNode[] = [];
+  for (const s of subs) {
+    const inner = capOnboardStructure(s, depth + 1);
+    if (inner.truncated) truncated = true;
+    cappedSubfolders.push(inner.capped);
+  }
+
+  return {
+    capped: {
+      ...node,
+      files,
+      subfolders: cappedSubfolders,
+    },
+    truncated,
+  };
+}
 
 export function OnboardHandler({
   toolInvocation,
@@ -85,19 +147,29 @@ export function OnboardHandler({
 
       setIsValidated(true);
 
-      // Prepare analysis data in the format expected by generateSettings
+      const fullStats = aggregateVaultScanStats(structure);
+      const { capped, truncated } = capOnboardStructure(structure, 0);
+      const analyzedPath =
+        typeof path === "string" && path.trim() !== "" ? path.trim() : "/";
+
       const analysisData = {
-        structure,
+        structure: capped,
         stats: {
-          totalFiles: structure.files.length,
-          fileTypes: structure.files.reduce((acc, file) => {
-            const ext = file.name.split(".").pop() || "no-extension";
-            acc[ext] = (acc[ext] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>),
-          folderCount: structure.subfolders.length,
+          totalFiles: fullStats.totalFiles,
+          fileTypes: fullStats.fileTypes,
+          scannedRootPath: analyzedPath,
+          immediateSubfolderCount: capped.subfolders.length,
           maxDepth: maxDepth,
         },
+        ...(truncated
+          ? {
+              truncated: true,
+              note:
+                analyzedPath === "/"
+                  ? "Tree sampled for token limits; totalFiles/fileTypes count each vault note once (deduplicated)."
+                  : `Tree sampled for token limits; counts are unique markdown files under "${analyzedPath}" within the scanned depth (deduplicated across parent/child tree nodes).`,
+            }
+          : {}),
       };
 
       handleAddResult(JSON.stringify(analysisData));

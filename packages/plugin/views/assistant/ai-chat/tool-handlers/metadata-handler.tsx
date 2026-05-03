@@ -3,6 +3,9 @@ import { TFile } from "obsidian";
 import { getAllTags } from "obsidian";
 import { ToolHandlerProps } from "./types";
 import { resolveFile } from "./resolve-file";
+import { truncateStringForToolResult } from "./truncate-tool-result";
+
+const MAX_METADATA_BODY_CHARS = 80_000;
 
 interface MetadataArgs {
   filePaths: string[];
@@ -25,6 +28,7 @@ interface FileMetadata {
   embeds?: string[];
   backlinks?: string[];
   content?: string;
+  contentTruncated?: boolean;
 }
 
 export function MetadataHandler({
@@ -86,7 +90,12 @@ export function MetadataHandler({
 
     // Include content (default: false)
     if (options.includeContent === true) {
-      metadata.content = await app.vault.read(file);
+      const raw = await app.vault.read(file);
+      const capped = truncateStringForToolResult(raw, MAX_METADATA_BODY_CHARS);
+      metadata.content = capped.text;
+      if (capped.truncated) {
+        metadata.contentTruncated = true;
+      }
     }
 
     return metadata;

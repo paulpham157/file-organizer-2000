@@ -1,208 +1,140 @@
 import { z } from 'zod';
 
+/** Trimmed tool schemas (~15kB file); count describe strings ~4–8k depending on regex. */
 const settingsSchema = z.object({
   renameInstructions: z
     .string()
-    .describe(
-      'Instructions for how to rename files (leave empty for no renaming)'
-    ),
+    .describe('Rename rules; empty = none'),
   customFolderInstructions: z
     .string()
-    .describe(
-      'Instructions for custom folder organization (leave empty for defaults)'
-    ),
+    .describe('Folder rules; empty = defaults'),
   imageInstructions: z
     .string()
-    .describe(
-      'Instructions for image file handling (leave empty for defaults)'
-    ),
+    .describe('Image handling; empty = defaults'),
 });
 
 export const chatTools = {
   getSearchQuery: {
-    description:
-      'Extract semantic search queries to find relevant notes based on content and meaning',
+    description: 'Semantic vault search by meaning',
     parameters: z.object({
-      query: z
-        .string()
-        .describe('The semantic search query to find relevant notes'),
+      query: z.string().describe('Search query'),
     }),
   },
   searchByName: {
-    description:
-      'Search for files by name pattern or exact match, useful for finding specific notes or groups of notes',
+    description: 'Find notes by filename pattern or exact name',
     parameters: z.object({
       query: z
         .string()
-        .describe(
-          "The name pattern to search for (e.g., 'Untitled*', 'daily-*', or exact name)"
-        ),
+        .describe("Pattern or name, e.g. 'Untitled*', 'daily-*'"),
     }),
   },
   openFile: {
-    description:
-      'Open a specific file in Obsidian workspace. Use this when the user asks to open, view, or navigate to a file.',
+    description: 'Open a vault file in the workspace',
     parameters: z.object({
-      filePath: z
-        .string()
-        .describe("The full path of the file to open (e.g., 'folder/note.md')"),
+      filePath: z.string().describe("Path e.g. 'folder/note.md'"),
     }),
   },
   getYoutubeVideoId: {
     description:
-      'Retrieve YouTube video transcript and add it to context. After retrieving, automatically provide a summary of the video content based on the transcript. Use this when the user asks to summarize, analyze, or get information from a YouTube video.',
+      'YouTube transcript into context; then summarize. Not for generic http URLs.',
     parameters: z.object({
       videoId: z
         .string()
-        .describe(
-          "The YouTube video ID or full URL (e.g., 'ooNeVSVlCX4' or 'https://www.youtube.com/watch?v=ooNeVSVlCX4')"
-        ),
+        .describe("Video ID or youtube.com / youtu.be URL"),
     }),
   },
   fetchUrlContent: {
     description:
-      'Fetch the main text content of a web page at the given URL so you can summarize it, answer questions about it, or explain what it is. Use when the user pastes a non-YouTube link (http/https) and asks for a summary, explanation, or "what is this?". For YouTube videos, use getYoutubeVideoId instead.',
+      'Fetch readable text from an http(s) page (not YouTube—use getYoutubeVideoId).',
     parameters: z.object({
-      url: z
-        .string()
-        .describe(
-          'The full URL of the web page to fetch (e.g. https://example.com/article)'
-        ),
+      url: z.string().describe('Full URL'),
     }),
   },
   getLastModifiedFiles: {
-    description:
-      'Retrieve recently modified files to track changes and activity in the vault',
+    description: 'Recently modified markdown files',
     parameters: z.object({
-      count: z
-        .number()
-        .describe('The number of last modified files to retrieve'),
+      count: z.number().describe('How many files'),
     }),
   },
   appendContentToFile: {
-    description:
-      'Add new content to existing notes while preserving structure and formatting',
+    description: 'Append markdown to an existing note',
     parameters: z.object({
-      content: z
-        .string()
-        .describe('The formatted content to append to the file'),
-      message: z
-        .string()
-        .describe('Clear explanation of what content will be added'),
+      content: z.string().describe('Markdown to append'),
+      message: z.string().describe('What is being added'),
       fileName: z
         .string()
-        .describe(
-          'Specific file to append to, or empty string to use current file'
-        ),
+        .describe('Target path, or "" for active file'),
     }),
   },
   createLink: {
     description:
-      'Add a wikilink from one note to another. Use when the user wants to link notes, connect notes, or add a link from/to a note. Use empty sourcePath for the current/active file (from context). The target is the note to link to (path or title). Obsidian backlinks are automatic.',
+      'Insert wikilink: source → target. sourcePath "" = active file.',
     parameters: z.object({
       sourcePath: z
         .string()
-        .describe(
-          'Full path or basename of the note to add the link from. Use "" for the current/active file (from context).'
-        ),
-      targetPath: z
-        .string()
-        .describe('Full path or basename of the note to link to'),
+        .describe('From note path; "" = active file'),
+      targetPath: z.string().describe('To note path or title'),
       alias: z
         .string()
-        .describe(
-          'Display text for the link, e.g. [[target|alias]]. Use "" for no alias.'
-        ),
-      message: z
-        .string()
-        .describe('Short explanation of what link is being added'),
+        .describe('[[target|alias]] text; "" = none'),
+      message: z.string().describe('Brief reason'),
     }),
   },
   addTextToDocument: {
-    description:
-      'Add new sections or content to notes with proper formatting and structure',
+    description: 'Add a section/block to a note',
     parameters: z.object({
-      content: z.string().describe('The formatted text content to add'),
-      path: z
-        .string()
-        .describe(
-          'Optional path to the document. If not provided, uses current document'
-        ),
+      content: z.string().describe('Markdown'),
+      path: z.string().describe('File path; omit/empty = active file'),
     }),
   },
   modifyDocumentText: {
-    description:
-      'Edit existing note content while maintaining consistency and structure. Can modify selected text or entire document.',
+    description: 'Replace or rewrite note body (selection or whole file)',
     parameters: z.object({
-      content: z
-        .string()
-        .describe('The new formatted content to replace existing content'),
-      path: z
-        .string()
-        .describe(
-          'Optional path to the document. If not provided, uses current document'
-        ),
+      content: z.string().describe('New markdown'),
+      path: z.string().describe('Path; empty = active file'),
       instructions: z
         .string()
-        .describe(
-          'Optional specific instructions for how to modify the content'
-        ),
+        .describe('How to edit; optional'),
     }),
   },
   generateSettings: {
-    description:
-      'Create personalized vault organization settings based on user preferences and best practices',
+    description: 'Propose organizer settings from preferences',
     parameters: settingsSchema,
   },
   analyzeVaultStructure: {
     description:
-      'Analyze vault organization and provide actionable improvement suggestions (used in onboarding), help me set up my vault organization settings',
+      'Onboarding: scan folder tree and suggest organization',
     parameters: z.object({
-      path: z
-        .string()
-        .describe(
-          "Path to analyze. Use '/' for all files or specific folder path"
-        ),
+      path: z.string().describe("Root '/' or subfolder"),
       maxDepth: z
         .number()
-        .describe('Maximum folder depth to analyze (0 = unlimited)'),
+        .describe('Folder depth; 0 = unlimited'),
     }),
   },
 
   moveFiles: {
-    description:
-      'Organize files into appropriate folders based on content and structure',
+    description: 'Bulk move files matching pattern into folders',
     parameters: z.object({
       moves: z.array(
         z.object({
-          sourcePath: z
-            .string()
-            .describe(
-              "Source path (e.g., '/' for root, or specific folder path)"
-            ),
-          destinationPath: z.string().describe('Destination folder path'),
+          sourcePath: z.string().describe("Source folder or '/'"),
+          destinationPath: z.string().describe('Destination folder'),
           pattern: z.object({
             namePattern: z
               .string()
-              .describe(
-                "File name pattern to match (e.g., 'untitled-*', 'daily-*', or empty for all files)"
-              ),
+              .describe("Glob-like name, e.g. 'daily-*'; empty = all"),
             extension: z
               .string()
-              .describe(
-                'File extension to match (or empty for all extensions)'
-              ),
+              .describe("e.g. 'md'; empty = all"),
           }),
         })
       ),
-      message: z
-        .string()
-        .describe('Clear explanation of the proposed file organization'),
+      message: z.string().describe('Plan summary'),
     }),
   },
   renameFiles: {
     description:
-      'Rename files intelligently based on content and organizational patterns. Use this when the user asks to update, change, or rename a note title, filename, or file name. The note title in Obsidian is the filename (without .md extension). CRITICAL: When renaming the current file, infer the new name from context - if you just added an H1 heading (# Title) to the file, use that as the new filename. If the user says "rename the current note" without specifying a name, check the file content for the most prominent heading or title and use that. DO NOT ask the user for the new name - infer it from context and proceed automatically. CRITICAL FOR FILE PATH: When renaming the current/active file, you MUST extract the exact file path from the "Current File" section in the context. Look for "Path: <path>" in the Current File context and use that EXACT path. NEVER use placeholders like "current_note.md" - always use the actual path shown. IMPORTANT: The parameters structure is { files: [{ oldPath: string, newName: string }], message: string } - message is a top-level parameter, NOT inside the files array objects.',
+      'Rename notes (Obsidian title = basename). Infer newName from latest H1/heading if user vague. Current file: oldPath must match exact "Path:" from Current File context—never placeholders like current_note.md. Shape: { files: [{ oldPath, newName }], message }—message top-level only.',
     parameters: z.object({
       files: z
         .array(
@@ -210,435 +142,299 @@ export const chatTools = {
             oldPath: z
               .string()
               .describe(
-                'Current full path of the file (e.g., "folder/note.md"). CRITICAL: For the current/active file, you MUST extract the exact path from the "Current File" section in the context. Look for "Path: <path>" in the Current File context. NEVER use placeholders like "current_note.md" or "Untitled.md" - always use the actual path shown in the context. If the Current File context shows "Path: Untitled.md", use exactly "Untitled.md" (not "current_note.md").'
+                'Full path now; for active file use context Path exactly'
               ),
             newName: z
               .string()
-              .describe(
-                'New file name without .md extension (e.g., "My New Note Title"). Infer this from context: if you just added an H1 heading, use that text. If the file has a prominent heading, use that. Sanitize the name (remove special characters, keep it file-system safe). The .md extension will be added automatically. IMPORTANT: This object only contains oldPath and newName fields - do NOT include message here.'
-              ),
+              .describe('New title without .md; filesystem-safe'),
           })
         )
-        .describe(
-          'Array of file objects to rename. Each object contains only oldPath and newName - no other fields.'
-        ),
+        .describe('Only oldPath + newName per item'),
       message: z
         .string()
-        .describe(
-          'Clear explanation of the naming strategy and how the new name was inferred. This is a SEPARATE top-level parameter, NOT inside the files array objects.'
-        ),
+        .describe('Why / naming strategy; top-level only'),
     }),
   },
   executeActionsOnFileBasedOnPrompt: {
-    description:
-      'Analyze and organize files through tagging, moving, or renaming based on content analysis',
+    description: 'Tag, move, or rename many files from content heuristics',
     parameters: z.object({
-      filePaths: z
-        .array(z.string())
-        .describe('List of file paths to analyze and organize'),
-      userPrompt: z
-        .string()
-        .describe('Specific instructions for file organization strategy'),
+      filePaths: z.array(z.string()).describe('Paths to process'),
+      userPrompt: z.string().describe('What to optimize'),
     }),
   },
 
-  // New Metadata & Analysis Tools
   getFileMetadata: {
     description:
-      'Extract comprehensive metadata from files including frontmatter, tags, links, headings, and creation/modification dates. Use with includeContent: true when merging notes intelligently or when full content is needed for content-aware operations.',
+      'Frontmatter, tags, links, dates; optional full body for merge workflows',
     parameters: z.object({
-      filePaths: z
-        .array(z.string())
-        .describe('Paths of files to extract metadata from'),
-      includeContent: z
-        .boolean()
-        .describe('Whether to include file content (default: false)'),
-      includeFrontmatter: z
-        .boolean()
-        .describe('Include YAML frontmatter (default: true)'),
-      includeTags: z.boolean().describe('Include all tags (default: true)'),
-      includeLinks: z
-        .boolean()
-        .describe('Include internal links and embeds (default: true)'),
-      includeBacklinks: z
-        .boolean()
-        .describe('Include backlinks from other notes (default: false)'),
+      filePaths: z.array(z.string()).describe('Files'),
+      includeContent: z.boolean().describe('Include body; default false'),
+      includeFrontmatter: z.boolean().describe('Default true'),
+      includeTags: z.boolean().describe('Default true'),
+      includeLinks: z.boolean().describe('Default true'),
+      includeBacklinks: z.boolean().describe('Default false'),
     }),
   },
 
   updateFrontmatter: {
-    description:
-      'Update or add YAML frontmatter properties to files. Can add new properties, update existing ones, or delete properties.',
+    description: 'Add/update/delete YAML frontmatter keys',
     parameters: z.object({
-      filePath: z.string().describe('Path to the file to update'),
+      filePath: z.string().describe('File path'),
       updatesJson: z
         .string()
-        .describe(
-          'JSON string of properties to add/update (e.g., \'{"status": "in-progress", "priority": "high"}\' or \'{}\' for none)'
-        ),
+        .describe('JSON object of keys to set, or "{}"'),
       deletions: z
         .array(z.string())
-        .describe(
-          'Array of property names to remove from frontmatter (empty array if none)'
-        ),
-      message: z
-        .string()
-        .describe('Clear explanation of what changes will be made'),
+        .describe('Keys to remove'),
+      message: z.string().describe('Change summary'),
     }),
   },
 
   addTags: {
-    description:
-      'Add tags to files either in frontmatter or inline in content. Useful for categorizing and organizing notes.',
+    description: 'Add tags in frontmatter and/or inline',
     parameters: z.object({
-      filePaths: z.array(z.string()).describe('Files to tag'),
+      filePaths: z.array(z.string()).describe('Targets'),
       tags: z
         .array(z.string())
-        .describe(
-          "Tags to add (without # symbol, e.g., ['project', 'important'])"
-        ),
+        .describe("No # prefix, e.g. ['idea']"),
       location: z
         .enum(['frontmatter', 'inline', 'both'])
-        .describe(
-          'Where to add tags: frontmatter (YAML tags array), inline (in content), or both'
-        ),
+        .describe('Where to write'),
       inlinePosition: z
         .enum(['top', 'bottom'])
-        .describe("Position for inline tags (default: 'bottom')"),
-      message: z.string().describe('Explanation of tagging strategy'),
+        .describe('Inline placement'),
+      message: z.string().describe('Why these tags'),
     }),
   },
 
   getBacklinks: {
-    description:
-      'Get all files that link to specified files (backlinks/incoming links). Useful for understanding note relationships and knowledge graph connections.',
+    description: 'Incoming wikilinks to given files',
     parameters: z.object({
-      filePaths: z.array(z.string()).describe('Files to get backlinks for'),
+      filePaths: z.array(z.string()).describe('Targets'),
       includeUnresolved: z
         .boolean()
-        .describe('Include unresolved/broken links (default: false)'),
+        .describe('Include unresolved; default false'),
     }),
   },
 
   getOutgoingLinks: {
-    description:
-      'Get all outgoing links and embeds from files. Useful for understanding note dependencies and content structure.',
+    description: 'Outgoing links/embeds from files',
     parameters: z.object({
-      filePaths: z
-        .array(z.string())
-        .describe('Files to analyze for outgoing links'),
-      includeEmbeds: z
-        .boolean()
-        .describe('Include embedded files/images (default: true)'),
-      resolvedOnly: z
-        .boolean()
-        .describe('Only include resolved links (default: false)'),
+      filePaths: z.array(z.string()).describe('Sources'),
+      includeEmbeds: z.boolean().describe('Default true'),
+      resolvedOnly: z.boolean().describe('Default false'),
     }),
   },
 
   getHeadings: {
-    description:
-      'Extract document heading structure (H1-H6). Useful for understanding note organization and navigation.',
+    description: 'Outline (H1–H6) for files',
     parameters: z.object({
-      filePaths: z.array(z.string()).describe('Files to extract headings from'),
-      minLevel: z
-        .number()
-        .min(1)
-        .max(6)
-        .describe('Minimum heading level (default: 1)'),
-      maxLevel: z
-        .number()
-        .min(1)
-        .max(6)
-        .describe('Maximum heading level (default: 6)'),
+      filePaths: z.array(z.string()).describe('Files'),
+      minLevel: z.number().min(1).max(6).describe('Min level; default 1'),
+      maxLevel: z.number().min(1).max(6).describe('Max level; default 6'),
     }),
   },
 
   getTaggedFiles: {
     description:
-      'Find all files containing specific tags. Uses indexed metadata for fast, accurate tag-based search. Preferred over getSearchQuery for tag-based lookups.',
+      'Find files by tag(s); prefer over text search for tags',
     parameters: z.object({
-      tags: z
-        .array(z.string())
-        .describe('Tags to search for (without # symbol)'),
+      tags: z.array(z.string()).describe('Without #'),
       matchAll: z
         .boolean()
-        .describe(
-          'If true, require ALL tags (AND). If false, match ANY tag (OR)'
-        ),
+        .describe('true = AND, false = OR'),
       excludeTags: z
         .array(z.string())
-        .describe('Tags to exclude from results (without # symbol). Use empty array [] if none'),
+        .describe('Exclude; [] if none'),
       folder: z
         .string()
-        .describe('Folder path to limit search to. Use empty string "" for entire vault'),
+        .describe('Scope folder; "" = vault'),
     }),
   },
 
   findBrokenLinks: {
-    description:
-      'Find broken/unresolved [[wikilinks]] in the vault, a folder, or specific files. Useful for vault maintenance, health checks, and cleaning up dead links. When the user asks about broken links "in this file" or specific files, pass their paths in filePaths to scope the scan.',
+    description: 'Unresolved [[links]] in vault, folder, or listed files',
     parameters: z.object({
       folder: z
         .string()
-        .describe(
-          'Folder path to limit scan to. Use empty string "" for entire vault. Ignored when filePaths is non-empty.'
-        ),
+        .describe('Scope; "" = vault; ignored if filePaths set'),
       filePaths: z
         .array(z.string())
-        .describe(
-          'Specific file paths to check for broken links. Use empty array [] to scan by folder or entire vault.'
-        ),
+        .describe('Files to scan; [] = use folder/vault'),
       groupBySource: z
         .boolean()
-        .describe(
-          'If true, group results by source file. If false, group by broken link target (default: true)'
-        ),
+        .describe('Group by source file; default true'),
       limit: z
         .number()
         .min(1)
         .max(200)
-        .describe(
-          'Max number of broken-link entries to return (default: 100). Results are truncated with a total count if exceeded.'
-        ),
+        .describe('Max entries; truncated with total'),
     }),
   },
 
   extractHighlights: {
     description:
-      'Get content from the current note, selection, or specified files so the assistant can extract key quotes and insights. Use when the user asks for highlights, key takeaways, main points, or memorable quotes. Prefer selection when the user has selected text. When the user refers to "this note", "current file", or @-mentioned files, use the exact file paths from the "Attached file paths" / Current File section in the context for filePath or filePaths.',
+      'Read selection, one file, or many for quotes/highlights. Use paths from context for @ / current file.',
     parameters: z.object({
       scope: z
         .enum(['selection', 'document', 'files'])
-        .describe('What to read: selection (active editor selection), document (single file), or files (multiple files)'),
+        .describe('selection | document | files'),
       filePath: z
         .string()
-        .describe(
-          'For scope "document": path to the file. Use empty string "" for current file.'
-        ),
+        .describe('document scope: path or "" = active'),
       filePaths: z
         .array(z.string())
-        .describe(
-          'For scope "files": paths of files to extract content from. Use [] when scope is not "files".'
-        ),
+        .describe('files scope; else []'),
       maxChars: z
         .number()
-        .describe(
-          'Cap content size to avoid token overflow. Use 30000 as default. Applied per file when scope is "files".'
-        ),
+        .describe('Per-file cap; default 30000'),
     }),
   },
 
   extractSelectionToNewNote: {
     description:
-      'Turn the editor selection into a new note in that note\'s folder, then replace the selection with a wikilink. Client-only. When the user is typing in chat, Obsidian clears the live selection—the plugin uses the frozen selection shown in the chat "Selection" chip (same text as in <editor_context><selection>). Prefer this over createNewFiles for in-place replacement. For title: omit the parameter or pass "" to infer the note name from the first line of the selected text (not a blank title). Only pass title when the user gives a specific name (without .md).',
+      'New note from frozen editor selection; replace selection with link. Title "" = infer from first line.',
     parameters: z.object({
       title: z
         .string()
-        .describe(
-          'Note name without .md. Use "" or omit meaning from context when the user did not name the new note—inferred from the first line of the selection, never a file named empty string.'
-        ),
-      message: z
-        .string()
-        .describe('Short explanation of what is being extracted and why'),
+        .describe('Name sans .md; "" = infer from selection'),
+      message: z.string().describe('Short reason'),
     }),
   },
 
   createNewFiles: {
-    description:
-      'Create new notes/documents in the vault with content and optionally link them together. Use this to split content into multiple files, create referenced documents, or create a single merged note after combining content from multiple files.',
+    description: 'Create one or many notes; optional wikilinks from active file',
     parameters: z.object({
       files: z
         .array(
           z.object({
-            fileName: z
-              .string()
-              .describe('Name for the new file (without .md extension)'),
+            fileName: z.string().describe('Basename without .md'),
             content: z.preprocess((val) => {
-              // Preprocess: Unescape common escape sequences that may be double-escaped in JSON
-              // This handles cases where the AI generates escaped sequences like \\n instead of \n
               if (typeof val !== 'string') return val;
               if (!val) return val;
               return val
-                .replace(/\\n/g, '\n') // Unescape newlines
-                .replace(/\\t/g, '\t') // Unescape tabs
-                .replace(/\\r/g, '\r') // Unescape carriage returns
-                .replace(/\\\\/g, '\\'); // Unescape double backslashes
-            }, z.string().describe('The markdown content for the new file')),
-            // REQUIRED (satisfies OpenAI strict tools)
-            // Tell the model to pass "" for root
-            folder: z
-              .string()
-              .describe(
-                'Folder path relative to vault root. Use "" for root folder.'
-              ),
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '\t')
+                .replace(/\\r/g, '\r')
+                .replace(/\\\\/g, '\\');
+            }, z.string().describe('Markdown body')),
+            folder: z.string().describe('Folder under vault; "" = root'),
           })
         )
-        .describe('Array of files to create'),
-      // REQUIRED (satisfies OpenAI strict tools)
-      // Tell the model to pass true as default
+        .describe('Files to create'),
       linkInCurrentFile: z
         .boolean()
-        .describe(
-          'Whether to add links to these new files in the current active file. Use true as default.'
-        ),
-      message: z
-        .string()
-        .describe('Clear explanation of what files are being created and why'),
+        .describe('Link new notes from active file; default true'),
+      message: z.string().describe('Why these files'),
     }),
   },
 
   deleteFiles: {
-    description:
-      'Delete files from the vault with user confirmation. Use when user explicitly asks to delete, remove, or trash files. Always confirm before deletion.',
+    description: 'Delete paths (confirm in UI)',
     parameters: z.object({
-      filePaths: z.array(z.string()).describe('Full paths of files to delete'),
-      reason: z
-        .string()
-        .describe('Clear explanation of why these files should be deleted'),
+      filePaths: z.array(z.string()).describe('Paths'),
+      reason: z.string().describe('Why delete'),
       permanentDelete: z
         .boolean()
-        .describe(
-          'If true, permanently delete instead of moving to trash (default: false)'
-        ),
+        .describe('Skip trash; default false'),
     }),
   },
 
   mergeFiles: {
     description:
-      'Combine multiple files into a single file by simple concatenation in order with a separator. Use for "put these in one file" or when the user does not ask for content-aware merging. For intelligent merge (dedupe, unified structure), use getFileMetadata with includeContent: true then createNewFiles as described in the system instructions.',
+      'Concat files in order. Smart merge: getFileMetadata+content then createNewFiles.',
     parameters: z.object({
-      sourceFiles: z
-        .array(z.string())
-        .describe('Paths of files to merge (in order)'),
-      outputFileName: z
-        .string()
-        .describe('Name for the merged file (without .md extension)'),
-      outputFolder: z
-        .string()
-        .describe('Folder for output file (default: root)'),
+      sourceFiles: z.array(z.string()).describe('Ordered paths'),
+      outputFileName: z.string().describe('Output basename sans .md'),
+      outputFolder: z.string().describe('Folder; default root'),
       separator: z
         .string()
-        .describe(
-          "Content separator between merged files (default: '\\n\\n---\\n\\n')"
-        ),
-      deleteSource: z
-        .boolean()
-        .describe('Delete source files after merge (default: false)'),
-      message: z
-        .string()
-        .describe("Clear explanation of what's being merged and why"),
+        .describe("Between files; default '\\n\\n---\\n\\n'"),
+      deleteSource: z.boolean().describe('Delete sources after'),
+      message: z.string().describe('Purpose'),
     }),
   },
 
   createTemplate: {
-    description:
-      'Create reusable note templates with placeholders and default structure. Useful for recurring note types like meeting notes, daily notes, project plans, etc.',
+    description: 'Save a reusable template note',
     parameters: z.object({
-      templateName: z
-        .string()
-        .describe('Name for the template file (without .md extension)'),
+      templateName: z.string().describe('Basename sans .md'),
       templateContent: z
         .string()
-        .describe(
-          'Template content with placeholders like {{title}}, {{date}}, {{tags}}, etc.'
-        ),
-      templateFolder: z
-        .string()
-        .describe("Folder to store template (default: 'Templates')"),
-      description: z
-        .string()
-        .describe('Description of what this template is for'),
-      message: z
-        .string()
-        .describe('Clear explanation of the template purpose and usage'),
+        .describe('Body; may use {{date}} etc.'),
+      templateFolder: z.string().describe("Folder; default 'Templates'"),
+      description: z.string().describe('Human description'),
+      message: z.string().describe('Usage note'),
     }),
   },
 
   bulkFindReplace: {
-    description:
-      'Find and replace text across multiple files. Useful for renaming terms, fixing typos, updating links, or refactoring content.',
+    description: 'Find/replace across listed files',
     parameters: z.object({
-      filePaths: z
-        .array(z.string())
-        .describe('Files to perform find/replace on'),
-      find: z
-        .string()
-        .describe('Text pattern to find (can be regex if useRegex is true)'),
-      replace: z.string().describe('Replacement text'),
-      useRegex: z
-        .boolean()
-        .describe('Treat find pattern as regex (default: false)'),
-      caseSensitive: z
-        .boolean()
-        .describe('Case-sensitive search (default: true)'),
-      message: z.string().describe('Clear explanation of what will be changed'),
+      filePaths: z.array(z.string()).describe('Targets'),
+      find: z.string().describe('Literal or regex if useRegex'),
+      replace: z.string().describe('Replacement'),
+      useRegex: z.boolean().describe('Default false'),
+      caseSensitive: z.boolean().describe('Default true'),
+      message: z.string().describe('What changes'),
     }),
   },
 
   exportToFormat: {
-    description:
-      'Export notes to different formats (PDF, HTML, plain text). Useful for sharing notes externally or creating backups.',
+    description: 'Export notes to pdf, html, or txt',
     parameters: z.object({
-      filePaths: z.array(z.string()).describe('Files to export'),
-      format: z.enum(['pdf', 'html', 'txt']).describe('Export format'),
-      outputFolder: z
-        .string()
-        .describe("Folder for exported files (default: 'Exports')"),
-      includeMetadata: z
-        .boolean()
-        .describe('Include frontmatter in export (default: false)'),
-      message: z.string().describe('Clear explanation of export operation'),
+      filePaths: z.array(z.string()).describe('Sources'),
+      format: z.enum(['pdf', 'html', 'txt']).describe('Kind'),
+      outputFolder: z.string().describe("Default 'Exports'"),
+      includeMetadata: z.boolean().describe('Frontmatter in export'),
+      message: z.string().describe('Why export'),
     }),
   },
 
   searchScreenpipe: {
     description:
-      "ALWAYS use this tool when the user asks about their screen activity, what they were working on, recent activity, meetings, OR anything they listened to or watched. 'What did I listen to' / 'what I listened to' means ANY audio: meetings, calls, podcasts, music, videos, lectures, webinars, etc.—not just music. Search Screenpipe's recorded content: screen text (OCR) and audio transcriptions. When the user asks vaguely (e.g., 'search my screen activity', 'what was I doing in Chrome?', 'what did I listen to?'), use ONE BROAD SEARCH with: content_type='all' or content_type='audio' for listen-related queries, limit=30-40, app_name and window_name as appropriate (use '' for broad queries). IMPORTANT: For general activity queries, make ONE broad search that captures everything, NOT multiple narrow searches. Only use window_name when user explicitly asks for a specific website (e.g., 'what was I doing on YouTube?'). For general Chrome activity, ALWAYS use window_name='' to search all tabs. Use time ranges of 1-2 hours max initially. If no results, expand gradually. CRITICAL: When presenting results, GROUP results by the same window/app (same activity). If multiple results have the same window title and app, summarize them together as one activity instead of listing each separately. For example, if there are 5 results from the same YouTube video, present it as one entry with a note like '5 snapshots from this activity'. CRITICAL 'TODAY' QUERIES: When the user asks about 'today' (e.g. 'what meeting did I have today?', 'my meetings today', 'what did I do today'), you MUST pass explicit start_time and end_time: set start_time to the start of TODAY in UTC (e.g. 2026-02-05T00:00:00Z for Feb 5) and end_time to NOW in UTC. Do NOT use empty strings for start_time/end_time when the user said 'today' or you will get yesterday's or older results. When presenting: ONLY include results whose timestamp falls on today (use timestampsLocal to check the date). If every result is from a previous day, say clearly 'No meetings [or activity] found for today' and do NOT summarize or present those as if they were today. MEETING-SPECIFIC QUERIES: When the user asks specifically about 'meeting(s)' (e.g. 'what meeting did I have today?', 'my meetings today', 'what meetings did I attend?'), you MUST (1) search for meeting content: use content_type='audio' with today's start_time/end_time (audio captures Zoom, Meet, Teams, Slack calls, Webex). Optionally also run content_type='all' with the same time range to catch meeting-related windows (e.g. a Chrome tab titled 'Rencontre annuelle 2026 - Presentation'). (2) When answering: respond to the question directly—e.g. 'You had [X] meeting(s) today: …' and list ONLY meeting-related results. Treat as meeting-related: audio results (they are calls/meetings), or OCR/window titles that clearly indicate a meeting (e.g. window contains 'Meet', 'Zoom', 'Teams', 'Webex', 'Slack' + call, 'meeting', 'presentation' for an event, 'Assemblée', 'Conference'). Do NOT reply with a generic 'Chrome activity' summary listing every tab (Meta, Twilio, Stripe, etc.); filter to meeting-like items and present those. If no meeting-like results for today, say 'No meetings found for today.' and do not list other activity as if it were meetings. CRITICAL APP NAME MAPPING: When user asks about YouTube, Gmail, or any website, the app_name is ALWAYS 'Google Chrome' (not 'YouTube', not 'Gmail', not the website name). For specific websites: use app_name='Google Chrome' and window_name='YouTube' (or 'Gmail', etc.). For general Chrome activity: use app_name='Google Chrome' and window_name='' (EMPTY). The app_name parameter must be the actual macOS application name: 'Google Chrome', 'Slack', 'zoom.us', 'Code', 'Terminal', 'Obsidian', etc. NEVER use website names as app_name. DUAL-PLACE SERVICES: When the user asks about a service that exists both as a desktop app AND in the browser (e.g. GitHub, Notion, Figma, Linear), run the tool TWICE and combine results: (1) desktop app: app_name='GitHub Desktop' (or 'Notion', 'Figma', 'Linear', etc.—use the actual macOS app name), window_name=''; (2) browser: app_name='Google Chrome', window_name='GitHub' (or 'Notion', 'Figma', etc.). Then present both in your answer (e.g. 'On GitHub Desktop: …' and 'In Chrome (github.com): …'). For GitHub specifically: search app_name='GitHub Desktop' with window_name='', AND app_name='Google Chrome' with window_name='GitHub'.",
+      'Screen/audio activity via Screenpipe (OCR + transcripts). Listen/meetings/audio: content_type audio or all; vague query: one broad call, limit 30–40, window_name \"\" for all Chrome tabs. "today": start_time = today 00:00 UTC, end_time = now—never empty for today; filter results to that calendar day. Meetings: prefer audio + optional all; reply only meeting-like rows. app_name = real macOS app (Google Chrome for websites); window_name = site (YouTube) or \"\" . Dual desktop+browser: e.g. GitHub Desktop + Chrome/GitHub. Group same app+window. YouTube site: Chrome + window YouTube—not app_name YouTube.',
     parameters: z.object({
-      // REQUIRED (satisfies OpenAI strict tools) - use "" for vague queries
       q: z
         .string()
-        .describe(
-          'Search keywords. For vague queries like "search my screen activity", use "". Only use keywords when user specifies them.'
-        ),
-      // REQUIRED (satisfies OpenAI strict tools) - use "all" as default
+        .describe('Keywords; \"\" for broad/recent'),
       content_type: z
         .enum(['all', 'ocr', 'audio'])
         .describe(
-          "Filter by type. For 'what meeting did I have' or 'my meetings': use 'audio' first (meetings/calls have transcriptions), then optionally 'all' to catch meeting-related window titles. Use 'audio' for listen-related queries. Use 'ocr' for screen text only. Use 'all' for general activity when user doesn't specify."
+          'Meetings: audio first; listen queries: audio; else all'
         ),
-      // REQUIRED (satisfies OpenAI strict tools) - use 10 as default, can go up to 50
       limit: z
         .number()
         .min(1)
         .max(50)
-        .describe(
-          'Max results (1-50). Default to 10 for most queries. Use 20-50 if user asks for "all results", "more results", or wants comprehensive activity history. For recent activity, 10 is usually sufficient.'
-        ),
-      // REQUIRED (satisfies OpenAI strict tools) - use "" for recent/recent activity
+        .describe('Rows; 10 default, up to 50 if user wants all'),
       start_time: z
         .string()
         .describe(
-          'ISO 8601 UTC start time. Example: 2024-01-15T10:00:00Z. When user asks about "today", you MUST set this to the start of the current day in UTC (e.g. 2026-02-05T00:00:00Z)—do NOT use "" for "today" or yesterday\'s results may be returned. Use "" only for vague recent-activity queries (last 30-60 min). Results include timestampsLocal for display.'
+          'ISO UTC start; today queries need midnight UTC—not \"\"'
         ),
-      // REQUIRED (satisfies OpenAI strict tools) - use "" for recent/recent activity
       end_time: z
         .string()
-        .describe(
-          'ISO 8601 UTC end time. When user asks about "today", set this to now in UTC (current moment). Do NOT use "" for "today" queries. Use "" only for vague recent-activity. Results include timestampsLocal for display.'
-        ),
-      // REQUIRED (satisfies OpenAI strict tools) - use "" for vague queries
+        .describe('ISO UTC end; today = now'),
       app_name: z
         .string()
         .describe(
-          "Filter by app name. Examples: 'Google Chrome' (for YouTube, web browsing), 'GitHub Desktop', 'Slack', 'zoom.us', 'Code', 'Terminal', 'Notion', 'Figma'. For GitHub/Notion/Figma-type questions, call the tool twice: once with the desktop app name (e.g. 'GitHub Desktop'), once with 'Google Chrome' and window_name set to the service (e.g. 'GitHub'). Use \"\" when user doesn't specify an app or asks about general activity."
+          'e.g. Google Chrome, Slack, zoom.us; \"\" if any'
         ),
       window_name: z
         .string()
         .describe(
-          'Filter by window title substring. For websites, use the website name here (e.g., "YouTube", "Gmail", "GitHub", "Notion"). For GitHub in browser use app_name="Google Chrome" and window_name="GitHub". CRITICAL: Use "" (EMPTY STRING) when user asks about general Chrome activity or doesn\'t specify a specific website. Only use a specific window_name when the user explicitly asks about a specific website or service (e.g., "what was I doing on YouTube?", "my GitHub activity"). For "what was I doing in Chrome?" or general activity queries, ALWAYS use window_name="".'
+          'Window filter e.g. YouTube; \"\" for all Chrome tabs'
         ),
     }),
   },
 } as const;
+
+export type ChatToolsMode = 'full';
+
+/**
+ * Expand with product-defined modes later; keep default full for compatibility.
+ */
+export function buildChatToolsForMode(_mode: ChatToolsMode = 'full'): typeof chatTools {
+  return chatTools;
+}

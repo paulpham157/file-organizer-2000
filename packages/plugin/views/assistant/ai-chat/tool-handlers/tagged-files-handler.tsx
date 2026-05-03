@@ -98,12 +98,18 @@ export function TaggedFilesHandler({
             excludeTags,
             folder
           );
+          const MAX_FILES = 250;
+          const files =
+            results.length > MAX_FILES ? results.slice(0, MAX_FILES) : results;
           handleAddResult(
             JSON.stringify({
               success: true,
               matchMode: matchAll ? "AND" : "OR",
               totalMatches: results.length,
-              files: results,
+              files,
+              ...(results.length > MAX_FILES
+                ? { filesTruncated: true, filesReturned: MAX_FILES }
+                : {}),
             })
           );
         } catch (error) {

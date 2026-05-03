@@ -14,6 +14,7 @@ export function OutgoingLinksHandler({
   app,
 }: OutgoingLinksHandlerProps) {
   const hasFetchedRef = useRef(false);
+  const MAX_OUTGOING_PER_TYPE = 150;
 
   const getOutgoingLinks = (
     filePath: string,
@@ -67,13 +68,26 @@ export function OutgoingLinksHandler({
       }
     }
 
+    const totalLinksAll = filteredLinks.length;
+    const totalEmbedsAll = embeds.length;
+    const linksOut =
+      filteredLinks.length > MAX_OUTGOING_PER_TYPE
+        ? filteredLinks.slice(0, MAX_OUTGOING_PER_TYPE)
+        : filteredLinks;
+    const embedsOut =
+      embeds.length > MAX_OUTGOING_PER_TYPE
+        ? embeds.slice(0, MAX_OUTGOING_PER_TYPE)
+        : embeds;
+
     return {
       path: filePath,
       success: true,
-      links: filteredLinks,
-      embeds,
-      totalLinks: filteredLinks.length,
-      totalEmbeds: embeds.length,
+      links: linksOut,
+      embeds: embedsOut,
+      totalLinks: totalLinksAll,
+      totalEmbeds: totalEmbedsAll,
+      linksTruncated: linksOut.length < totalLinksAll,
+      embedsTruncated: embedsOut.length < totalEmbedsAll,
     };
   };
 

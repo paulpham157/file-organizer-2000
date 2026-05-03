@@ -14,6 +14,7 @@ export function BacklinksHandler({
   app,
 }: BacklinksHandlerProps) {
   const hasFetchedRef = useRef(false);
+  const MAX_BACKLINK_ROWS = 150;
 
   const getBacklinks = (filePath: string, includeUnresolved: boolean) => {
     const file = app.vault.getAbstractFileByPath(filePath);
@@ -66,7 +67,25 @@ export function BacklinksHandler({
           const results = filePaths.map((path: string) =>
             getBacklinks(path, includeUnresolved || false)
           );
-          handleAddResult(JSON.stringify(results));
+          const capped = results.map((r: Record<string, unknown>) => {
+            if (typeof r.success === "boolean" && r.success === false) return r;
+            const resolved = Array.isArray(r.resolved) ? r.resolved : [];
+            const unresolved = Array.isArray(r.unresolved) ? r.unresolved : [];
+            const resTrunc = resolved.length > MAX_BACKLINK_ROWS;
+            const unresTrunc = unresolved.length > MAX_BACKLINK_ROWS;
+            if (!resTrunc && !unresTrunc) return r;
+            return {
+              ...r,
+              resolved: resolved.slice(0, MAX_BACKLINK_ROWS),
+              unresolved: unresolved.slice(0, MAX_BACKLINK_ROWS),
+              totalResolved: resolved.length,
+              totalUnresolved: unresolved.length,
+              resolvedTruncated: resTrunc,
+              unresolvedTruncated: unresTrunc,
+              listsTruncated: resTrunc || unresTrunc,
+            };
+          });
+          handleAddResult(JSON.stringify(capped));
         } catch (error) {
           handleAddResult(
             JSON.stringify({
