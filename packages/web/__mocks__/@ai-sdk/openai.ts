@@ -24,7 +24,7 @@ export const openai = Object.assign(
     tools: {
       webSearchPreview: jest.fn((options: any) => ({
         type: 'web_search_preview',
-        searchContextSize: options?.searchContextSize || 'medium',
+        searchContextSize: options?.searchContextSize || 'low',
       })),
     },
     responses: jest.fn((model: string) => ({

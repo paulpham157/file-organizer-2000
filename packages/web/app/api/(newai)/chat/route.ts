@@ -788,7 +788,8 @@ export async function POST(req: NextRequest) {
             tools: {
               ...chatTools,
               web_search_preview: openai.tools.webSearchPreview({
-                searchContextSize: deepSearch ? 'high' : 'medium',
+                // low = default search (less context / tokens); deep search uses medium
+                searchContextSize: deepSearch ? 'medium' : 'low',
               }) as any, // Type cast for AI SDK v2 compatibility
             },
             onFinish: async ({ usage, sources }) => {
