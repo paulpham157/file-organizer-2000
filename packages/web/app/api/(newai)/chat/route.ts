@@ -25,6 +25,11 @@ import {
   LARGE_CONTEXT_CHAR_THRESHOLD,
   parseRequestedMaxSteps,
 } from '@/lib/chat/chat-max-steps';
+import {
+  getChatMaxUserTurnsFromEnv,
+  limitMessagesToLastUserTurns,
+  summarizeConversationWindow,
+} from '@/lib/chat/conversation-window';
 import { chatTools } from './tools';
 
 export const maxDuration = 300; // Allow for complex multi-step tool calls and long conversations
@@ -194,6 +199,19 @@ export async function POST(req: NextRequest) {
         // Apply filtering immediately after parsing messages
         console.log(`[Chat API] Filtering messages: ${messages.length} total`);
         const filteredMessages = stripUnmatchedToolCalls(messages);
+
+        const maxUserTurns = getChatMaxUserTurnsFromEnv();
+        const messagesToProcess =
+          maxUserTurns > 0
+            ? limitMessagesToLastUserTurns(filteredMessages, maxUserTurns)
+            : filteredMessages;
+
+        if (maxUserTurns > 0) {
+          console.log('[Chat API] Conversation window', {
+            maxUserTurns,
+            ...summarizeConversationWindow(filteredMessages, messagesToProcess),
+          });
+        }
 
         // Handle both formats: array of files (old) or JSON stringified contextItems (new)
         // newUnifiedContext may be a JSON string, or a string containing JSON + editor context
@@ -501,9 +519,6 @@ export async function POST(req: NextRequest) {
         // Use search-enabled models when requested or when deep search is enabled
         const shouldUseSearch = enableSearchGrounding || deepSearch;
 
-        // Use filtered messages for all processing
-        const messagesToProcess = filteredMessages;
-
         // Debug: Log tool invocations in messages
         const toolInvocations = messagesToProcess.filter((m) => m.role === 'tool');
         const assistantMessages = messagesToProcess.filter(
@@ -704,7 +719,7 @@ export async function POST(req: NextRequest) {
             coreMessages = convertToCoreMessages(ultraFiltered);
           }
           console.log(
-            `[Chat API] Converted ${messages.length} messages to ${coreMessages.length} core messages (search mode)`
+            `[Chat API] Converted ${messagesToProcess.length} messages to ${coreMessages.length} core messages (search mode)`
           );
 
           const { finalCoreMessages, state: searchYoutubeDedup } =
@@ -886,7 +901,7 @@ export async function POST(req: NextRequest) {
             coreMessages = convertToCoreMessages(ultraFiltered);
           }
           console.log(
-            `[Chat API] Converted ${messages.length} messages to ${coreMessages.length} core messages`
+            `[Chat API] Converted ${messagesToProcess.length} messages to ${coreMessages.length} core messages`
           );
 
           // YouTube: hoist transcript into context only when missing from client JSON; stub tool results to avoid duplicate tokens
