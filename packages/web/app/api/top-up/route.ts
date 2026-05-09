@@ -12,6 +12,48 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
+type TopUpTier = 'standard' | 'large';
+
+const TOP_UP_CHECKOUT: Record<
+  TopUpTier,
+  {
+    unitAmount: number;
+    tokens: string;
+    name: string;
+    description: string;
+  }
+> = {
+  standard: {
+    unitAmount: PRICES.TOP_UP,
+    tokens: '5000000',
+    name: '5M Tokens Top-up',
+    description: 'One-time purchase of 5M additional tokens',
+  },
+  large: {
+    unitAmount: PRICES.TOP_UP_LARGE,
+    tokens: '12000000',
+    name: '12M Tokens Top-up',
+    description:
+      'One-time purchase of 12M additional tokens (~20% better value per dollar vs two 5M packs)',
+  },
+};
+
+async function parseTopUpTier(req: NextRequest): Promise<TopUpTier> {
+  const contentType = req.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    return 'standard';
+  }
+  try {
+    const body = (await req.json()) as { tier?: unknown };
+    if (body?.tier === 'large') {
+      return 'large';
+    }
+    return 'standard';
+  } catch {
+    return 'standard';
+  }
+}
+
 async function createFallbackUser() {
   try {
     const user = await createAnonymousUser();
@@ -122,6 +164,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const tier = await parseTopUpTier(req);
+  const checkout = TOP_UP_CHECKOUT[tier];
+
   const baseUrl = getUrl();
   console.log('baseUrl', baseUrl);
 
@@ -132,7 +177,7 @@ export async function POST(req: NextRequest) {
         userId,
         type: config.products.PayOnceTopUp.metadata.type,
         plan: config.products.PayOnceTopUp.metadata.plan,
-        tokens: '5000000', // 5M tokens
+        tokens: checkout.tokens,
       },
     },
     line_items: [
@@ -140,10 +185,10 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: '5M Tokens Top-up',
-            description: 'One-time purchase of 5M additional tokens',
+            name: checkout.name,
+            description: checkout.description,
           },
-          unit_amount: PRICES.TOP_UP,
+          unit_amount: checkout.unitAmount,
         },
         quantity: 1,
       },
@@ -156,7 +201,7 @@ export async function POST(req: NextRequest) {
       userId,
       type: config.products.PayOnceTopUp.metadata.type,
       plan: config.products.PayOnceTopUp.metadata.plan,
-      tokens: '5000000', // 5M tokens
+      tokens: checkout.tokens,
     },
   });
 

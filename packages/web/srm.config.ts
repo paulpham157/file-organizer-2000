@@ -51,6 +51,7 @@ export const PRICES = {
   MONTHLY: 1500, // $15.00
   YEARLY: 11900, // $119.00
   TOP_UP: 1500, // $15.00
+  TOP_UP_LARGE: 3000, // $30.00 — 12M tokens (better $/token than two TOP_UP)
   TOP_UP_MINUTES: 1000, // $10.00
 } as const;
 

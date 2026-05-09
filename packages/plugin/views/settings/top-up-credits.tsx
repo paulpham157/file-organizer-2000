@@ -4,6 +4,8 @@ import FileOrganizer from "../..";
 import { Notice } from "obsidian";
 import { validateApiKey } from "../../apiUtils";
 
+type TopUpTier = "standard" | "large";
+
 export function TopUpCredits({
   plugin,
   onLicenseKeyChange,
@@ -11,9 +13,9 @@ export function TopUpCredits({
   plugin: FileOrganizer;
   onLicenseKeyChange: (licenseKey: string) => void;
 }) {
-  const [loading, setLoading] = useState(false);
+  const [loadingTier, setLoadingTier] = useState<TopUpTier | null>(null);
 
-  const handleTopUp = async () => {
+  const handleTopUp = async (tier: TopUpTier) => {
     // Validate API key before making request
     const validation = validateApiKey(plugin.settings.API_KEY);
     if (!validation.isValid) {
@@ -27,13 +29,14 @@ export function TopUpCredits({
     }
 
     try {
-      setLoading(true);
+      setLoadingTier(tier);
       const response = await fetch(`${plugin.getServerUrl()}/api/top-up`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${plugin.settings.API_KEY}`,
         },
+        body: JSON.stringify({ tier }),
       });
 
       const data = await response.json();
@@ -45,15 +48,30 @@ export function TopUpCredits({
       console.error("Top-up error:", error);
       new Notice("Failed to process top-up request", 5000);
     } finally {
-      setLoading(false);
+      setLoadingTier(null);
     }
   };
 
   return (
-    <Button onClick={handleTopUp} disabled={loading} className="w-full">
-      {loading
-        ? "Processing..."
-        : "Top Up $15 worth of credits"}
-    </Button>
+    <div className="space-y-2">
+      <Button
+        onClick={() => handleTopUp("standard")}
+        disabled={loadingTier !== null}
+        className="w-full"
+      >
+        {loadingTier === "standard"
+          ? "Processing..."
+          : "Top up 5M credits ($15)"}
+      </Button>
+      <Button
+        onClick={() => handleTopUp("large")}
+        disabled={loadingTier !== null}
+        className="w-full"
+      >
+        {loadingTier === "large"
+          ? "Processing..."
+          : "Top up 12M credits ($30) — better value"}
+      </Button>
+    </div>
   );
 }
