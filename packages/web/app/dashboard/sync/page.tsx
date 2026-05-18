@@ -1,7 +1,7 @@
 'use client'
 import * as React from "react";
 import { FileList } from "./_components/FileList";
-import { CloudUpload, RefreshCw, Clock, CheckCircle } from "lucide-react";
+import { UploadCloud, RefreshCw, Clock, CheckCircle } from "lucide-react";
 
 export default function SyncDashboard() {
   return (
@@ -140,7 +140,7 @@ export default function SyncDashboard() {
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <header>
           <div className="flex items-center">
-            <CloudUpload className="h-6 w-6 mr-2 text-blue-600" />
+            <UploadCloud className="h-6 w-6 mr-2 text-blue-600" />
             <h1 className="text-2xl font-bold">Note Companion Sync</h1>
           </div>
           <p className="text-muted-foreground mt-1">
