@@ -72,7 +72,10 @@ const context = await esbuild.context({
 		postcss({
 			plugins: {
 				tailwindcss: {},
-				autoprefixer: {},
+				// Desktop-only plugin (Electron/Chromium); skip legacy -moz- duplicates.
+				autoprefixer: {
+					overrideBrowserslist: ["Chrome >= 111"],
+				},
 			},
 			inject: false,
 			extract: true,
