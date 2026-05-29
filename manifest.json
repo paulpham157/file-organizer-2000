@@ -1,7 +1,7 @@
 {
   "id": "fileorganizer2000",
   "name": "Note Companion",
-  "version": "3.6.21",
+  "version": "3.6.22",
   "minAppVersion": "0.15.0",
   "description": "AI-powered note organization and chat. Requires subscription or self-hosting with your own API keys.",
   "author": "Benjamin Ashgan Shafii",
