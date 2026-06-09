@@ -1,7 +1,7 @@
 # Note Companion (formerly File Organizer 2000)
 
 Turn messy captures into clean, searchable notes — **transcribe audio/YouTube, chat with your vault, and auto-organize files** right inside Obsidian.
-Works with **Note Companion Cloud**, **your own AI API keys**, or **self-hosting**.
+Works with **Note Companion Cloud** or a **self-hosted backend** where you configure your own AI provider keys.
 
 > ✅ Best for: researchers, students, meeting-heavy workflows, and anyone with an "Inbox" full of unprocessed notes.
 
@@ -53,16 +53,40 @@ The plugin is built and tested for desktop Obsidian. Some features assume a typi
 
 ---
 
-## 60-second setup
+## Setup
 
-1. Open **Settings → Note Companion**
-2. Choose your mode:
-   - **Note Companion Cloud** (sign in at [notecompanion.ai](https://notecompanion.ai) and enter your license key)
-   - **Bring your own keys** (OpenAI / Claude / Gemini / etc. — paste your API key)
-   - **Self-hosted backend** (paste your Base URL + key if needed)
-3. Test it:
-   - Open Command Palette → **Note Companion: Open Chat**
-   - Ask: "Summarize this note and suggest tags"
+Open **Settings → Note Companion** and choose one of the paths below.
+
+> **Important:** The Obsidian plugin does **not** have a screen to paste OpenAI / Claude / Gemini API keys directly. Those keys are configured on your **self-hosted backend** (see path 2). The plugin's **License Key** field is for Note Companion Cloud access only.
+
+### Path 1 — Note Companion Cloud (default)
+
+1. Create an account at [notecompanion.ai](https://notecompanion.ai) or sign up / sign in from the plugin's **General** tab
+2. Copy your **license key** from the web dashboard (**API Keys**) and paste it into **Settings → Note Companion → General → License Key**
+3. Click **Activate**
+
+No cloud account is required for self-hosting (path 2).
+
+### Path 2 — Self-hosted / bring your own provider keys
+
+Use this path to run AI through **your own** OpenAI, Claude, Gemini, Groq, or compatible API keys.
+
+1. Deploy the Note Companion backend — see **[SELF-HOSTING.md](SELF-HOSTING.md)** (Docker or `pnpm build:self-host`)
+2. Add provider keys to the server `.env` (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MODEL_PROVIDER`, `MODEL_NAME`; optional `OPENAI_API_BASE` for Ollama or other OpenAI-compatible endpoints)
+3. In Obsidian: **Settings → Note Companion → Advanced → Enable Self-Hosting**
+4. Set **Server URL** to your backend (e.g. `http://localhost:3000`)
+5. Leave **License Key** empty or use any placeholder — self-hosted instances with `ENABLE_USER_MANAGEMENT=false` do not require a cloud license
+
+### Path 3 — Local Ollama (chat only, experimental)
+
+1. Run [Ollama](https://ollama.com) locally
+2. Self-host the backend with `OPENAI_API_BASE=http://localhost:11434/v1`, **or** enable **Experiment → Local LLM Integration** in plugin settings (requires Catalyst access for the in-plugin Ollama path)
+3. Select the local model in the chat model picker
+
+### Quick test
+
+- Open Command Palette → **Note Companion: Open Chat**
+- Ask: "Summarize this note and suggest tags"
 
 ---
 
@@ -93,13 +117,13 @@ The plugin is built and tested for desktop Obsidian. Some features assume a typi
 
 ## Providers & privacy
 
-Note Companion can run using:
+| Mode | Where provider keys live | Plugin configuration |
+|------|--------------------------|----------------------|
+| **Note Companion Cloud** | Note Companion servers | License key in **General** tab |
+| **Self-hosted (BYOK)** | Your server `.env` | **Advanced → Self-Hosting** + Server URL |
+| **Local Ollama** | Your machine (Ollama) | Self-hosted `OPENAI_API_BASE` and/or **Experiment → Local LLM** |
 
-- **Note Companion Cloud**, or
-- **Your own API keys** (OpenAI/Claude/Gemini/etc.), or
-- **Local/self-hosted models** (e.g., Ollama + custom base URL)
-
-Your data handling depends on the provider you choose.
+Your data handling depends on the mode you choose.
 View our full privacy policy at [notecompanion.ai/privacy](https://notecompanion.ai/privacy)
 
 **Cloud Service:**
@@ -107,12 +131,13 @@ View our full privacy policy at [notecompanion.ai/privacy](https://notecompanion
 - Files are processed through our secure API for AI analysis
 - Usage statistics collected for billing and rate limits
 - Your vault content remains private and is only processed when you explicitly use plugin features
+- Account sign-in on the **web dashboard** may offer Google OAuth (Clerk); the in-plugin sign-up uses email/password
 
-**Self-hosted / Your API Keys:**
+**Self-hosted / your provider keys:**
 
-- All processing happens on your own infrastructure
-- Data never leaves your control
-- No usage tracking
+- Provider keys are set on the backend, not in the Obsidian plugin UI
+- All AI processing runs on infrastructure you control
+- No cloud usage tracking when `ENABLE_USER_MANAGEMENT=false`
 
 ---
 
@@ -146,15 +171,16 @@ Want full control and local infrastructure?
 
 **If plugin can't connect to server:**
 
-- Verify server URL in settings (check for typos)
-- Test connection using "Test Connection" button
+- Verify **Server URL** under **Settings → Note Companion → Advanced** (check for typos, trailing slashes, http vs https)
+- Confirm the backend is running (`curl http://localhost:3000/api/health` or your configured URL)
 - Check firewall/network settings
 
 **If chat doesn't work:**
 
-- Verify API key is set correctly
+- **Cloud:** verify your **license key** is activated in **General**
+- **Self-hosted:** verify provider keys and `MODEL_PROVIDER` / `MODEL_NAME` in the server `.env`, and that self-hosting is enabled in **Advanced**
 - Check model availability for your provider
-- Review error messages in plugin console (Settings → Note Companion → Advanced → Open Console)
+- Enable **Debug Mode** in **Advanced** and review logs there
 
 ---
 

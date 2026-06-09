@@ -142,14 +142,16 @@ The server will start on port 3000 by default (or the port specified in the `POR
 
 ### Step 5: Configure the Obsidian Plugin
 
-1. Open Obsidian and go to Settings → Note Companion
-2. Scroll to "Advanced Settings"
-3. Enable "Self-hosting mode"
-4. Set the server URL:
+1. Open Obsidian and go to **Settings → Note Companion**
+2. Open the **Advanced** tab
+3. Enable **Enable Self-Hosting**
+4. Set the **Server URL**:
    - For local machine: `http://localhost:3000` (or `http://localhost:3010` if you set `PORT=3010`)
    - For network access: `http://[your-server-ip]:3000` (or the port you configured)
    - For domain with SSL: `https://your-domain.com`
-5. Click "Test Connection" to verify
+5. Verify the backend is reachable (e.g. `curl http://localhost:3000/api/health`) and try **Note Companion: Open Chat**
+
+> **Note:** Provider API keys (OpenAI, Claude, etc.) are configured in the server `.env` file above — not in the Obsidian plugin. The plugin **License Key** field is for Note Companion Cloud only; self-hosted instances with `ENABLE_USER_MANAGEMENT=false` do not require a cloud license.
 
 ## Configuration Options
 
