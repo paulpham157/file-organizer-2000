@@ -2,17 +2,23 @@
   "name": "file-organizer-2000-monorepo",
   "private": true,
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/node": "^22.13.10",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.3.0",
+    "globals": "^17.6.0",
     "node-gyp": "^11.1.0",
     "turbo": "^2.4.4",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.59.1"
   },
   "version": "1.0.0",
   "packageManager": "pnpm@10.8.1",
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "lint": "turbo lint",
+    "lint": "eslint packages/plugin",
+    "lint:monorepo": "turbo lint",
     "test": "turbo test",
     "clean": "git clean -xdf node_modules",
     "android": "expo run:android",

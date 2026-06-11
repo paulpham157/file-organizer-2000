@@ -1,18 +1,23 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "target": "ES2018",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "composite": true,
     "paths": {
       "@/*": ["*"],
       "@/components/*": ["components/*"]
-    }
+    },
+    "lib": ["ES2018", "DOM"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
