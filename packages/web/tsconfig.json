@@ -25,10 +25,9 @@
     },
     "strictNullChecks": false,
     "baseUrl": ".",
-    "composite": true
+    "composite": true,
+    "typeRoots": ["./node_modules/@types"]
   },
-  "typeRoots": ["./node_modules/@types"],
-  "types": ["react", "react-dom"],
   "include": [
     "next-env.d.ts",
     "**/*.ts",

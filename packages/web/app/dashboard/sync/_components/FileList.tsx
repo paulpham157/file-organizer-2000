@@ -481,7 +481,6 @@ export function FileList({ pageSize = 12 }: FileListProps) {
                     selectedFile.textContent.includes('- ') ||
                     selectedFile.textContent.includes('```') ||
                     selectedFile.originalName.endsWith('.md') ? (
-                      // @ts-expect-error - react-markdown types not fully compatible with React 19
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {selectedFile.textContent}
                       </ReactMarkdown>
@@ -544,8 +543,7 @@ export function FileList({ pageSize = 12 }: FileListProps) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <p className="text-red-600">{error}</p>
-        {/* @ts-expect-error */}
-        <Button onClick={fetchFiles}>Try Again</Button>
+        <Button onClick={() => void fetchFiles()}>Try Again</Button>
       </div>
     );
   }
