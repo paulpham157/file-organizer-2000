@@ -12,7 +12,7 @@ image: '/blog/images/why-context-aware-ai-transforms-note-taking-apps.png'
 
 ## Understanding Context-Aware AI in Note-Taking
 
-The rise of AI in note-taking apps is reshaping how we capture, organize, and retrieve information. But not all AI is created equal. Context-aware AI stands out because it doesn't just process isolated data points—it understands the surrounding context of your notes, your workflow, and your goals. This deeper awareness enables smarter suggestions, better organization, and ultimately a note-taking experience that feels intuitive and tailored to your unique knowledge environment.
+The rise of AI in note-taking apps is reshaping how we capture, organize, and retrieve information. But not all AI is created equal. Context-aware AI stands out because it doesn't just process isolated data points—it understands the surrounding context of your notes, your workflow, and your goals. Compare this with [vault-native AI](/blog/why-vault-native-ai-outperforms-generic-chatbots-for-note-taking), which keeps your data inside Obsidian instead of a separate chat window.
 
 Context-aware AI goes beyond keyword matching or simple tagging. It leverages information about where, when, and how you create your notes, the projects you're working on, and even your writing style and habits. This makes it possible to anticipate your needs and provide assistance that truly fits your context.
 
@@ -105,4 +105,4 @@ Context-aware AI has the potential to unlock deeper insights and foster creativi
 
 By transforming note-taking into an interactive, context-rich experience, AI empowers users to focus on thinking and creating rather than organizing and searching. This shift could redefine productivity and knowledge management across industries and disciplines.
 
-If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It integrates context-aware AI capabilities that can enhance your note-taking experience, helping you navigate complex information landscapes with ease.
+If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It integrates context-aware AI capabilities that can enhance your note-taking experience, helping you navigate complex information landscapes with ease. When evaluating plugins, see [key features to consider in an AI note-taking plugin for Obsidian](/blog/key-features-to-consider-in-an-ai-note-taking-plugin-for-obsidian).

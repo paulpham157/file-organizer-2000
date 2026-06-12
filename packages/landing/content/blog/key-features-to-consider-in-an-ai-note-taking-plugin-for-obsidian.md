@@ -11,7 +11,7 @@ excerpt: 'Discover essential features to evaluate when choosing an AI note-takin
 
 ## Introduction
 
-The rise of AI-powered tools has transformed the way we capture, organize, and retrieve information. For Obsidian users, integrating AI note-taking plugins can dramatically improve productivity and knowledge management. But with many options available, knowing what to look for can be tricky. This guide breaks down key features and considerations to help you choose the right AI plugin that fits your workflow and needs.
+The rise of AI-powered tools has transformed the way we capture, organize, and retrieve information. For Obsidian users, integrating AI note-taking plugins can dramatically improve productivity and knowledge management. But with many options available, knowing what to look for can be tricky. Start with [why supporting multiple AI providers matters for Obsidian users](/blog/why-supporting-multiple-ai-providers-matters-for-obsidian-users) if flexibility is important to you.
 
 ## Understanding Your Note-Taking Needs
 
@@ -98,6 +98,6 @@ Look for plugins that process data locally or have clear privacy policies. Avoid
 
 ## Conclusion
 
-Choosing the right AI note-taking plugin for Obsidian depends on your unique needs and how you want to enhance your knowledge workflow. Prioritize features like context awareness, summarization, intelligent linking, and customization while being mindful of privacy and flexibility. With the right tool, AI can become a powerful partner in managing your knowledge vault efficiently.
+Choosing the right AI note-taking plugin for Obsidian depends on your unique needs and how you want to enhance your knowledge workflow. Prioritize features like context awareness, summarization, intelligent linking, and customization while being mindful of privacy and flexibility. See also [why vault-native AI outperforms generic chatbots for note-taking](/blog/why-vault-native-ai-outperforms-generic-chatbots-for-note-taking).
 
 If you want to bring this workflow into Obsidian, Note Companion is one option to explore.

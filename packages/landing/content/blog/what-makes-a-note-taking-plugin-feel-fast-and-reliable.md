@@ -12,7 +12,7 @@ image: '/blog/images/what-makes-a-note-taking-plugin-feel-fast-and-reliable.png'
 
 ## The Importance of Speed and Reliability in Note-Taking Plugins
 
-In the world of knowledge management, speed and reliability are everything. When you're capturing ideas, linking notes, or researching, any lag or glitch can disrupt your flow and cost valuable time. A note-taking plugin that feels fast and reliable becomes an invisible assistant rather than a frustrating hurdle. But what exactly makes the difference? Let’s break down the core elements that contribute to a plugin’s performance and trustworthiness.
+In the world of knowledge management, speed and reliability are everything. When you're capturing ideas, linking notes, or researching, any lag or glitch can disrupt your flow and cost valuable time. A note-taking plugin that feels fast and reliable becomes an invisible assistant rather than a frustrating hurdle. For audio-heavy workflows, [making large-file transcription reliable for end users](/blog/making-large-file-transcription-reliable-for-end-users) applies the same reliability mindset. But what exactly makes the difference? Let’s break down the core elements that contribute to a plugin’s performance and trustworthiness.
 
 Knowledge workers rely heavily on the fluidity of their tools. The moment a plugin introduces delays or unpredictable behavior, it not only wastes precious seconds but also undermines focus and creativity. When ideas are flowing rapidly, even a small hesitation in the tool’s response can cause a user to lose their train of thought. Therefore, speed and reliability aren’t just technical metrics — they directly impact productivity and user satisfaction.
 
@@ -122,6 +122,6 @@ Speed and reliability are the foundation of any effective note-taking plugin. Th
 
 Remember that the best plugin for you depends on your specific workflow, vault size, and performance needs. Testing plugins on your setup and evaluating them with real tasks can help identify the right fit.
 
-If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It aims to deliver fast, reliable note management with a focus on seamless integration and minimal overhead.
+If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It aims to deliver fast, reliable note management with a focus on seamless integration and minimal overhead. When choosing plugins, [key features to consider in an AI note-taking plugin for Obsidian](/blog/key-features-to-consider-in-an-ai-note-taking-plugin-for-obsidian) is a useful companion guide.
 
 Ultimately, choosing a note-taking plugin is about empowering your creativity and productivity, ensuring that your tool supports your thinking rather than impeding it.

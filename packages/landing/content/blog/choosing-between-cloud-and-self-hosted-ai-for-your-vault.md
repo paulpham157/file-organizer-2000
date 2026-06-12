@@ -13,7 +13,7 @@ excerpt: 'Deciding between cloud and self-hosted AI for your vault involves weig
 
 As note-taking and knowledge management evolve, AI integration becomes a compelling way to supercharge your workflows. Whether it’s generating summaries, extracting insights, or linking ideas, AI can transform how you interact with your vault. But a critical question arises: should your AI run in the cloud or be self-hosted? Both options have distinct advantages and trade-offs that can significantly impact your experience, privacy, and control.
 
-This post explores the key considerations to help you decide which AI setup aligns with your vault and workflow.
+This post explores the key considerations to help you decide which AI setup aligns with your vault and workflow. If data ownership matters most, start with [why your second brain should be local-first](/blog/why-your-second-brain-should-be-local-first).
 
 ## The Appeal of Cloud-Based AI
 
@@ -86,7 +86,7 @@ This example highlights how personal priorities shape the decision.
 
 ## Balancing Privacy and Convenience
 
-Ultimately, the choice between cloud and self-hosted AI comes down to balancing privacy, convenience, cost, and control. For many users, a hybrid approach might even make sense: leveraging cloud AI for less sensitive tasks while reserving self-hosted tools for private or critical data.
+Ultimately, the choice between cloud and self-hosted AI comes down to balancing privacy, convenience, cost, and control. For many users, a hybrid approach might even make sense: leveraging cloud AI for less sensitive tasks while reserving self-hosted tools for private or critical data. See also [the case against cloud-only knowledge management](/blog/case-against-cloud-only-knowledge-management) for why local control matters.
 
 Experimenting with both setups on smaller projects can provide clarity on what fits best before fully committing.
 

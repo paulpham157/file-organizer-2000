@@ -15,7 +15,7 @@ In the fast-paced and information-rich world of academia, students and researche
 
 By integrating AI thoughtfully into daily academic workflows, users can not only save significant time but also improve the depth of their understanding while maintaining better organization of their work. Beyond mere automation, AI facilitates smarter work habits — enabling students and researchers to focus more on critical thinking, creativity, and knowledge synthesis rather than repetitive or tedious tasks.
 
-In this post, we explore practical, AI-driven workflows tailored specifically for students and researchers. Our focus will be on three core activities essential to academic success: note-taking, literature review, and idea synthesis. Importantly, these workflows are described in a software-agnostic manner, allowing you to adapt them to your preferred platforms and tools.
+In this post, we explore practical, AI-driven workflows tailored specifically for students and researchers. Our focus will be on three core activities essential to academic success: note-taking, literature review, and idea synthesis. For Obsidian-specific workflows, [best AI workflows for researchers](/blog/best-ai-workflows-for-researchers) goes deeper on the full research lifecycle.
 
 ---
 
@@ -136,4 +136,4 @@ A: Prefer AI tools that offer local processing or end-to-end encryption. Avoid u
 
 If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It integrates AI capabilities directly into your note-taking environment, facilitating seamless summarization, keyword extraction, and idea linking without leaving your knowledge base.
 
-By embracing AI thoughtfully, students and researchers can transform their workflows, gaining efficiency and deeper insights while preserving the essential human elements of critical thinking and creativity.
+By embracing AI thoughtfully, students and researchers can transform their workflows, gaining efficiency and deeper insights while preserving the essential human elements of critical thinking and creativity. See also [optimizing AI workflows for students and researchers](/blog/optimizing-ai-workflows-for-students-and-researchers) for additional tactics.

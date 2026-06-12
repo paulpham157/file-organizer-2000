@@ -17,6 +17,8 @@ But most second brains fail for one reason:
 
 **They're manual.**
 
+Before automating, read [how to build an AI-powered second brain (before you automate anything)](/blog/how-to-build-an-ai-powered-second-brain-before-you-automate-anything)—getting the foundation right matters more than wiring up workflows too early.
+
 If your system depends on willpower, it won't scale.
 
 This guide shows how to automate your second brain using Obsidian and AI—so your knowledge compounds without extra effort.
@@ -215,4 +217,4 @@ Once set up, it quietly works in the background—while you focus on what actual
 
 Want to build this system?
 
-Tools like Note Companion are designed to automate your Obsidian vault using AI that understands your notes, links, and thinking style.
+Tools like Note Companion are designed to automate your Obsidian vault using AI that understands your notes, links, and thinking style. For connecting ideas across your vault, see [using AI to connect ideas across your vault](/blog/using-ai-to-connect-ideas-across-your-vault).

@@ -6,7 +6,8 @@ import { ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BlogContent } from "../components/blog-content";
-import { getPostBySlug, getAllPosts } from "@/lib/blog";
+import { RelatedPosts } from "../components/related-posts";
+import { getPostBySlug, getAllPosts, getRelatedPosts } from "@/lib/blog";
 
 interface BlogPostPageProps {
   params: Promise<{
@@ -60,6 +61,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   if (!post) {
     notFound();
   }
+
+  const relatedPosts = getRelatedPosts(slug);
 
   return (
     <div className="bg-background">
@@ -119,6 +122,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
         {/* Article Content */}
         <BlogContent post={post} />
+
+        <RelatedPosts posts={relatedPosts} />
 
         {/* Footer */}
         <div className="mt-12 pt-8 border-t">

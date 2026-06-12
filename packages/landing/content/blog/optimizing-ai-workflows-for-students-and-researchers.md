@@ -11,7 +11,7 @@ excerpt: 'Explore practical AI-assisted workflows that help students and researc
 
 ## Understanding AI’s Role in Academic Workflows
 
-Artificial intelligence offers powerful tools to transform how students and researchers organize, analyze, and synthesize information. The rapid development of AI technologies has introduced new possibilities for handling the vast amount of academic content generated daily. Whether you're drafting a thesis, conducting a literature review, or managing research notes, integrating AI thoughtfully can save time and deepen understanding. The key is to use AI as an assistant rather than a crutch, blending automation with your critical thinking and domain expertise.
+Artificial intelligence offers powerful tools to transform how students and researchers organize, analyze, and synthesize information. The rapid development of AI technologies has introduced new possibilities for handling the vast amount of academic content generated daily. Whether you're drafting a thesis, conducting a literature review, or managing research notes, integrating AI thoughtfully can save time and deepen understanding. The key is to use AI as an assistant rather than a crutch, blending automation with your critical thinking and domain expertise. For a broader workflow overview, read [AI workflows for students and researchers](/blog/ai-workflows-for-students-and-researchers).
 
 AI can help alleviate the cognitive load involved in sifting through numerous sources by automating repetitive tasks and highlighting key insights. By doing so, it allows researchers and students to focus more on creative and analytical aspects of their work. Furthermore, AI tools can be customized to fit diverse disciplines, adapting to specific terminology and methodologies.
 
@@ -110,6 +110,6 @@ This workflow reduces redundant work and helps Maya focus on analysis and interp
 
 Integrating AI into academic workflows can empower students and researchers to work smarter, not harder. By leveraging AI for note-taking, literature review, writing assistance, and citation management, you can build a more efficient and insightful research process.
 
-The key is to use AI as a collaborative partner—augmenting your skills and freeing up time for higher-level thinking and creativity. As AI technologies evolve, staying informed about new tools and best practices will help you maintain an edge in your academic endeavors.
+The key is to use AI as a collaborative partner—augmenting your skills and freeing up time for higher-level thinking and creativity. For Obsidian-specific research workflows, see [best AI workflows for researchers](/blog/best-ai-workflows-for-researchers).
 
 If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It combines AI capabilities with Obsidian's powerful knowledge management features, enabling seamless integration of AI-assisted summaries, note linking, and writing support within a familiar environment.

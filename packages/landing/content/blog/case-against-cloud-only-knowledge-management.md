@@ -11,7 +11,7 @@ excerpt: 'Relying solely on cloud-based knowledge management can introduce risks
 
 ## Why Cloud-Only Knowledge Management Isn’t a One-Size-Fits-All Solution
 
-Cloud-based knowledge management solutions have surged in popularity, promising seamless access, automatic backups, and effortless collaboration. While these benefits are compelling, relying exclusively on cloud-only systems comes with trade-offs that many knowledge workers and Obsidian power users overlook. From privacy concerns to dependence on constant internet access, this post explores the key reasons to reconsider a cloud-only approach and why blending local control with cloud convenience might be a wiser strategy.
+Cloud-based knowledge management solutions have surged in popularity, promising seamless access, automatic backups, and effortless collaboration. While these benefits are compelling, relying exclusively on cloud-only systems comes with trade-offs that many knowledge workers and Obsidian power users overlook. A complementary perspective is [why your second brain should be local-first](/blog/why-your-second-brain-should-be-local-first)—privacy, speed, and control on your own device.
 
 ## Data Ownership and Privacy Concerns
 
@@ -86,4 +86,4 @@ A: Use cloud storage solutions that support end-to-end encryption or sync throug
 
 A: Plain text, Markdown, and other open standards are recommended. These formats are widely supported, easily portable, and less likely to become obsolete compared to proprietary formats.
 
-If you want to bring this workflow into Obsidian, Note Companion is one option to explore.
+If you want to bring this workflow into Obsidian, Note Companion is one option to explore. For AI deployment choices, see [choosing between cloud and self-hosted AI for your vault](/blog/choosing-between-cloud-and-self-hosted-ai-for-your-vault).

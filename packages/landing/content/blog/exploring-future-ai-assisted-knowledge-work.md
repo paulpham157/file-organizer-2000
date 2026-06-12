@@ -82,7 +82,7 @@ Through this AI-assisted workflow, the student reduces manual effort and cogniti
 
 ## Conclusion
 
-The future of AI-assisted knowledge work is one of augmentation and collaboration rather than replacement. By embracing AI as a trusted partner, knowledge workers can unlock new levels of productivity, creativity, and insight. The key will be thoughtful integration that balances automation with human judgment, ensuring ethical considerations and human agency remain front and center.
+The future of AI-assisted knowledge work is one of augmentation and collaboration rather than replacement. By embracing AI as a trusted partner, knowledge workers can unlock new levels of productivity, creativity, and insight. The key will be thoughtful integration that balances automation with human judgment, ensuring ethical considerations and human agency remain front and center. For what's available today, see [why context-aware AI transforms note-taking apps](/blog/why-context-aware-ai-transforms-note-taking-apps) and [why vault-native AI outperforms generic chatbots](/blog/why-vault-native-ai-outperforms-generic-chatbots-for-note-taking).
 
 As AI tools continue to mature, organizations and individuals who adapt proactively will gain a competitive edge in an increasingly information-driven world. If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It provides AI-powered assistance tightly integrated with your notes, enabling smarter research, organization, and writing.
 

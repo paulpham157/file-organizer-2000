@@ -22,7 +22,7 @@ The best AI workflows for researchers combine:
 - Context-aware AI assistance
 - Long-term knowledge retention
 
-This guide walks through proven AI-powered research workflows, with real examples you can implement today using Obsidian.
+This guide walks through proven AI-powered research workflows, with real examples you can implement today using Obsidian. For a software-agnostic take on the same themes, see [optimizing AI workflows for students and researchers](/blog/optimizing-ai-workflows-for-students-and-researchers).
 
 ## Why Most AI Tools Fail Researchers
 
@@ -196,4 +196,4 @@ Then AI belongs inside your second brain, not in a chat window.
 
 Want to build this workflow yourself?
 
-Tools like Note Companion are designed specifically to bring context-aware AI into Obsidian—so your notes finally work for you.
+Tools like Note Companion are designed specifically to bring context-aware AI into Obsidian—so your notes finally work for you. For a broader academic workflow guide, read [AI workflows for students and researchers](/blog/ai-workflows-for-students-and-researchers).

@@ -12,7 +12,7 @@ image: '/blog/images/why-your-second-brain-should-be-local-first.png'
 
 ## The Concept of a Second Brain
 
-A "second brain" is a personal knowledge management system designed to help you capture, organize, and retrieve information effortlessly. Whether you’re a writer, researcher, student, or knowledge worker, a second brain acts as an external memory, freeing up mental space and boosting creativity. Many people lean on cloud-based tools for this, but there’s a compelling case for making your second brain local-first.
+A "second brain" is a personal knowledge management system designed to help you capture, organize, and retrieve information effortlessly. Whether you’re a writer, researcher, student, or knowledge worker, a second brain acts as an external memory, freeing up mental space and boosting creativity. Many people lean on cloud-based tools for this, but there’s a compelling case for making your second brain local-first. For a broader critique of cloud-only setups, see [the case against cloud-only knowledge management](/blog/case-against-cloud-only-knowledge-management).
 
 A local-first approach means your notes and data live primarily on your own device, rather than entirely in the cloud. You might sync or back up to the cloud, but the authoritative copy is on your local storage. This setup brings a unique set of advantages that can transform how you interact with your knowledge.
 
@@ -66,6 +66,6 @@ The key is that the cloud acts as a backup or sync option, not the primary sourc
 
 ## Conclusion
 
-Choosing a local-first second brain empowers you with privacy, speed, control, and resilience. It protects your knowledge assets from unpredictable cloud service changes and puts you in the driver’s seat of your information management.
+Choosing a local-first second brain empowers you with privacy, speed, control, and resilience. It protects your knowledge assets from unpredictable cloud service changes and puts you in the driver's seat of your information management. When you're ready to add AI, [choosing between cloud and self-hosted AI](/blog/choosing-between-cloud-and-self-hosted-ai-for-your-vault) helps you decide where processing should happen.
 
-If you want to bring this workflow into Obsidian, Note Companion is one option to explore.
+If you want to bring this workflow into Obsidian, Note Companion is one option to explore. For a longer-term view, read [exploring the future of AI-assisted knowledge work](/blog/exploring-future-ai-assisted-knowledge-work).

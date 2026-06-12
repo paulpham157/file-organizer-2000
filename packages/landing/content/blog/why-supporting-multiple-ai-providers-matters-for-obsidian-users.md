@@ -14,7 +14,7 @@ image: '/blog/images/why-supporting-multiple-ai-providers-matters-for-obsidian-u
 
 Artificial intelligence is becoming a staple in modern knowledge management, and Obsidian users are no exception. Many rely on AI-powered tools and integrations to boost productivity, generate ideas, summarize notes, or automate repetitive tasks. As AI capabilities become more sophisticated, the choice of which AI provider to use can significantly impact the overall note-taking experience.
 
-Supporting multiple AI providers within Obsidian is more than just a technical detail—it’s a strategic advantage for users who want flexibility, reliability, and control over their workflows. This post explores why multi-provider support matters and how it can shape a more resilient and personalized knowledge environment.
+Supporting multiple AI providers within Obsidian is more than just a technical detail—it’s a strategic advantage for users who want flexibility, reliability, and control over their workflows. This post explores why multi-provider support matters and how it can shape a more resilient and personalized knowledge environment. Use [key features to consider in an AI note-taking plugin for Obsidian](/blog/key-features-to-consider-in-an-ai-note-taking-plugin-for-obsidian) as a checklist when evaluating tools.
 
 ## Flexibility to Choose the Right AI for the Task
 
@@ -68,6 +68,6 @@ Rather than locking users into a single AI ecosystem, multiple-provider support 
 
 ## Conclusion
 
-Incorporating multiple AI providers into Obsidian workflows offers significant benefits: flexibility in choosing the best AI for specific tasks, increased reliability through redundancy, better cost management, and encouragement of innovation. While there are integration challenges, the payoff is a more robust, personalized, and user-centric knowledge management experience.
+Incorporating multiple AI providers into Obsidian workflows offers significant benefits: flexibility in choosing the best AI for specific tasks, increased reliability through redundancy, better cost management, and encouragement of innovation. For deployment trade-offs, see [choosing between cloud and self-hosted AI for your vault](/blog/choosing-between-cloud-and-self-hosted-ai-for-your-vault).
 
 If you want to bring this workflow into Obsidian, Note Companion is one option to explore.

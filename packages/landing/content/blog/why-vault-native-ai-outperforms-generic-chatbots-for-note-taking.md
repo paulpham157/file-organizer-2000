@@ -12,7 +12,7 @@ image: '/blog/images/why-vault-native-ai-outperforms-generic-chatbots-for-note-t
 
 ## Introduction
 
-Artificial intelligence is revolutionizing how we manage information, especially in personal knowledge bases and note-taking apps like Obsidian. Generic chatbots have become a common way to interact with AI, but when it comes to deep, meaningful engagement with your notes, vault-native AI offers distinct advantages. This post explores why AI integrated directly with your vault outperforms general-purpose chatbots for note-taking and knowledge management.
+Artificial intelligence is revolutionizing how we manage information, especially in personal knowledge bases and note-taking apps like Obsidian. Generic chatbots have become a common way to interact with AI, but when it comes to deep, meaningful engagement with your notes, vault-native AI offers distinct advantages. For how context changes the experience, see [why context-aware AI transforms note-taking apps](/blog/why-context-aware-ai-transforms-note-taking-apps).
 
 ## The Limits of Generic Chatbots
 
@@ -86,6 +86,6 @@ Despite these hurdles, the benefits often justify the effort for power users and
 
 ## Conclusion
 
-While generic chatbots provide a helpful introduction to AI-assisted interactions, vault-native AI delivers a more powerful, context-rich, and secure approach for note-taking and knowledge management. By operating directly within your vault, this AI can unlock deeper insights, streamline workflows, and protect your privacy. For anyone serious about managing complex information, vault-native AI represents the future of intelligent note-taking.
+While generic chatbots provide a helpful introduction to AI-assisted interactions, vault-native AI delivers a more powerful, context-rich, and secure approach for note-taking and knowledge management. By operating directly within your vault, this AI can unlock deeper insights, streamline workflows, and protect your privacy. Learn how connections compound in [using AI to connect ideas across your vault](/blog/using-ai-to-connect-ideas-across-your-vault).
 
 If you want to bring this workflow into Obsidian, Note Companion is one option to explore.

@@ -14,7 +14,7 @@ image: '/blog/images/taming-backlog-strategies-process-unorganized-notes.png'
 
 Many knowledge workers and enthusiasts accumulate notes faster than they can organize them. Over time, this backlog of unprocessed notes can feel overwhelming—scattered ideas, half-formed thoughts, and random snippets clutter your digital space. This backlog not only hampers productivity but also obscures valuable insights, making it difficult to retrieve important information when it's needed the most. The sheer volume of unorganized notes can create a sense of cognitive overload, where the mental effort required to sift through disarrayed information detracts from actual creative or analytical work.
 
-The key to overcoming this challenge lies in adopting a systematic approach to processing and organizing notes. Whether you use Obsidian, Evernote, Notion, or even a traditional paper system, the principles remain the same: create a workflow that turns chaos into clarity. Developing such a process not only improves your efficiency but also encourages a habit of intentional knowledge management, which can enhance learning, decision-making, and long-term retention.
+The key to overcoming this challenge lies in adopting a systematic approach to processing and organizing notes. Whether you use Obsidian, Evernote, Notion, or even a traditional paper system, the principles remain the same: create a workflow that turns chaos into clarity. For a complementary step-by-step approach, see [tackling your backlog of unorganized notes](/blog/tackling-backlog-unorganized-notes).
 
 ## Why Backlogs Happen and Why They Matter
 
@@ -134,4 +134,4 @@ By anticipating these obstacles and having strategies in place, you can maintain
 
 A backlog of unorganized notes can feel like a barrier to productivity, but with a clear process, it becomes manageable. By setting aside dedicated time, triaging notes, creating a processing pipeline, and maintaining consistent organization habits, you can transform scattered fragments into a powerful knowledge network. This transformation not only improves efficiency but also enhances your capacity to learn, create, and share knowledge.
 
-If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It can help automate parts of this process, integrate tagging and linking features, and provide templates to standardize note entries. Ultimately, the goal is to build a personal knowledge system that evolves with your needs and empowers your work.
+If you want to bring this workflow into Obsidian, Note Companion is one option to explore. It can help automate parts of this process, integrate tagging and linking features, and provide templates to standardize note entries. For a shorter step-by-step variant, see [tackling your backlog of unorganized notes](/blog/tackling-backlog-unorganized-notes).

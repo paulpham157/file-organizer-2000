@@ -60,3 +60,30 @@ export function getAllCategories(): string[] {
   const categories = new Set(posts.map((post) => post.category));
   return Array.from(categories).sort();
 }
+
+export function getRelatedPosts(slug: string, limit = 3): BlogPost[] {
+  const posts = getAllPosts();
+  const current = posts.find((post) => post.slug === slug);
+  if (!current) {
+    return [];
+  }
+
+  const normalizeTag = (tag: string) =>
+    tag.toLowerCase().replace(/[\s_-]+/g, "");
+
+  const currentTags = new Set(current.tags.map(normalizeTag));
+
+  const scored = posts
+    .filter((post) => post.slug !== slug)
+    .map((post) => {
+      const sharedTags = post.tags.filter((tag) =>
+        currentTags.has(normalizeTag(tag))
+      ).length;
+      const sameCategory = post.category === current.category ? 1 : 0;
+      return { post, score: sharedTags * 2 + sameCategory };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || (a.post.date < b.post.date ? 1 : -1));
+
+  return scored.slice(0, limit).map(({ post }) => post);
+}

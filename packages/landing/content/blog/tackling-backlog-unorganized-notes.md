@@ -16,7 +16,7 @@ If you’ve been using Obsidian or any note-taking tool for a while, chances are
 
 The feeling of being buried under a mountain of disorganized information is something many knowledge workers face. This can lead to frustration, procrastination, and even abandonment of the note-taking system altogether. Recognizing this as a common hurdle helps reduce the anxiety around tackling the backlog.
 
-Before diving into organization, it’s important to acknowledge that this is a common issue and a natural part of any knowledge management journey. The goal isn’t perfection but creating a manageable, logical structure that serves your workflow. Remember, the purpose of your notes is to support your thinking and productivity — not to create an idealized filing system.
+Before diving into organization, it’s important to acknowledge that this is a common issue and a natural part of any knowledge management journey. The goal isn’t perfection but creating a manageable, logical structure that serves your workflow. Remember, the purpose of your notes is to support your thinking and productivity — not to create an idealized filing system. For additional strategies, see [taming your backlog: strategies to process unorganized notes](/blog/taming-backlog-strategies-process-unorganized-notes).
 
 ## Set Clear Goals for Your Note Organization
 
