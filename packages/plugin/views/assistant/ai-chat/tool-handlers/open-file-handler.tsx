@@ -54,7 +54,7 @@ export function OpenFileHandler({
       }
     };
 
-    execute();
+    void execute();
   }, [toolInvocation, handleAddResult, app]);
 
   const args = toolInvocation.args as OpenFileArgs;

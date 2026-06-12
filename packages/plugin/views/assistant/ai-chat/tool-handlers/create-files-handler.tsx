@@ -1,12 +1,6 @@
 import React, { useRef, useState } from "react";
-import { App, TFile, Notice } from "obsidian";
-import { ToolInvocation } from "ai";
-
-interface CreateFilesHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
-}
+import { Notice } from "obsidian";
+import { ToolHandlerProps, getToolArgs } from "./types";
 
 interface FileToCreate {
   fileName: string;
@@ -14,34 +8,55 @@ interface FileToCreate {
   folder?: string;
 }
 
+interface CreateFilesArgs {
+  files: FileToCreate[];
+  linkInCurrentFile?: boolean;
+  message?: string;
+}
+
+interface CreateFileResult {
+  path: string;
+  success: boolean;
+  error?: string;
+}
+
+function normalizeFileToCreate(value: unknown): FileToCreate | null {
+  if (typeof value !== "object" || value === null) return null;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.fileName !== "string" || typeof obj.content !== "string") {
+    return null;
+  }
+  return {
+    fileName: obj.fileName,
+    content: obj.content,
+    folder: typeof obj.folder === "string" ? obj.folder : "",
+  };
+}
+
 export function CreateFilesHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: CreateFilesHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const [createdFiles, setCreatedFiles] = useState<string[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
 
   const createFiles = async (
     files: FileToCreate[],
     linkInCurrentFile: boolean = true
   ) => {
-    const results: Array<{ path: string; success: boolean; error?: string }> = [];
+    const results: CreateFileResult[] = [];
     const createdPaths: string[] = [];
 
     for (const fileData of files) {
       try {
-        // Normalize file name
         const fileName = fileData.fileName.endsWith(".md")
           ? fileData.fileName
           : `${fileData.fileName}.md`;
 
-        // Determine full path
         const folder = fileData.folder || "";
         const fullPath = folder ? `${folder}/${fileName}` : fileName;
 
-        // Check if folder exists, create if necessary
         if (folder) {
           const folderExists = app.vault.getAbstractFileByPath(folder);
           if (!folderExists) {
@@ -49,7 +64,6 @@ export function CreateFilesHandler({
           }
         }
 
-        // Check if file already exists
         const existingFile = app.vault.getAbstractFileByPath(fullPath);
         if (existingFile) {
           results.push({
@@ -60,7 +74,6 @@ export function CreateFilesHandler({
           continue;
         }
 
-        // Create the file
         await app.vault.create(fullPath, fileData.content);
         createdPaths.push(fullPath);
 
@@ -69,15 +82,16 @@ export function CreateFilesHandler({
           success: true,
         });
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         results.push({
           path: fileData.fileName,
           success: false,
-          error: error.message,
+          error: errorMessage,
         });
       }
     }
 
-    // Add links to current file if requested
     if (linkInCurrentFile && createdPaths.length > 0) {
       try {
         const activeFile = app.workspace.getActiveFile();
@@ -85,7 +99,6 @@ export function CreateFilesHandler({
           const currentContent = await app.vault.read(activeFile);
           const links = createdPaths
             .map((path) => {
-              // Remove .md extension and create wikilink
               const linkText = path.replace(/\.md$/, "");
               return `- [[${linkText}]]`;
             })
@@ -106,18 +119,15 @@ export function CreateFilesHandler({
     const handleCreateFiles = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { files, linkInCurrentFile, message } = toolInvocation.args;
+        const { files, linkInCurrentFile } =
+          getToolArgs<CreateFilesArgs>(toolInvocation.args);
 
-        // Normalize folder field - ensure it's always a string (defensive programming)
-        const normalizedFiles = files.map((f: any) => ({
-          ...f,
-          folder: f.folder ?? "",
-        }));
+        const normalizedFiles = files
+          .map(normalizeFileToCreate)
+          .filter((f): f is FileToCreate => f !== null);
 
-        // Normalize linkInCurrentFile - default to true if not provided
         const normalizedLinkInCurrentFile = linkInCurrentFile ?? true;
 
-        setIsCreating(true);
         try {
           const { results, createdPaths } = await createFiles(
             normalizedFiles,
@@ -143,23 +153,23 @@ export function CreateFilesHandler({
             `Created ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ""}`
           );
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           handleAddResult(
             JSON.stringify({
               success: false,
-              error: `Failed to create files: ${error.message}`,
+              error: `Failed to create files: ${errorMessage}`,
             })
           );
-          new Notice(`Error creating files: ${error.message}`);
-        } finally {
-          setIsCreating(false);
+          new Notice(`Error creating files: ${errorMessage}`);
         }
       }
     };
 
-    handleCreateFiles();
+    void handleCreateFiles();
   }, [toolInvocation, handleAddResult, app]);
 
-  const { files, message } = toolInvocation.args;
+  const { files, message } = getToolArgs<CreateFilesArgs>(toolInvocation.args);
   const isComplete = "result" in toolInvocation;
 
   return (

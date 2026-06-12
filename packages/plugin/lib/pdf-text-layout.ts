@@ -26,8 +26,8 @@ function median(sorted: number[]): number {
   if (sorted.length === 0) return 0;
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1
-    ? sorted[mid]!
-    : (sorted[mid - 1]! + sorted[mid]!) / 2;
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function isTextItem(item: unknown): item is {
@@ -146,7 +146,7 @@ export function layoutPdfTextItems(
   for (const item of sorted) {
     if (current.length === 0) {
       current.push(item);
-    } else if (Math.abs(item.y - current[0]!.y) <= lineTol) {
+    } else if (Math.abs(item.y - current[0].y) <= lineTol) {
       current.push(item);
     } else {
       lineGroups.push(current);
@@ -172,9 +172,9 @@ export function layoutPdfTextItems(
   const parts: string[] = [];
 
   for (let i = 0; i < built.length; i++) {
-    const line = built[i]!;
+    const line = built[i];
     if (i > 0) {
-      const prev = built[i - 1]!;
+      const prev = built[i - 1];
       const dy = prev.y - line.y;
       if (dy > paraThreshold) {
         parts.push("", line.text);

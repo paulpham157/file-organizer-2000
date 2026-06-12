@@ -241,7 +241,7 @@ export const useContextItems = create<ContextItemsState>((set, get) => ({
       const collection = { ...state[collectionKey] };
       delete collection[id];
 
-      return { [collectionKey]: collection } as Partial<ContextCollections>;
+      return { [collectionKey]: collection };
     }),
 
   setCurrentFile: file =>
@@ -336,10 +336,13 @@ export const useContextItems = create<ContextItemsState>((set, get) => ({
 
       const newState = { ...state };
 
+type ContextItem = ContextCollections[keyof ContextCollections][string];
+
       collections.forEach(collection => {
         const items = state[collection];
         Object.entries(items).forEach(([id, item]) => {
-          if (item.reference === reference) {
+          const contextItem = item as ContextItem;
+          if (contextItem.reference === reference) {
             delete newState[collection][id];
           }
         });
@@ -408,14 +411,14 @@ export const addYouTubeContext = (video: {
   title: string;
   transcript: string;
 }) => {
-  console.log("[addYouTubeContext] Adding video to store:", {
+  console.debug("[addYouTubeContext] Adding video to store:", {
     videoId: video.videoId,
     title: video.title,
     transcriptLength: video.transcript.length,
   });
 
   const store = useContextItems.getState();
-  console.log("[addYouTubeContext] Store state before add:", {
+  console.debug("[addYouTubeContext] Store state before add:", {
     hasYoutubeVideos: !!store.youtubeVideos,
     youtubeVideosType: typeof store.youtubeVideos,
     youtubeVideosKeys: store.youtubeVideos ? Object.keys(store.youtubeVideos) : [],
@@ -435,7 +438,7 @@ export const addYouTubeContext = (video: {
   // Verify it was added
   const storeAfter = useContextItems.getState();
   const addedVideo = storeAfter.youtubeVideos?.[`youtube-${video.videoId}`];
-  console.log("[addYouTubeContext] Store state after add:", {
+  console.debug("[addYouTubeContext] Store state after add:", {
     hasYoutubeVideos: !!storeAfter.youtubeVideos,
     youtubeVideosKeys: storeAfter.youtubeVideos ? Object.keys(storeAfter.youtubeVideos) : [],
     videoAdded: !!addedVideo,
@@ -566,7 +569,7 @@ export const getUniqueReferences = () => {
 
   Object.values(collections).forEach(collection => {
     Object.values(collection).forEach(item => {
-      references.add(item.reference);
+      references.add((item as BaseContextItem).reference);
     });
   });
   const referencesArray = Array.from(references);

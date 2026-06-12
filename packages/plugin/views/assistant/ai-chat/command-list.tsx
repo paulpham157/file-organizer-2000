@@ -11,7 +11,7 @@ interface CommandItem {
   icon: React.ReactNode;
   category: "format" | "action" | "ai";
   command?: string;
-  args?: any;
+  args?: unknown;
   action?: string;
   templateName?: string;
 }
@@ -37,7 +37,7 @@ export const CommandList = forwardRef<
 
   const selectItem = (index: number) => {
     const item = props.items[index];
-    console.log("Command selected:", item);
+    console.debug("Command selected:", item);
     if (item) {
       props.command(item);
     }

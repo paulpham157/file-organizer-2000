@@ -1,4 +1,11 @@
+import React from "react";
 import { ReactRenderer } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
+import type {
+  SuggestionKeyDownProps,
+  SuggestionProps,
+} from "@tiptap/suggestion";
+import type { Instance } from "tippy.js";
 import tippy from "tippy.js";
 import CommandList from "./command-list";
 import {
@@ -21,9 +28,22 @@ interface CommandItem {
   icon: React.ReactNode;
   category: "format" | "action" | "ai";
   command?: string;
-  args?: any;
+  args?: unknown;
   action?: string;
   templateName?: string;
+}
+
+interface SlashEditorStorage {
+  templates?: string[];
+}
+
+type SlashSuggestionProps = SuggestionProps<CommandItem, CommandItem>;
+
+function getTemplateNames(editor: Editor | undefined): string[] {
+  if (!editor) return [];
+  const storage = editor.storage as SlashEditorStorage;
+  const templates = storage.templates;
+  return Array.isArray(templates) ? templates : [];
 }
 
 // Helper function to get icon for template name
@@ -100,16 +120,13 @@ const baseCommands: CommandItem[] = [
 ];
 
 const suggestion = {
-  items: ({ query, editor }: { query?: string; editor?: any } = {}) => {
+  items: ({ query, editor }: { query?: string; editor?: Editor } = {}) => {
     const searchQuery = query || "";
-    console.log("Slash command items requested, query:", searchQuery);
+    console.debug("Slash command items requested, query:", searchQuery);
 
-    // Get template names from editor storage, with fallback to empty array
     let templateNames: string[] = [];
     try {
-      if (editor && editor.storage && editor.storage.templates) {
-        templateNames = editor.storage.templates;
-      }
+      templateNames = getTemplateNames(editor);
     } catch (error) {
       console.warn("Error accessing editor storage for templates:", error);
       templateNames = [];
@@ -139,17 +156,17 @@ const suggestion = {
         cmd.description?.toLowerCase().includes(lowerQuery) ||
         cmd.id.toLowerCase().includes(lowerQuery)
     );
-    console.log("Filtered commands:", filtered.length);
+    console.debug("Filtered commands:", filtered.length);
     return filtered;
   },
 
   render: () => {
     let reactRenderer: ReactRenderer;
-    let popup: any[];
+    let popup: Instance[];
 
     return {
-      onStart: (props: any) => {
-        console.log("Slash command menu started", props);
+      onStart: (props: SlashSuggestionProps) => {
+        console.debug("Slash command menu started", props);
         if (!props.clientRect) {
           console.warn("No clientRect provided for slash command");
           return;
@@ -157,7 +174,7 @@ const suggestion = {
 
         // Create command handler that will be called when item is selected
         const commandHandler = (item: CommandItem) => {
-          console.log("Slash command executed:", item, props);
+          console.debug("Slash command executed:", item, props);
           const { editor, range } = props;
 
           // Remove `/query` from the document for every slash pick (same as format).
@@ -172,7 +189,7 @@ const suggestion = {
 
           // Handle format commands - trigger actual formatting (not just insert text)
           if (item.action === "format" && item.templateName) {
-            setTimeout(() => {
+            window.setTimeout(() => {
               const event = new CustomEvent("slashCommand", {
                 detail: {
                   action: "format",
@@ -184,22 +201,22 @@ const suggestion = {
                 cancelable: true,
               });
               document.dispatchEvent(event);
-              console.log("Dispatched format command event:", item.templateName);
+              console.debug("Dispatched format command event:", item.templateName);
             }, 0);
             return true;
           }
 
           // Handle action commands (parent listens on document)
           if (item.action) {
-            console.log("Dispatching action command:", item.action);
-            setTimeout(() => {
+            console.debug("Dispatching action command:", item.action);
+            window.setTimeout(() => {
               const event = new CustomEvent("slashCommand", {
                 detail: { action: item.action, item, editor },
                 bubbles: true,
                 cancelable: true,
               });
               document.dispatchEvent(event);
-              console.log("Dispatched slashCommand event:", item.action);
+              console.debug("Dispatched slashCommand event:", item.action);
             }, 0);
           }
 
@@ -223,10 +240,10 @@ const suggestion = {
           trigger: "manual",
           placement: "bottom-start",
         });
-        console.log("Slash command popup created");
+        console.debug("Slash command popup created");
       },
 
-      onUpdate(props: any) {
+      onUpdate(props: SlashSuggestionProps) {
         if (reactRenderer) {
           reactRenderer.updateProps(props);
         }
@@ -240,7 +257,7 @@ const suggestion = {
         });
       },
 
-      onKeyDown(props: any) {
+      onKeyDown(props: SuggestionKeyDownProps) {
         if (props.event.key === "Escape") {
           if (popup && popup[0]) {
             popup[0].hide();
@@ -248,7 +265,10 @@ const suggestion = {
           return true;
         }
 
-        return reactRenderer?.ref?.onKeyDown(props);
+        const commandListRef = reactRenderer?.ref as
+          | { onKeyDown?: (args: SuggestionKeyDownProps) => boolean }
+          | null;
+        return commandListRef?.onKeyDown?.(props) ?? false;
       },
 
       onExit() {
@@ -260,7 +280,7 @@ const suggestion = {
         }
       },
 
-      command: (props: any) => {
+      command: (_props: SlashSuggestionProps) => {
         // This function is called by Tiptap to get the command handler
         // We'll create the handler in onStart where we have access to props
         // For now, return a no-op function - the real handler is set in onStart

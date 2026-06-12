@@ -5,19 +5,23 @@ import { TFile } from "obsidian";
 
 const MAX_CONCURRENT_TASKS = 5;
 
+export interface QueueTaskMetadata {
+  hash: string;
+}
+
 interface QueueItem<T> {
   hash: string;
   data: T;
-  metadata?: Record<string, any>;
+  metadata?: QueueTaskMetadata;
   addedAt: number;
 }
 
 interface QueueOptions<T> {
   concurrency?: number;
   timeout?: number;
-  onProcess: (item: T, metadata?: Record<string, any>) => Promise<void>;
-  onComplete?: (item: T, metadata?: Record<string, any>) => void;
-  onError?: (error: Error, item: T, metadata?: Record<string, any>) => void;
+  onProcess: (item: T, metadata?: QueueTaskMetadata) => Promise<void>;
+  onComplete?: (item: T, metadata?: QueueTaskMetadata) => void;
+  onError?: (error: Error, item: T, metadata?: QueueTaskMetadata) => void;
 }
 
 interface QueueStatus {
@@ -46,8 +50,8 @@ export class Queue<T> extends EventEmitter {
     this.options = {
       concurrency: MAX_CONCURRENT_TASKS,
       timeout: 30000,
-      onComplete: options.onComplete || ((item: T, metadata?: Record<string, any>) => {}),
-      onError: options.onError || ((error: Error, item: T, metadata?: Record<string, any>) => {}),
+      onComplete: options.onComplete || ((item: T, metadata?: QueueTaskMetadata) => {}),
+      onError: options.onError || ((error: Error, item: T, metadata?: QueueTaskMetadata) => {}),
       ...options
     };
     this.idService = IdService.getInstance();
@@ -66,7 +70,7 @@ export class Queue<T> extends EventEmitter {
     this.queue.push(hash);
     
     if (this.processing.size < this.options.concurrency) {
-      this.processNext();
+      void this.processNext();
     }
 
     return hash;
@@ -87,7 +91,7 @@ export class Queue<T> extends EventEmitter {
 
     try {
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Processing timeout')), this.options.timeout);
+        window.setTimeout(() => reject(new Error('Processing timeout')), this.options.timeout);
       });
 
       await Promise.race([
@@ -117,7 +121,7 @@ export class Queue<T> extends EventEmitter {
       this.emit('statsUpdated', this.getStats());
 
       if (this.queue.length > 0) {
-        this.processNext();
+        void this.processNext();
       } else if (this.processing.size === 0) {
         this.emit('drain');
       }
@@ -154,7 +158,7 @@ export class Queue<T> extends EventEmitter {
   public resume(): void {
     this.emit('resume');
     while (this.processing.size < this.options.concurrency && this.queue.length > 0) {
-      this.processNext();
+      void this.processNext();
     }
   }
 

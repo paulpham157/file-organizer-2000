@@ -50,7 +50,7 @@ export function ExtractHighlightsHandler({
                 JSON.stringify({
                   error: "No active editor",
                   hint: "Open a note and select text, or use scope: 'document'.",
-                } as ExtractHighlightsError)
+                })
               );
               return;
             }
@@ -60,7 +60,7 @@ export function ExtractHighlightsHandler({
                 JSON.stringify({
                   error: "No selection",
                   hint: "Select text in the editor or use scope: 'document'.",
-                } as ExtractHighlightsError)
+                })
               );
               return;
             }
@@ -69,7 +69,7 @@ export function ExtractHighlightsHandler({
               JSON.stringify({
                 scope: "selection",
                 content,
-              } as ExtractHighlightsSuccess)
+              })
             );
             return;
           }
@@ -83,7 +83,7 @@ export function ExtractHighlightsHandler({
                 JSON.stringify({
                   error: "No file found",
                   hint: "Open a note or pass a valid filePath from the Attached file paths.",
-                } as ExtractHighlightsError)
+                })
               );
               return;
             }
@@ -94,7 +94,7 @@ export function ExtractHighlightsHandler({
                 scope: "document",
                 filePath: file.path,
                 content: truncated,
-              } as ExtractHighlightsSuccess)
+              })
             );
             return;
           }
@@ -106,7 +106,7 @@ export function ExtractHighlightsHandler({
                 JSON.stringify({
                   error: "No file paths provided",
                   hint: "Pass filePaths from the Attached file paths for scope 'files'.",
-                } as ExtractHighlightsError)
+                })
               );
               return;
             }
@@ -128,7 +128,7 @@ export function ExtractHighlightsHandler({
                 scope: "files",
                 filePaths: results.map((r) => r.path),
                 content: results,
-              } as ExtractHighlightsSuccess)
+              })
             );
           }
         } catch (err) {
@@ -136,12 +136,12 @@ export function ExtractHighlightsHandler({
           handleAddResult(
             JSON.stringify({
               error: `Failed to extract content: ${message}`,
-            } as ExtractHighlightsError)
+            })
           );
         }
       }
     };
-    run();
+    void run();
   }, [toolInvocation, handleAddResult, app]);
 
   const isComplete = "result" in toolInvocation;

@@ -5,7 +5,6 @@ import {
   Action,
   FileStatus,
 } from "../../inbox/services/record-manager";
-import moment from "moment";
 import {
   Clock,
   Play,
@@ -87,7 +86,7 @@ const LogEntryDisplay: React.FC<{ entry: LogEntry; step: Action }> = ({
 
       {/* Timestamp */}
       <span className="text-[--text-muted] w-20 text-xs">
-        {moment(entry.timestamp).format("HH:mm:ss")}
+        {window.moment(entry.timestamp).format("HH:mm:ss")}
       </span>
 
       {/* Step name */}
@@ -187,12 +186,12 @@ const EssentialInfoDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
     const found = Object.entries(record.logs).find(([actionKey]) =>
       actionKey.includes(actionContains)
     );
-    return found ? (found[1] as LogEntry).timestamp : null;
+    return found ? (found[1]).timestamp : null;
   };
 
   // Format timestamp using moment
   const formatTimestamp = (ts: string | null): string => {
-    return ts ? moment(ts).format("HH:mm:ss") : "";
+    return ts ? window.moment(ts).format("HH:mm:ss") : "";
   };
 
   // Get file extension
@@ -257,14 +256,14 @@ const EssentialInfoDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
             className="text-[--text-accent] cursor-pointer hover:underline"
             onClick={() => {
               if (record.file) {
-                plugin.app.workspace.getLeaf().openFile(record.file);
+                void plugin.app.workspace.getLeaf().openFile(record.file);
               } else {
                 const filePath = record.newPath
                   ? `${record.newPath}/${record.newName || record.originalName}`
                   : record.newName || record.originalName;
                 const file = plugin.app.vault.getAbstractFileByPath(filePath);
                 if (file instanceof TFile) {
-                  plugin.app.workspace.getLeaf().openFile(file);
+                  void plugin.app.workspace.getLeaf().openFile(file);
                 } else {
                   new Notice("File not found");
                 }
@@ -286,7 +285,7 @@ const EssentialInfoDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
             className="text-[--text-accent] cursor-pointer hover:underline"
             onClick={() => {
               if (record.file) {
-                plugin.app.workspace.getLeaf().openFile(record.file);
+                void plugin.app.workspace.getLeaf().openFile(record.file);
               } else {
                 // Try to construct path from newPath and newName/originalName
                 const fileName = record.newName || record.originalName;
@@ -297,7 +296,7 @@ const EssentialInfoDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
                   : fileName;
                 const file = plugin.app.vault.getAbstractFileByPath(filePath);
                 if (file instanceof TFile) {
-                  plugin.app.workspace.getLeaf().openFile(file);
+                  void plugin.app.workspace.getLeaf().openFile(file);
                 } else {
                   new Notice("File not found");
                 }
@@ -341,10 +340,10 @@ const EssentialInfoDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
                 const templatePath = `${plugin.settings.templatePaths}/${record.classification}.md`;
                 const templateFile =
                   plugin.app.vault.getAbstractFileByPath(templatePath);
-                if (templateFile) {
-                  plugin.app.workspace
+                if (templateFile instanceof TFile) {
+                  void plugin.app.workspace
                     .getLeaf()
-                    .openFile(templateFile as TFile);
+                    .openFile(templateFile);
                 } else {
                   // If template file not found, show notification
                   new Notice(`Template file not found: ${templatePath}`);
@@ -439,7 +438,7 @@ function FileCard({ record }: { record: FileRecord }) {
                 e.stopPropagation();
                 if (record.file) {
                   // Open the actual file if it exists
-                  plugin.app.workspace.getLeaf().openFile(record.file);
+                  void plugin.app.workspace.getLeaf().openFile(record.file);
                 } else {
                   // Fallback: try to open by path if file reference is missing
                   const filePath = record.newPath
@@ -449,7 +448,7 @@ function FileCard({ record }: { record: FileRecord }) {
                     : record.originalName;
                   const file = plugin.app.vault.getAbstractFileByPath(filePath);
                   if (file instanceof TFile) {
-                    plugin.app.workspace.getLeaf().openFile(file);
+                    void plugin.app.workspace.getLeaf().openFile(file);
                   } else {
                     new Notice("File not found or has been moved");
                   }
@@ -614,8 +613,8 @@ const DateFilterSelect: React.FC<{
     range: DateRange,
     customDate?: string
   ): { startDate: string; endDate: string } => {
-    let end = moment().endOf("day");
-    let start = moment().startOf("day");
+    let end = window.moment().endOf("day");
+    let start = window.moment().startOf("day");
 
     switch (range) {
       case "today":
@@ -632,12 +631,12 @@ const DateFilterSelect: React.FC<{
         break;
       case "custom":
         if (customDate) {
-          start = moment(customDate).startOf("day");
-          end = moment(customDate).endOf("day");
+          start = window.moment(customDate).startOf("day");
+          end = window.moment(customDate).endOf("day");
         }
         break;
       case "all":
-        start = moment(0);
+        start = window.moment(0);
         break;
     }
 
@@ -687,7 +686,7 @@ const DateFilterSelect: React.FC<{
           value={value.startDate}
           onChange={e => handleDateChange(e.target.value)}
           className="py-2 pl-6 pr-2 bg-[--background-secondary] rounded-r border border-[--background-modifier-border] text-sm w-min"
-          max={moment().format("YYYY-MM-DD")}
+          max={window.moment().format("YYYY-MM-DD")}
         />
       )}
     </div>
@@ -779,8 +778,8 @@ export const InboxLogs: React.FC = () => {
   const [statusFilter, setStatusFilter] = React.useState<FileStatus | "">("");
   const [dateFilter, setDateFilter] = React.useState<DateFilter>({
     range: "today",
-    startDate: moment().format("YYYY-MM-DD"),
-    endDate: moment().format("YYYY-MM-DD"),
+    startDate: window.moment().format("YYYY-MM-DD"),
+    endDate: window.moment().format("YYYY-MM-DD"),
   });
 
   // Memoize filterRecords to prevent recreation on every render
@@ -805,10 +804,10 @@ export const InboxLogs: React.FC = () => {
         const matchesDate =
           dateFilter.range === "all" ||
           Object.values(record.logs).some(log => {
-            const logDate = moment(log.timestamp);
+            const logDate = window.moment(log.timestamp);
             return logDate.isBetween(
-              moment(dateFilter.startDate).startOf("day"),
-              moment(dateFilter.endDate).endOf("day"),
+              window.moment(dateFilter.startDate).startOf("day"),
+              window.moment(dateFilter.endDate).endOf("day"),
               "day",
               "[]"
             );
@@ -869,8 +868,8 @@ export const InboxLogs: React.FC = () => {
     };
 
     fetchData();
-    const intervalId = setInterval(fetchData, 1000);
-    return () => clearInterval(intervalId);
+    const intervalId = window.setInterval(fetchData, 1000);
+    return () => window.clearInterval(intervalId);
   }, [plugin.inbox, records, analytics]);
 
   const handleSearch = (query: string) => {
@@ -912,12 +911,12 @@ export const InboxLogs: React.FC = () => {
       {dateFilter.range !== "all" && (
         <div className="text-xs text-[--text-muted] px-3 py-1 border-b border-[--background-modifier-border]">
           {dateFilter.range === "custom" ? (
-            <>{moment(dateFilter.startDate).format("MMM D, YYYY")}</>
+            <>{window.moment(dateFilter.startDate).format("MMM D, YYYY")}</>
           ) : (
             <>
-              {moment(dateFilter.startDate).format("MMM D")}
+              {window.moment(dateFilter.startDate).format("MMM D")}
               {dateFilter.startDate !== dateFilter.endDate &&
-                ` - ${moment(dateFilter.endDate).format("MMM D")}`}
+                ` - ${window.moment(dateFilter.endDate).format("MMM D")}`}
             </>
           )}
         </div>

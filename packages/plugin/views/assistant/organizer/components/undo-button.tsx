@@ -70,7 +70,7 @@ export const UndoButton: React.FC<UndoButtonProps> = ({ record, plugin, onUndo }
       }
     } catch (error) {
       console.error("Error undoing file movement:", error);
-      new Notice(`Failed to undo: ${error.message}`);
+      new Notice(`Failed to undo: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsUndoing(false);
     }
@@ -82,7 +82,7 @@ export const UndoButton: React.FC<UndoButtonProps> = ({ record, plugin, onUndo }
 
   return (
     <Button
-      onClick={handleUndo}
+      onClick={() => { void handleUndo(); }}
       disabled={isUndoing}
       size="sm"
       variant="outline"

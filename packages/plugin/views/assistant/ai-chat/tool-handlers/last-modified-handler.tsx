@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { App } from "obsidian";
+import { parseJsonString } from "../../../../lib/api-json";
 import { logger } from "../../../../services/logger";
 import { addFileReference, useContextItems } from "../use-context-items";
 import { ToolHandlerProps } from "./types";
@@ -96,20 +97,22 @@ export function LastModifiedHandler({
           logger.error("Error getting last modified files:", error);
           handleAddResult(JSON.stringify({ 
             success: false,
-            error: error.message 
+            error: error instanceof Error ? error.message : String(error),
           }));
         }
       }
     };
 
-    handleLastModifiedSearch();
+    void handleLastModifiedSearch();
   }, [toolInvocation, handleAddResult, app, clearAll]);
 
   // Use the files object directly from context instead of items
   const fileCount = Object.keys(files).length;
   
   // Get the actual result to show proper count
-  const result = ("result" in toolInvocation) ? JSON.parse(toolInvocation.result as string) : null;
+  const result = ("result" in toolInvocation)
+    ? parseJsonString<{ count?: number }>(toolInvocation.result as string)
+    : null;
   const resultCount = result?.count || 0;
 
   return (

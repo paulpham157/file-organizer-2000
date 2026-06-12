@@ -32,7 +32,7 @@ export interface SearchResultsAnnotation {
 export type CustomAnnotation = SearchResultsAnnotation;
 
 export function isSearchResultsAnnotation(
-  annotation: any
+  annotation: unknown
 ): annotation is SearchResultsAnnotation {
   return annotation.type === 'search-results';
 } 

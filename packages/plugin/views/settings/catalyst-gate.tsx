@@ -1,5 +1,5 @@
 import FileOrganizer from "../../index";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 interface CatalystGateProps {
   plugin: FileOrganizer;
@@ -10,14 +10,14 @@ export const CatalystGate: React.FC<CatalystGateProps> = ({
   plugin,
   children,
 }) => {
-  const [isCatalyst, setIsCatalyst] = useState(
-    plugin.settings.hasCatalystAccess
+  const [isCatalyst, setIsCatalyst] = useState<boolean>(
+    Boolean(plugin.settings.hasCatalystAccess)
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
-    checkPremiumStatus();
+    void checkPremiumStatus();
   }, []);
 
   const checkPremiumStatus = async () => {
@@ -69,7 +69,7 @@ export const CatalystGate: React.FC<CatalystGateProps> = ({
               Upgrade to Catalyst
             </a>
             <button
-              onClick={checkPremiumStatus}
+              onClick={() => { void checkPremiumStatus(); }}
               disabled={isChecking}
               className="px-4 py-2 bg-[--background-modifier-border] text-[--text-muted] rounded-lg hover:bg-[--background-modifier-border-hover] transition-colors disabled:opacity-50"
             >

@@ -8,6 +8,9 @@ import { Notice } from "obsidian";
 import { logger } from "../../../services/logger";
 import { RecordingMetadata, MeetingMetadataManager } from "./meeting-metadata";
 import { TranscribeHandler } from "./transcribe-handler";
+import { obsidianFetch } from "../../../lib/obsidian-fetch";
+import { getApiError } from "../../../lib/api-json";
+import { showConfirmModal } from "../../../lib/show-confirm-modal";
 
 interface EnhanceNoteHandlerProps {
   plugin: FileOrganizer;
@@ -69,9 +72,12 @@ export const EnhanceNoteHandler: React.FC<EnhanceNoteHandlerProps> = ({
         currentNoteContent.includes("## Action Items");
 
       if (isSameRecordingReused && hasEnhancedSections) {
-        const shouldContinue = confirm(
-          "This note has already been enhanced with this recording. Re-enhancing will replace the existing enhanced sections. Continue?"
-        );
+        const shouldContinue = await showConfirmModal(plugin.app, {
+          title: "Re-enhance note?",
+          message:
+            "This note has already been enhanced with this recording. Re-enhancing will replace the existing enhanced sections. Continue?",
+          confirmText: "Continue",
+        });
         if (!shouldContinue) {
           return;
         }
@@ -104,7 +110,7 @@ export const EnhanceNoteHandler: React.FC<EnhanceNoteHandlerProps> = ({
       const transcriptPathsToCheck = [
         recording.transcriptPath, // From metadata
         expectedTranscriptPath, // Calculated from audio file path
-      ].filter(Boolean) as string[];
+      ].filter(Boolean);
 
       for (const transcriptPath of transcriptPathsToCheck) {
         try {
@@ -237,7 +243,7 @@ export const EnhanceNoteHandler: React.FC<EnhanceNoteHandlerProps> = ({
           })
         : null;
 
-      const response = await fetch(
+      const response = await obsidianFetch(
         `${plugin.getServerUrl()}/api/enhance-meeting-note`,
         {
           method: "POST",
@@ -259,8 +265,8 @@ export const EnhanceNoteHandler: React.FC<EnhanceNoteHandlerProps> = ({
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Enhancement failed");
+        const errorData = await response.json().catch(() => ({})) as unknown;
+        throw new Error(getApiError(errorData) ?? "Enhancement failed");
       }
 
       // Handle streaming response
@@ -402,7 +408,7 @@ export const EnhanceNoteHandler: React.FC<EnhanceNoteHandlerProps> = ({
         </div>
       )}
       <Button
-        onClick={enhanceNote}
+        onClick={() => { void enhanceNote(); }}
         disabled={isEnhancing}
         className={tw("flex items-center gap-2 text-xs")}
       >

@@ -37,8 +37,13 @@ export function useVaultItems() {
 
     // Get all tags from metadata cache
     const tags = new Set<string>();
-    plugin.app.metadataCache.getCachedFiles().forEach(filePath => {
-      const cache = plugin.app.metadataCache.getCache(filePath);
+    const metadataCache = plugin.app.metadataCache as {
+      getCachedFiles(): string[];
+      getCache(path: string): { tags?: Array<{ tag: string }> } | null;
+    };
+    const cachedFiles = metadataCache.getCachedFiles();
+    cachedFiles.forEach((filePath: string) => {
+      const cache = metadataCache.getCache(filePath);
       if (cache?.tags) {
         cache.tags.forEach(tagCache => {
           tags.add(tagCache.tag.replace('#', ''));

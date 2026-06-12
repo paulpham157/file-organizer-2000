@@ -1,17 +1,18 @@
 import "./styles.css";
 
-// Add Node.js type declarations
-declare namespace NodeJS {
-  interface ProcessEnv {
-    NODE_ENV: "production" | "development" | string;
-  }
+// esbuild shims for node globals used at build time
+interface ProcessEnv {
+  NODE_ENV?: string;
 }
-declare const process: { env: NodeJS.ProcessEnv };
+declare const process: { env: ProcessEnv };
 declare class Buffer {
   constructor(arg: ArrayBuffer | string, encoding?: string);
   toString(encoding?: string): string;
   slice(start?: number, end?: number): Buffer;
   byteLength: number;
+  length: number;
+  readonly buffer: ArrayBuffer;
+  readonly byteOffset: number;
   static from(arrayBuffer: ArrayBuffer): Buffer;
 }
 
@@ -25,7 +26,6 @@ import {
   normalizePath,
   loadPdfJs,
   arrayBufferToBase64,
-  CachedMetadata,
   LinkCache,
 } from "obsidian";
 import { logMessage, sanitizeTag } from "./someUtils";
@@ -53,7 +53,6 @@ import {
   checkAndCreateFolders,
   checkAndCreateTemplates,
   restoreDefaultTemplates,
-  moveFile,
 } from "./fileUtils";
 
 import { checkLicenseKey } from "./apiUtils";
@@ -69,6 +68,12 @@ import {
 import { initializeInboxQueue, Inbox } from "./inbox";
 import { logger } from "./services/logger";
 import { layoutPdfTextItems } from "./lib/pdf-text-layout";
+import { obsidianFetch } from "./lib/obsidian-fetch";
+import {
+  readResponseJson,
+  getApiError,
+  type ApiErrorBody,
+} from "./lib/api-json";
 import { addTextSelectionContext } from "./views/assistant/ai-chat/use-context-items";
 import { ProcessingStatusBar } from "./components/processing-status-bar";
 import * as React from "react";
@@ -85,11 +90,64 @@ export interface FolderSuggestion {
   reason: string;
 }
 
-// determine sever url
-interface ProcessingResult {
-  text: string;
-  classification?: string;
-  formattedText: string;
+type PremiumStatusResponse = { hasCatalystAccess: boolean };
+type ConceptChunk = { name: string; chunk: string };
+type ConceptsResponse = { concepts: ConceptChunk[] };
+type FormatContentResponse = { content: string };
+type TranscribeJsonResponse = { text: string; length?: number };
+type ClassifyResponse = { documentType?: string };
+type VisionResponse = { text: string };
+type TagSuggestion = {
+  score: number;
+  tag: string;
+  reason: string;
+  isNew: boolean;
+};
+type TagsResponse = { tags: TagSuggestion[] };
+type FoldersResponse = { folders: FolderSuggestion[] };
+type TitleSuggestion = { score: number; title: string; reason: string };
+type TitlesResponse = { titles: TitleSuggestion[] };
+type PresignedUrlResponse = {
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+};
+type PresignedUrlErrorBody = ApiErrorBody & { details?: string };
+
+type PdfTextContent = { items: unknown[] };
+type PdfPage = {
+  getTextContent: () => Promise<PdfTextContent>;
+};
+type PdfDocument = {
+  numPages: number;
+  getPage: (pageNum: number) => Promise<PdfPage>;
+};
+type PdfJsLib = {
+  getDocument: (opts: { data: Uint8Array }) => { promise: Promise<PdfDocument> };
+};
+
+type JimpImage = {
+  getWidth: () => number;
+  getHeight: () => number;
+  scaleToFit: (w: number, h: number) => void;
+  getBufferAsync: (mime: string) => Promise<Buffer>;
+};
+type JimpStatic = {
+  read: (buf: Buffer) => Promise<JimpImage>;
+  MIME_PNG: string;
+};
+const JimpLib = Jimp as JimpStatic;
+
+async function parseApiErrorMessage(
+  response: Response,
+  fallback: string
+): Promise<string> {
+  try {
+    const errorData = await readResponseJson<ApiErrorBody>(response);
+    return getApiError(errorData) ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export interface FileMetadata {
@@ -110,11 +168,6 @@ export interface FileMetadata {
   aliases: string[];
   similarTags: string[];
 }
-interface TitleSuggestion {
-  score: number;
-  title: string;
-  reason: string;
-}
 
 export interface UsageData {
   tokenUsage: number;
@@ -133,10 +186,13 @@ export default class FileOrganizer extends Plugin {
   private statusBarRoot: Root | null = null;
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const loaded = (await this.loadData()) as
+      | Partial<FileOrganizerSettings>
+      | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
 
     // Migration: Fix old gpt-4.1-mini model name to gpt-4o-mini
-    if (this.settings.selectedModel === ("gpt-4.1-mini" as any)) {
+    if (this.settings.selectedModel === ("gpt-4.1-mini" as unknown)) {
       this.settings.selectedModel = "gpt-4o-mini";
       await this.saveSettings();
     }
@@ -149,12 +205,13 @@ export default class FileOrganizer extends Plugin {
       process.env.NODE_ENV === "production"
         ? "https://app.notecompanion.ai"
         : this.getServerUrl();
-    const premiumStatus = await fetch(`${serverUrl}/api/check-premium`, {
+    const premiumStatus = await obsidianFetch(`${serverUrl}/api/check-premium`, {
       headers: {
         Authorization: `Bearer ${this.settings.API_KEY}`,
       },
     });
-    const { hasCatalystAccess } = await premiumStatus.json();
+    const { hasCatalystAccess } =
+      await readResponseJson<PremiumStatusResponse>(premiumStatus);
     return hasCatalystAccess;
   }
 
@@ -194,7 +251,7 @@ export default class FileOrganizer extends Plugin {
 
   async identifyConceptsAndFetchChunks(content: string) {
     try {
-      const response = await fetch(
+      const response = await obsidianFetch(
         `${this.getServerUrl()}/api/concepts-and-chunks`,
         {
           method: "POST",
@@ -207,20 +264,15 @@ export default class FileOrganizer extends Plugin {
       );
 
       if (!response.ok) {
-        // Try to extract error message from response body
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData?.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // If parsing fails, use the default error message
-        }
+        const errorMessage = await parseApiErrorMessage(
+          response,
+          `HTTP error! status: ${response.status}`
+        );
         throw new Error(errorMessage);
       }
 
-      const { concepts } = await response.json();
+      const { concepts } =
+        await readResponseJson<ConceptsResponse>(response);
       return concepts;
     } catch (error) {
       logger.error("Error in identifyConceptsAndFetchChunks:", error);
@@ -234,7 +286,7 @@ export default class FileOrganizer extends Plugin {
     formattingInstruction: string
   ): Promise<string> {
     try {
-      const response = await fetch(`${this.getServerUrl()}/api/format`, {
+      const response = await obsidianFetch(`${this.getServerUrl()}/api/format`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -247,20 +299,15 @@ export default class FileOrganizer extends Plugin {
       });
 
       if (!response.ok) {
-        // Try to extract error message from response body
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData?.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // If parsing fails, use the default error message
-        }
+        const errorMessage = await parseApiErrorMessage(
+          response,
+          `HTTP error! status: ${response.status}`
+        );
         throw new Error(errorMessage);
       }
 
-      const { content: formattedContent } = await response.json();
+      const { content: formattedContent } =
+        await readResponseJson<FormatContentResponse>(response);
       return formattedContent;
     } catch (error) {
       logger.error("Error formatting content:", error);
@@ -317,13 +364,13 @@ export default class FileOrganizer extends Plugin {
       const newFile = await this.app.vault.create(newFilePath, "");
 
       // Open the new file in a split view
-      const leaf = this.app.workspace.splitActiveLeaf();
+      const leaf = this.app.workspace.getLeaf(true);
       await leaf.openFile(newFile);
 
       let formattedContent = "";
-      const updateCallback = async (partialContent: string) => {
+      const updateCallback = (partialContent: string) => {
         formattedContent = partialContent;
-        await this.app.vault.modify(newFile, formattedContent);
+        void this.app.vault.modify(newFile, formattedContent);
       };
 
       await this.formatStream(
@@ -357,7 +404,12 @@ export default class FileOrganizer extends Plugin {
     // To: ![](https://www.youtube.com/watch?v=VIDEO_ID) (Obsidian embed format)
     content = content.replace(
       /\[!\[([^\]]*)\]\(https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)\)\]\(https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)\)/g,
-      (match, altText, videoId1, videoId2) => {
+      (
+        _match: string,
+        _altText: string,
+        videoId1: string,
+        videoId2: string
+      ) => {
         // Use the first video ID (they should be the same, but handle both)
         const videoId = videoId1 || videoId2;
         return `![](https://www.youtube.com/watch?v=${videoId})`;
@@ -366,7 +418,12 @@ export default class FileOrganizer extends Plugin {
     // Also convert thumbnail image links to embeds
     content = content.replace(
       /\[!\[([^\]]*)\]\(https:\/\/img\.youtube\.com\/vi\/([a-zA-Z0-9_-]+)\/[^)]+\)\]\(https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)\)/g,
-      (match, altText, videoId1, videoId2) => {
+      (
+        _match: string,
+        _altText: string,
+        videoId1: string,
+        videoId2: string
+      ) => {
         const videoId = videoId1 || videoId2;
         return `![](https://www.youtube.com/watch?v=${videoId})`;
       }
@@ -384,9 +441,10 @@ export default class FileOrganizer extends Plugin {
       // Also handles multiline arrays
       frontmatterContent = frontmatterContent.replace(
         /tags:\s*\[([\s\S]*?)\]/g,
-        (match, tagsContent) => {
+        (_match, tagsContent: string) => {
           // Extract all tags (handles both single-line and multiline arrays)
-          const tagMatches = tagsContent.match(/["']([^"']*)["']/g) || [];
+          const tagMatches =
+            tagsContent.match(/["']([^"']*)["']/g) ?? [];
           const cleanedTags = tagMatches.map((tagMatch: string) => {
             // Remove quotes and # symbols
             let cleaned = tagMatch
@@ -449,7 +507,7 @@ export default class FileOrganizer extends Plugin {
 
       // Replace ##tag with #tag (multiple # before a tag word)
       // This handles cases where AI adds # to tags that already get # from Obsidian
-      return line.replace(/(\s|^)(#{2,})([a-zA-Z0-9_\-]+)/g, "$1#$3");
+      return line.replace(/(\s|^)(#{2,})([a-zA-Z0-9_-]+)/g, "$1#$3");
     });
 
     return cleanedLines.join("\n");
@@ -473,10 +531,10 @@ export default class FileOrganizer extends Plugin {
       );
 
       let formattedContent = "";
-      const updateCallback = async (partialContent: string) => {
+      const updateCallback = (partialContent: string) => {
         // Clean up tags before saving
         formattedContent = this.cleanupTagsInContent(partialContent);
-        await this.app.vault.modify(file, formattedContent);
+        void this.app.vault.modify(file, formattedContent);
       };
       await this.formatStream(
         content,
@@ -485,7 +543,7 @@ export default class FileOrganizer extends Plugin {
         this.settings.API_KEY,
         updateCallback
       );
-      this.appendBackupLinkToCurrentFile(file, backupFile);
+      void this.appendBackupLinkToCurrentFile(file, backupFile);
       await this.appendFormattedLinkToBackupFile(backupFile, file);
 
       new Notice("Content formatted successfully", 3000);
@@ -508,7 +566,7 @@ export default class FileOrganizer extends Plugin {
       new Notice("Appending formatted content...", 3000);
 
       let formattedContent = "";
-      const updateCallback = async (partialContent: string) => {
+      const updateCallback = (partialContent: string) => {
         formattedContent = partialContent;
       };
 
@@ -552,7 +610,7 @@ export default class FileOrganizer extends Plugin {
       let formattedContent = "";
       let lastLineCount = 0;
 
-      const updateCallback = async (chunk: string) => {
+      const updateCallback = (chunk: string) => {
         if (chunkMode === "line") {
           // Split chunk into lines and only append new lines
           const lines = chunk.split("\n");
@@ -560,12 +618,12 @@ export default class FileOrganizer extends Plugin {
           if (newLines.length > 0) {
             formattedContent = lines.join("\n");
             lastLineCount = lines.length;
-            await this.app.vault.modify(file, formattedContent);
+            void this.app.vault.modify(file, formattedContent);
           }
         } else {
           // For partial mode, just append the new chunk
           formattedContent = chunk;
-          await this.app.vault.modify(file, formattedContent);
+          void this.app.vault.modify(file, formattedContent);
         }
       };
 
@@ -595,7 +653,7 @@ export default class FileOrganizer extends Plugin {
   }
 
   async extractTextFromPDF(file: TFile): Promise<string> {
-    const pdfjsLib = await loadPdfJs(); // Ensure PDF.js is loaded
+    const pdfjsLib = (await loadPdfJs()) as PdfJsLib;
     try {
       const arrayBuffer = await this.app.vault.readBinary(file);
       const bytes = new Uint8Array(arrayBuffer);
@@ -632,12 +690,12 @@ export default class FileOrganizer extends Plugin {
     apiKey: string,
     updateCallback: (partialContent: string) => void
   ): Promise<string> {
-    const requestBody: any = {
+    const requestBody: unknown = {
       content,
       formattingInstruction,
     };
 
-    const response = await fetch(`${serverUrl}/api/format-stream`, {
+    const response = await obsidianFetch(`${serverUrl}/api/format-stream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -647,16 +705,10 @@ export default class FileOrganizer extends Plugin {
     });
 
     if (!response.ok) {
-      // Try to extract error message from response body
-      let errorMessage = `Formatting failed: ${response.statusText}`;
-      try {
-        const errorData = await response.json();
-        if (errorData?.error) {
-          errorMessage = errorData.error;
-        }
-      } catch {
-        // If parsing fails, use the default error message
-      }
+      const errorMessage = await parseApiErrorMessage(
+        response,
+        `Formatting failed: ${response.statusText}`
+      );
       throw new Error(errorMessage);
     }
 
@@ -690,7 +742,7 @@ export default class FileOrganizer extends Plugin {
     const blob = new Blob([audioBuffer], { type: `audio/${fileExtension}` });
     formData.append("audio", blob, `audio.${fileExtension}`);
 
-    const response = await fetch(`${this.getServerUrl()}/api/transcribe`, {
+    const response = await obsidianFetch(`${this.getServerUrl()}/api/transcribe`, {
       method: "POST",
       body: formData,
       headers: {
@@ -699,8 +751,10 @@ export default class FileOrganizer extends Plugin {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Transcription failed: ${errorData.error}`);
+      const errorData = await readResponseJson<ApiErrorBody>(response);
+      throw new Error(
+        `Transcription failed: ${getApiError(errorData) ?? response.statusText}`
+      );
     }
     return response;
   }
@@ -730,7 +784,7 @@ export default class FileOrganizer extends Plugin {
 
     try {
       // Step 1: Get presigned URL from backend (small JSON request, bypasses Vercel body size limit)
-      const presignedUrlResponse = await fetch(
+      const presignedUrlResponse = await obsidianFetch(
         `${this.getServerUrl()}/api/create-upload-url`,
         {
           method: "POST",
@@ -746,9 +800,10 @@ export default class FileOrganizer extends Plugin {
       );
 
       if (!presignedUrlResponse.ok) {
-        const errorData = await presignedUrlResponse.json();
+        const errorData =
+          await readResponseJson<PresignedUrlErrorBody>(presignedUrlResponse);
         const errorMessage =
-          errorData.error || errorData.details || "Unknown error";
+          getApiError(errorData) || errorData.details || "Unknown error";
 
         // Check if error is due to missing R2 configuration
         if (
@@ -757,7 +812,7 @@ export default class FileOrganizer extends Plugin {
           errorMessage.includes("R2_PUBLIC_URL")
         ) {
           // Fall back to direct upload for self-hosted instances without R2
-          console.log(
+          console.debug(
             "R2 not configured, falling back to direct upload for self-hosted instance"
           );
           return this.transcribeAudioDirectUpload(audioBuffer, fileExtension);
@@ -766,7 +821,8 @@ export default class FileOrganizer extends Plugin {
         throw new Error(`Failed to get presigned URL: ${errorMessage}`);
       }
 
-      const { uploadUrl, key, publicUrl } = await presignedUrlResponse.json();
+      const { uploadUrl, key, publicUrl } =
+        await readResponseJson<PresignedUrlResponse>(presignedUrlResponse);
 
       if (!uploadUrl || !key || !publicUrl) {
         throw new Error("Invalid response from create-upload-url endpoint");
@@ -776,7 +832,7 @@ export default class FileOrganizer extends Plugin {
       // This avoids Vercel's 4.5MB body size limit
       // CORS is configured on R2 bucket, so we can use fetch with ArrayBuffer directly
       // This ensures binary data integrity without any string conversion
-      const uploadResponse = await fetch(uploadUrl, {
+      const uploadResponse = await obsidianFetch(uploadUrl, {
         method: "PUT",
         headers: {
           "Content-Type": mimeType,
@@ -792,7 +848,7 @@ export default class FileOrganizer extends Plugin {
       }
 
       // Step 3: Trigger transcription with the uploaded file URL
-      const transcribeResponse = await fetch(
+      const transcribeResponse = await obsidianFetch(
         `${this.getServerUrl()}/api/transcribe`,
         {
           method: "POST",
@@ -809,8 +865,11 @@ export default class FileOrganizer extends Plugin {
       );
 
       if (!transcribeResponse.ok) {
-        const errorData = await transcribeResponse.json();
-        throw new Error(`Transcription failed: ${errorData.error}`);
+        const errorData =
+          await readResponseJson<ApiErrorBody>(transcribeResponse);
+        throw new Error(
+          `Transcription failed: ${getApiError(errorData) ?? transcribeResponse.statusText}`
+        );
       }
 
       return transcribeResponse;
@@ -823,7 +882,7 @@ export default class FileOrganizer extends Plugin {
         errorMessage.includes("R2") ||
         errorMessage.includes("Failed to upload audio to R2")
       ) {
-        console.log(
+        console.debug(
           "R2 upload failed, falling back to direct upload for self-hosted instance"
         );
         return this.transcribeAudioDirectUpload(audioBuffer, fileExtension);
@@ -839,7 +898,7 @@ export default class FileOrganizer extends Plugin {
     try {
       const fileSizeInMB = file.stat.size / (1024 * 1024);
       const audioBuffer = await this.app.vault.readBinary(file);
-      console.log(
+      console.debug(
         `[Plugin] Transcribing audio file: ${
           file.name
         }, size: ${fileSizeInMB.toFixed(2)}MB`
@@ -847,16 +906,16 @@ export default class FileOrganizer extends Plugin {
 
       const response = await this.transcribeAudio(audioBuffer, file.extension);
 
-      const data = await response.json();
+      const data = await readResponseJson<TranscribeJsonResponse>(response);
       const transcript = data.text;
       const transcriptLength = transcript?.length || 0;
 
-      console.log(
+      console.debug(
         `[Plugin] Received transcript: ${transcriptLength} characters`
       );
 
       if (data.length) {
-        console.log(
+        console.debug(
           `[Plugin] Server reported transcript length: ${data.length} characters`
         );
         if (transcriptLength !== data.length) {
@@ -933,7 +992,7 @@ export default class FileOrganizer extends Plugin {
 
     // Use server-based approach (default or fallback)
     const serverUrl = this.getServerUrl();
-    const response = await fetch(`${serverUrl}/api/classify1`, {
+    const response = await obsidianFetch(`${serverUrl}/api/classify1`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -948,38 +1007,30 @@ export default class FileOrganizer extends Plugin {
     if (!response.ok) {
       // Special handling for 429 (token limit exceeded)
       if (response.status === 429) {
-        let errorMessage =
-          "Token limit exceeded. Please upgrade your plan for more tokens.";
-        try {
-          const errorData = await response.json();
-          if (errorData?.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // If parsing fails, use default message
-        }
+        const errorMessage = await parseApiErrorMessage(
+          response,
+          "Token limit exceeded. Please upgrade your plan for more tokens."
+        );
         // Throw a specific error that can be caught by the UI
-        const error = new Error(errorMessage) as any;
+        const error = new Error(errorMessage) as Error & {
+          status: number;
+          isTokenLimitError: boolean;
+        };
         error.status = 429;
         error.isTokenLimitError = true;
         throw error;
       }
 
-      // Try to extract error message from response body
-      let errorMessage = `HTTP error! status: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        if (errorData?.error) {
-          errorMessage = errorData.error;
-        }
-      } catch {
-        // If parsing fails, use the default error message
-      }
+      const errorMessage = await parseApiErrorMessage(
+        response,
+        `HTTP error! status: ${response.status}`
+      );
       throw new Error(errorMessage);
     }
 
-    const { documentType } = await response.json();
-    return documentType;
+    const { documentType } =
+      await readResponseJson<ClassifyResponse>(response);
+    return documentType ?? "";
   }
 
   async getTextFromFile(file: TFile): Promise<string> {
@@ -1014,15 +1065,18 @@ export default class FileOrganizer extends Plugin {
     );
   }
   async appendToFrontMatter(file: TFile, key: string, value: string) {
-    await this.app.fileManager.processFrontMatter(file, frontmatter => {
-      if (!frontmatter.hasOwnProperty(key)) {
-        frontmatter[key] = [value];
-      } else if (!Array.isArray(frontmatter[key])) {
-        frontmatter[key] = [frontmatter[key], value];
-      } else {
-        frontmatter[key].push(value);
+    await this.app.fileManager.processFrontMatter(
+      file,
+      (frontmatter: Record<string, unknown>) => {
+        if (!(key in frontmatter)) {
+          frontmatter[key] = [value];
+        } else if (!Array.isArray(frontmatter[key])) {
+          frontmatter[key] = [frontmatter[key], value];
+        } else {
+          (frontmatter[key] as string[]).push(value);
+        }
       }
-    });
+    );
   }
 
   async checkAndCreateFolders() {
@@ -1055,13 +1109,26 @@ export default class FileOrganizer extends Plugin {
     file: TFile,
     humanReadableFileName: string,
     destinationFolder = ""
-  ) {
-    return await moveFile(
-      this.app,
-      file,
-      humanReadableFileName,
-      destinationFolder
-    );
+  ): Promise<TFile> {
+    const fileExtension = file.extension;
+    let targetPath = `${destinationFolder}/${humanReadableFileName}.${fileExtension}`;
+    const normalizedTargetPath = normalizePath(targetPath);
+
+    if (await this.app.vault.adapter.exists(normalizedTargetPath)) {
+      const timestamp = Date.now();
+      const uniqueFileName = `${humanReadableFileName}_${timestamp}`;
+      targetPath = `${destinationFolder}/${uniqueFileName}.${fileExtension}`;
+    }
+
+    const normalizedFinalPath = normalizePath(targetPath);
+    await ensureFolderExists(this.app, destinationFolder);
+    await this.app.fileManager.renameFile(file, normalizedFinalPath);
+
+    const movedFile = this.app.vault.getAbstractFileByPath(normalizedFinalPath);
+    if (!(movedFile instanceof TFile)) {
+      throw new Error(`Failed to move file to ${normalizedFinalPath}`);
+    }
+    return movedFile;
   }
   // rn used to provide aichat contex
   getAllUserMarkdownFiles(): TFile[] {
@@ -1118,7 +1185,7 @@ export default class FileOrganizer extends Plugin {
   }
 
   async compressImage(fileContent: Buffer): Promise<Buffer> {
-    const image = await Jimp.read(fileContent);
+    const image = await JimpLib.read(fileContent);
 
     // Check if the image is bigger than 1000 pixels in either width or height
     if (image.getWidth() > 1000 || image.getHeight() > 1000) {
@@ -1126,8 +1193,7 @@ export default class FileOrganizer extends Plugin {
       image.scaleToFit(1000, 1000);
     }
 
-    const resizedImage = await image.getBufferAsync(Jimp.MIME_PNG);
-    return resizedImage;
+    return await image.getBufferAsync(JimpLib.MIME_PNG);
   }
 
   isWebP(fileContent: Buffer): boolean {
@@ -1150,12 +1216,12 @@ export default class FileOrganizer extends Plugin {
     if (!this.isWebP(fileContent)) {
       // Compress the image if it's not a WebP
       const resizedImage = await this.compressImage(fileContent);
-      // Convert the Buffer to an ArrayBuffer
-      const tempArray = new Uint8Array(resizedImage.byteLength);
-      for (let i = 0; i < resizedImage.byteLength; i++) {
-        tempArray[i] = resizedImage[i];
-      }
-      processedArrayBuffer = tempArray.buffer;
+      const compressedBytes = new Uint8Array(
+        resizedImage.buffer,
+        resizedImage.byteOffset,
+        resizedImage.byteLength
+      );
+      processedArrayBuffer = compressedBytes.slice().buffer;
     } else {
       // If it's a WebP, use the original file content directly
       processedArrayBuffer = arrayBuffer;
@@ -1171,7 +1237,7 @@ export default class FileOrganizer extends Plugin {
   async extractTextFromImage(image: ArrayBuffer): Promise<string> {
     const base64Image = arrayBufferToBase64(image);
 
-    const response = await fetch(`${this.getServerUrl()}/api/vision`, {
+    const response = await obsidianFetch(`${this.getServerUrl()}/api/vision`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1184,20 +1250,14 @@ export default class FileOrganizer extends Plugin {
     });
 
     if (!response.ok) {
-      // Try to extract error message from response body
-      let errorMessage = `HTTP error! status: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        if (errorData?.error) {
-          errorMessage = errorData.error;
-        }
-      } catch {
-        // If parsing fails, use the default error message
-      }
+      const errorMessage = await parseApiErrorMessage(
+        response,
+        `HTTP error! status: ${response.status}`
+      );
       throw new Error(errorMessage);
     }
 
-    const { text } = await response.json();
+    const { text } = await readResponseJson<VisionResponse>(response);
     return text;
   }
 
@@ -1225,8 +1285,9 @@ export default class FileOrganizer extends Plugin {
 
   async getAllVaultTags(): Promise<string[]> {
     // Fetch all tags from the vault
-    // @ts-ignore
-    const tags: TagCounts = this.app.metadataCache.getTags();
+    const tags = (
+      this.app.metadataCache as { getTags: () => TagCounts }
+    ).getTags();
 
     // If no tags are found, return an empty array
     if (Object.keys(tags).length === 0) {
@@ -1327,7 +1388,7 @@ export default class FileOrganizer extends Plugin {
     }
 
     // Use server-based approach (default or fallback)
-    const response = await fetch(`${this.getServerUrl()}/api/tags/v2`, {
+    const response = await obsidianFetch(`${this.getServerUrl()}/api/tags/v2`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1344,37 +1405,29 @@ export default class FileOrganizer extends Plugin {
     if (!response.ok) {
       // Special handling for 429 (token limit exceeded)
       if (response.status === 429) {
-        let errorMessage =
-          "Token limit exceeded. Please upgrade your plan for more tokens.";
-        try {
-          const errorData = await response.json();
-          if (errorData?.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // If parsing fails, use default message
-        }
+        const errorMessage = await parseApiErrorMessage(
+          response,
+          "Token limit exceeded. Please upgrade your plan for more tokens."
+        );
         // Throw a specific error that can be caught by the UI
-        const error = new Error(errorMessage) as any;
+        const error = new Error(errorMessage) as Error & {
+          status: number;
+          isTokenLimitError: boolean;
+        };
         error.status = 429;
         error.isTokenLimitError = true;
         throw error;
       }
 
-      // Try to extract error message from response body
-      let errorMessage = `HTTP error! status: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        if (errorData?.error) {
-          errorMessage = errorData.error;
-        }
-      } catch {
-        // If parsing fails, use the default error message
-      }
+      const errorMessage = await parseApiErrorMessage(
+        response,
+        `HTTP error! status: ${response.status}`
+      );
       throw new Error(errorMessage);
     }
 
-    const { tags: suggestedTags } = await response.json();
+    const { tags: suggestedTags } =
+      await readResponseJson<TagsResponse>(response);
     return suggestedTags;
   }
 
@@ -1449,7 +1502,7 @@ export default class FileOrganizer extends Plugin {
     }
 
     // Use server-based approach (default or fallback)
-    const response = await fetch(`${this.getServerUrl()}/api/folders/v2`, {
+    const response = await obsidianFetch(`${this.getServerUrl()}/api/folders/v2`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1466,37 +1519,28 @@ export default class FileOrganizer extends Plugin {
     if (!response.ok) {
       // Special handling for 429 (token limit exceeded)
       if (response.status === 429) {
-        let errorMessage =
-          "Token limit exceeded. Please upgrade your plan for more tokens.";
-        try {
-          const errorData = await response.json();
-          if (errorData?.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // If parsing fails, use default message
-        }
+        const errorMessage = await parseApiErrorMessage(
+          response,
+          "Token limit exceeded. Please upgrade your plan for more tokens."
+        );
         // Throw a specific error that can be caught by the UI
-        const error = new Error(errorMessage) as any;
+        const error = new Error(errorMessage) as Error & {
+          status: number;
+          isTokenLimitError: boolean;
+        };
         error.status = 429;
         error.isTokenLimitError = true;
         throw error;
       }
 
-      // Try to extract error message from response body
-      let errorMessage = `HTTP error! status: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        if (errorData?.error) {
-          errorMessage = errorData.error;
-        }
-      } catch {
-        // If parsing fails, use the default error message
-      }
+      const errorMessage = await parseApiErrorMessage(
+        response,
+        `HTTP error! status: ${response.status}`
+      );
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
+    const data = await readResponseJson<FoldersResponse>(response);
     const suggestedFolders = data.folders || [];
 
     // Safety check: ensure we return an array
@@ -1517,9 +1561,13 @@ export default class FileOrganizer extends Plugin {
     const metadata = this.app.metadataCache.getFileCache(file);
 
     // Check if tag exists in frontmatter
-    const hasFrontmatterTag = metadata?.frontmatter?.tags?.includes(
-      formattedTag.replace("#", "")
-    );
+    const rawFrontmatterTags: unknown = metadata?.frontmatter?.tags;
+    const tagName = formattedTag.replace("#", "");
+    const hasFrontmatterTag =
+      Array.isArray(rawFrontmatterTags) &&
+      rawFrontmatterTags.some(
+        (t): t is string => typeof t === "string" && t === tagName
+      );
 
     // Check if tag exists in content (for inline tags)
     const hasInlineTag = fileContent.includes(formattedTag);
@@ -1569,7 +1617,7 @@ export default class FileOrganizer extends Plugin {
 
     // Reveal and focus the leaf
     if (view) {
-      this.app.workspace.revealLeaf(view.leaf);
+      void this.app.workspace.revealLeaf(view.leaf);
     }
 
     return view;
@@ -1590,11 +1638,11 @@ export default class FileOrganizer extends Plugin {
     initializeFileOrganizationCommands(this);
 
     this.app.workspace.onLayoutReady(() => registerEventHandlers(this));
-    this.processBacklog();
+    void this.processBacklog();
 
     this.addCommand({
       id: "open-organizer-tab",
-      name: "Open Organizer Tab",
+      name: "Open organizer tab",
       callback: async () => {
         const view = await this.ensureAssistantView();
         view?.activateTab("organizer");
@@ -1603,7 +1651,7 @@ export default class FileOrganizer extends Plugin {
 
     this.addCommand({
       id: "open-inbox-tab",
-      name: "Open Inbox Tab",
+      name: "Open inbox tab",
       callback: async () => {
         const view = await this.ensureAssistantView();
         view?.activateTab("inbox");
@@ -1620,7 +1668,7 @@ export default class FileOrganizer extends Plugin {
 
     this.addCommand({
       id: "open-chat-tab",
-      name: "Open Chat Tab",
+      name: "Open chat tab",
       callback: async () => {
         const view = await this.ensureAssistantView();
         view?.activateTab("chat");
@@ -1628,7 +1676,7 @@ export default class FileOrganizer extends Plugin {
     });
     this.addCommand({
       id: "open-meetings-tab",
-      name: "Open Meetings Tab",
+      name: "Open meetings tab",
       callback: async () => {
         const view = await this.ensureAssistantView();
         view?.activateTab("meetings");
@@ -1644,7 +1692,7 @@ export default class FileOrganizer extends Plugin {
             onOpen() {
               const { contentEl } = this;
               contentEl.empty();
-              contentEl.createEl("h2", { text: "Restore Default Templates" });
+              contentEl.createEl("h2", { text: "Restore default templates" });
               contentEl.createEl("p", {
                 text: "This will restore the following templates to their original plugin versions:",
               });
@@ -1690,14 +1738,14 @@ export default class FileOrganizer extends Plugin {
 
     this.addCommand({
       id: "view-meetings-metadata",
-      name: "View Meetings Metadata (Debug)",
+      name: "View meetings metadata (debug)",
       callback: async () => {
         const { MeetingMetadataManager } = await import(
           "./views/assistant/meetings/meeting-metadata"
         );
         const manager = new MeetingMetadataManager(this);
         const metadata = await manager.loadMetadata();
-        console.log("Meetings Metadata:", JSON.stringify(metadata, null, 2));
+        console.debug("Meetings Metadata:", JSON.stringify(metadata, null, 2));
         new Notice(
           "Meetings metadata logged to console. Check Developer Tools (Ctrl+Shift+I)"
         );
@@ -1705,7 +1753,7 @@ export default class FileOrganizer extends Plugin {
     });
     this.addCommand({
       id: "add-selection-to-chat",
-      name: "Add Selection to Chat",
+      name: "Add selection to chat",
       editorCallback: async editor => {
         const selection = editor.getSelection();
         if (selection) {
@@ -1731,7 +1779,7 @@ export default class FileOrganizer extends Plugin {
       name: "Extract selection to new note",
       editorCallback: async () => {
         const result = await extractSelectionToNewNote(this.app);
-        if (!result.ok) {
+        if (result.ok === false) {
           new Notice(result.error, 4000);
           return;
         }
@@ -1749,15 +1797,17 @@ export default class FileOrganizer extends Plugin {
           item
             .setTitle("Extract selection to new note")
             .setIcon("file-plus")
-            .onClick(async () => {
+            .onClick(() => {
+              void (async () => {
               const result = await extractSelectionToNewNote(this.app);
-              if (!result.ok) {
+              if (result.ok === false) {
                 new Notice(result.error, 4000);
                 return;
               }
               const name =
                 result.newFilePath.split("/").pop() ?? result.newFilePath;
               new Notice(`Extracted to ${name}`, 3500);
+              })();
             });
         });
       })
@@ -1765,7 +1815,7 @@ export default class FileOrganizer extends Plugin {
 
     this.addCommand({
       id: "test-screenpipe",
-      name: "Test ScreenPipe Connection",
+      name: "Test screenpipe connection",
       callback: async () => {
         const { ScreenpipeClient } = await import("./services/screenpipe-client");
         const client = new ScreenpipeClient(this.settings.screenpipeApiUrl);
@@ -1779,12 +1829,12 @@ export default class FileOrganizer extends Plugin {
           return;
         }
 
-        new Notice("✅ ScreenPipe connected!", 2000);
+        new Notice("✅ Screenpipe connected!", 2000);
 
         try {
           const results = await client.search({ limit: 5 });
           new Notice(`✅ Found ${results.length} results`, 3000);
-          console.log("ScreenPipe test results:", results);
+          console.debug("ScreenPipe test results:", results);
         } catch (error) {
           new Notice(
             "❌ Search failed: " + (error instanceof Error ? error.message : "Unknown error"),
@@ -1797,10 +1847,10 @@ export default class FileOrganizer extends Plugin {
     // Add command to test ScreenPipe search
     this.addCommand({
       id: "test-screenpipe-search",
-      name: "Test ScreenPipe Search (Recent Activity)",
+      name: "Test screenpipe search (recent activity)",
       callback: async () => {
         if (!this.settings.enableScreenpipe) {
-          new Notice("❌ ScreenPipe is disabled. Enable it in Settings > Experiments > Integrations", 5000);
+          new Notice("❌ Screenpipe is disabled. Enable it in settings > experiments > integrations", 5000);
           return;
         }
 
@@ -1828,14 +1878,20 @@ export default class FileOrganizer extends Plugin {
           });
           
           if (results.length === 0) {
-            new Notice("ℹ️ No recent activity found in last 30 minutes", 3000);
+            new Notice("ℹ️ no recent activity found in last 30 minutes", 3000);
           } else {
-            const apps = [...new Set(results.map((r: any) => r.content?.app_name || "Unknown"))];
+            const apps = [
+              ...new Set(
+                results.map(
+                  (r) => r.content?.app_name ?? "Unknown"
+                )
+              ),
+            ];
             new Notice(
               `✅ Found ${results.length} result${results.length > 1 ? 's' : ''} from ${apps.length} app${apps.length > 1 ? 's' : ''}: ${apps.join(", ")}`,
               5000
             );
-            console.log("ScreenPipe search results:", results);
+            console.debug("ScreenPipe search results:", results);
           }
         } catch (error) {
           new Notice(
@@ -1855,9 +1911,9 @@ export default class FileOrganizer extends Plugin {
     // Add command to open dashboard
     this.addCommand({
       id: "open-fo2k-dashboard",
-      name: "Open Dashboard",
+      name: "Open dashboard",
       callback: () => {
-        this.activateDashboard();
+        void this.activateDashboard();
       },
     });
 
@@ -1937,14 +1993,14 @@ export default class FileOrganizer extends Plugin {
 
     for await (const chunk of transcriptIterator) {
       const chunkLength = chunk.length;
-      console.log(
+      console.debug(
         `[Plugin] Appending transcript chunk ${++chunkCount}: ${chunkLength} characters`
       );
       await this.app.vault.append(parentFile, chunk);
       totalAppended += chunkLength;
     }
 
-    console.log(
+    console.debug(
       `[Plugin] Total transcript appended: ${totalAppended} characters in ${chunkCount} chunk(s)`
     );
 
@@ -1955,7 +2011,7 @@ export default class FileOrganizer extends Plugin {
       const appendedTranscript = updatedFileContent.substring(
         transcriptStart + transcriptHeader.length
       );
-      console.log(
+      console.debug(
         `[Plugin] Verified: File contains ${appendedTranscript.length} characters of transcript`
       );
       if (appendedTranscript.length !== totalAppended) {
@@ -1972,9 +2028,10 @@ export default class FileOrganizer extends Plugin {
   }
 
   async generateUniqueBackupFileName(originalFile: TFile): Promise<string> {
-    const baseFileName = `${originalFile.basename}_backup_${moment().format(
-      "YYYYMMDD_HHmmss"
-    )}`;
+    const timestamp = (
+      moment() as { format: (pattern: string) => string }
+    ).format("YYYYMMDD_HHmmss");
+    const baseFileName = `${originalFile.basename}_backup_${timestamp}`;
     let fileName = `${baseFileName}.${originalFile.extension}`;
     let counter = 1;
 
@@ -2011,7 +2068,7 @@ export default class FileOrganizer extends Plugin {
     await this.checkAndCreateTemplates();
 
     // Small delay to ensure folder is fully created
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => window.setTimeout(resolve, 100));
 
     const templateFolder = this.app.vault.getAbstractFileByPath(normalizedPath);
     if (!templateFolder || !(templateFolder instanceof TFolder)) {
@@ -2041,7 +2098,7 @@ export default class FileOrganizer extends Plugin {
     await this.checkAndCreateTemplates();
 
     // Small delay to ensure folder is fully created
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => window.setTimeout(resolve, 100));
 
     // get all file names in the template folder
     const templateFolder = this.app.vault.getAbstractFileByPath(normalizedPath);
@@ -2053,7 +2110,7 @@ export default class FileOrganizer extends Plugin {
     }
     const templateFiles = templateFolder.children.filter(
       file => file instanceof TFile
-    ) as TFile[];
+    );
     return templateFiles.map(file => file.basename);
   }
 
@@ -2066,7 +2123,7 @@ export default class FileOrganizer extends Plugin {
     const trimmedContent = content.slice(0, cutoff);
 
     const customInstructions = this.settings.renameInstructions;
-    const response = await fetch(`${this.getServerUrl()}/api/title/v2`, {
+    const response = await obsidianFetch(`${this.getServerUrl()}/api/title/v2`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2080,20 +2137,14 @@ export default class FileOrganizer extends Plugin {
     });
 
     if (!response.ok) {
-      // Try to extract error message from response body
-      let errorMessage = `HTTP error! status: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        if (errorData?.error) {
-          errorMessage = errorData.error;
-        }
-      } catch {
-        // If parsing fails, use the default error message
-      }
+      const errorMessage = await parseApiErrorMessage(
+        response,
+        `HTTP error! status: ${response.status}`
+      );
       throw new Error(errorMessage);
     }
 
-    const { titles } = await response.json();
+    const { titles } = await readResponseJson<TitlesResponse>(response);
     return titles;
   }
 
@@ -2115,7 +2166,7 @@ export default class FileOrganizer extends Plugin {
       }
     }
 
-    workspace.revealLeaf(leaf);
+    void workspace.revealLeaf(leaf);
     return leaf.view as DashboardView;
   }
 
@@ -2160,7 +2211,7 @@ export default class FileOrganizer extends Plugin {
 
       // Try the public-usage endpoint first (works even with token limits)
       try {
-        const publicResponse = await fetch(
+        const publicResponse = await obsidianFetch(
           `${this.getServerUrl()}/api/public-usage`,
           {
             method: "GET",
@@ -2172,19 +2223,18 @@ export default class FileOrganizer extends Plugin {
         );
 
         if (publicResponse.ok) {
-          const data = await publicResponse.json();
-          return data;
+          return await readResponseJson<UsageData>(publicResponse);
         }
 
         logger.debug("Public usage endpoint failed, trying regular endpoint");
-      } catch (error) {
+      } catch {
         logger.debug(
           "Error fetching from public usage endpoint, trying regular endpoint"
         );
       }
 
       // Fall back to the regular endpoint
-      const response = await fetch(`${this.getServerUrl()}/api/usage`, {
+      const response = await obsidianFetch(`${this.getServerUrl()}/api/usage`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -2193,16 +2243,10 @@ export default class FileOrganizer extends Plugin {
       });
 
       if (!response.ok) {
-        // Try to extract error message from response body
-        let errorMessage = `Failed to fetch usage stats: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData?.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // If parsing fails, use the default error message
-        }
+        const errorMessage = await parseApiErrorMessage(
+          response,
+          `Failed to fetch usage stats: ${response.status}`
+        );
 
         // Special handling for token limit errors (429)
         if (response.status === 429) {
@@ -2211,7 +2255,7 @@ export default class FileOrganizer extends Plugin {
           if (errorMessage.includes("Token limit exceeded")) {
             // Try to get basic info from public API
             try {
-              const publicResponse = await fetch(
+              const publicResponse = await obsidianFetch(
                 `${this.getServerUrl()}/api/public-usage`,
                 {
                   method: "GET",
@@ -2223,7 +2267,7 @@ export default class FileOrganizer extends Plugin {
               );
 
               if (publicResponse.ok) {
-                return await publicResponse.json();
+                return await readResponseJson<UsageData>(publicResponse);
               }
             } catch (e) {
               logger.debug(
@@ -2249,8 +2293,7 @@ export default class FileOrganizer extends Plugin {
         throw new Error(errorMessage);
       }
 
-      const data = await response.json();
-      return data;
+      return await readResponseJson<UsageData>(response);
     } catch (error) {
       logger.error("Failed to fetch usage statistics", error);
       return null;

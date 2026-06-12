@@ -2,6 +2,7 @@ import { TFile } from "obsidian";
 import { logger } from "../../../services/logger";
 import FileOrganizer from "../../../index";
 import { VALID_AUDIO_EXTENSIONS } from "../../../constants";
+import { parseJsonString } from "../../../lib/api-json";
 
 export interface RecordingMetadata {
   filePath: string;
@@ -34,7 +35,7 @@ export class MeetingMetadataManager {
       const exists = await this.plugin.app.vault.adapter.exists(METADATA_FILE);
       if (exists) {
         const content = await this.plugin.app.vault.adapter.read(METADATA_FILE);
-        this.metadata = JSON.parse(content);
+        this.metadata = parseJsonString<MeetingsMetadata>(content);
         return this.metadata;
       }
     } catch (error) {

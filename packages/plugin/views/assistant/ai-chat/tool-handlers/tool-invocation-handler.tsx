@@ -42,7 +42,7 @@ const processedToolCallIds = new Set<string>();
 
 interface ToolInvocationHandlerProps {
   toolInvocation: ToolInvocation;
-  // eslint-disable-next-line no-unused-vars -- callback type; param name is for documentation only
+   
   addToolResult: (payload: { toolCallId: string; result: string }) => void;
   app: App;
   chatStatus: string;
@@ -61,11 +61,11 @@ function ToolInvocationHandler({
   // a deadlock for fast tools (e.g. fetchUrlContent) where the UI spins forever with no reply.
   const handleAddResult = (result: string) => {
     if (processedToolCallIds.has(toolCallId)) {
-      console.log("[ToolInvocationHandler] Skipping duplicate addToolResult for:", toolCallId);
+      console.debug("[ToolInvocationHandler] Skipping duplicate addToolResult for:", toolCallId);
       return;
     }
     processedToolCallIds.add(toolCallId);
-    console.log("[ToolInvocationHandler] Calling addToolResult for:", toolCallId, "chatStatus:", chatStatus);
+    console.debug("[ToolInvocationHandler] Calling addToolResult for:", toolCallId, "chatStatus:", chatStatus);
     addToolResult({
       toolCallId,
       result: capToolResultString(result),
@@ -114,12 +114,12 @@ function ToolInvocationHandler({
       searchScreenpipe: "Search ScreenPipe",
       findBrokenLinks: "Find Broken Links",
     };
-    return toolTitles[toolName] ;
+    return toolTitles[toolName as keyof typeof toolTitles] ?? toolName;
   };
 
   const renderContent = () => {
     // Debug: Log tool name matching
-    console.log("[ToolInvocationHandler] Rendering tool:", {
+    console.debug("[ToolInvocationHandler] Rendering tool:", {
       toolName: toolInvocation.toolName,
       toolCallId: toolInvocation.toolCallId,
     });
@@ -357,7 +357,7 @@ function ToolInvocationHandler({
       ),
     };
 
-    const handler = handlers[toolInvocation.toolName];
+    const handler = handlers[toolInvocation.toolName as keyof typeof handlers];
     if (!handler) {
       console.error("[ToolInvocationHandler] No handler found for tool:", toolInvocation.toolName);
       if (!("result" in toolInvocation)) {

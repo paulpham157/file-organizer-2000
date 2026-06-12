@@ -1,18 +1,38 @@
 import React, { useRef } from "react";
-import { App, TFile } from "obsidian";
-import { ToolInvocation } from "ai";
+import { TFile } from "obsidian";
+import { ToolHandlerProps } from "./types";
 
-interface TagsHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface TagsArgs {
+  filePaths: string[];
+  tags: string[];
+  location: "frontmatter" | "inline" | "both";
+  inlinePosition?: "top" | "bottom";
+}
+
+interface TagResult {
+  path: string;
+  success: boolean;
+  error?: string;
+  frontmatterUpdated?: boolean;
+  inlineUpdated?: boolean;
+  tagsAdded?: string[];
+}
+
+function normalizeFrontmatterTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) {
+    return tags.filter((t): t is string => typeof t === "string");
+  }
+  if (typeof tags === "string") {
+    return [tags];
+  }
+  return [];
 }
 
 export function TagsHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: TagsHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
 
   const addTags = async (
@@ -20,8 +40,8 @@ export function TagsHandler({
     tags: string[],
     location: "frontmatter" | "inline" | "both",
     inlinePosition: "top" | "bottom" = "bottom"
-  ) => {
-    const results = [];
+  ): Promise<TagResult[]> => {
+    const results: TagResult[] = [];
 
     for (const filePath of filePaths) {
       try {
@@ -35,7 +55,6 @@ export function TagsHandler({
           continue;
         }
 
-        // Normalize tags (remove # if present)
         const normalizedTags = tags.map((tag) =>
           tag.startsWith("#") ? tag.slice(1) : tag
         );
@@ -43,34 +62,31 @@ export function TagsHandler({
         let frontmatterUpdated = false;
         let inlineUpdated = false;
 
-        // Add to frontmatter
         if (location === "frontmatter" || location === "both") {
           try {
-            await app.fileManager.processFrontMatter(file, (fm) => {
-              // Get existing tags array or create new one
-              const existingTags = fm.tags || [];
-              const tagsArray = Array.isArray(existingTags)
-                ? existingTags
-                : [existingTags];
-
-              // Add new tags (avoid duplicates)
-              const updatedTags = [
-                ...new Set([...tagsArray, ...normalizedTags]),
-              ];
-              fm.tags = updatedTags;
-            });
+            await app.fileManager.processFrontMatter(
+              file,
+              (fm: Record<string, unknown>) => {
+                const tagsArray = normalizeFrontmatterTags(fm.tags);
+                const updatedTags = [
+                  ...new Set([...tagsArray, ...normalizedTags]),
+                ];
+                fm.tags = updatedTags;
+              }
+            );
             frontmatterUpdated = true;
           } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
             results.push({
               path: filePath,
               success: false,
-              error: `Failed to update frontmatter: ${error.message}`,
+              error: `Failed to update frontmatter: ${errorMessage}`,
             });
             continue;
           }
         }
 
-        // Add inline tags
         if (location === "inline" || location === "both") {
           try {
             const content = await app.vault.read(file);
@@ -78,7 +94,6 @@ export function TagsHandler({
 
             let newContent: string;
             if (inlinePosition === "top") {
-              // Add after frontmatter if exists, otherwise at very top
               const frontmatterMatch = content.match(/^---\n[\s\S]*?\n---\n/);
               if (frontmatterMatch) {
                 const frontmatter = frontmatterMatch[0];
@@ -88,17 +103,18 @@ export function TagsHandler({
                 newContent = `${tagLine}\n\n${content}`;
               }
             } else {
-              // Add at bottom
               newContent = `${content}\n\n${tagLine}`;
             }
 
             await app.vault.modify(file, newContent);
             inlineUpdated = true;
           } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
             results.push({
               path: filePath,
               success: false,
-              error: `Failed to add inline tags: ${error.message}`,
+              error: `Failed to add inline tags: ${errorMessage}`,
             });
             continue;
           }
@@ -112,10 +128,12 @@ export function TagsHandler({
           tagsAdded: normalizedTags,
         });
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         results.push({
           path: filePath,
           success: false,
-          error: error.message,
+          error: errorMessage,
         });
       }
     }
@@ -128,35 +146,37 @@ export function TagsHandler({
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
         const { filePaths, tags, location, inlinePosition } =
-          toolInvocation.args;
+          toolInvocation.args as TagsArgs;
 
         try {
           const results = await addTags(
             filePaths,
             tags,
             location,
-            inlinePosition || "bottom"
+            inlinePosition ?? "bottom"
           );
           handleAddResult(JSON.stringify(results));
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           handleAddResult(
-            JSON.stringify({ error: `Failed to add tags: ${error.message}` })
+            JSON.stringify({ error: `Failed to add tags: ${errorMessage}` })
           );
         }
       }
     };
 
-    handleAddTags();
+    void handleAddTags();
   }, [toolInvocation, handleAddResult, app]);
 
-  const { filePaths, tags, location } = toolInvocation.args;
+  const { filePaths, tags, location } = toolInvocation.args as TagsArgs;
   const isComplete = "result" in toolInvocation;
 
   return (
     <div className="text-sm">
       {!isComplete ? (
         <div className="text-[--text-muted]">
-          Adding tags {tags.map((t: string) => `#${t}`).join(", ")} to{" "}
+          Adding tags {tags.map((t) => `#${t}`).join(", ")} to{" "}
           {filePaths.length} file(s) in {location}...
         </div>
       ) : (

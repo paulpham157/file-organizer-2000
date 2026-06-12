@@ -5,6 +5,14 @@ import FileOrganizer from "../../../index";
 import { Notice } from "obsidian";
 import { StyledContainer } from "../../../components/ui/utils";
 import { tw } from "../../../lib/utils";
+import { obsidianFetch } from "../../../lib/obsidian-fetch";
+import { readResponseJson } from "../../../lib/api-json";
+
+interface SignupResponse {
+  success: boolean;
+  licenseKey?: string;
+  error?: string;
+}
 
 interface OnboardingWizardProps {
   plugin: FileOrganizer;
@@ -36,7 +44,7 @@ export function OnboardingWizard({ plugin, onComplete }: OnboardingWizardProps) 
 
     try {
       const endpoint = isSignup ? "/api/sign-up" : "/api/sign-in";
-      const response = await fetch(`${plugin.getServerUrl()}${endpoint}`, {
+      const response = await obsidianFetch(`${plugin.getServerUrl()}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,7 +52,7 @@ export function OnboardingWizard({ plugin, onComplete }: OnboardingWizardProps) 
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = await readResponseJson<SignupResponse>(response);
       
       if (!data.success || !data.licenseKey) {
         setError(data.error || "Authentication failed");
@@ -197,7 +205,7 @@ export function OnboardingWizard({ plugin, onComplete }: OnboardingWizardProps) 
             )}
             
             <Button
-              onClick={handleSignup}
+              onClick={() => { void handleSignup(); }}
               disabled={isLoading}
               className={tw("w-full mt-2")}
             >
@@ -254,7 +262,7 @@ export function OnboardingWizard({ plugin, onComplete }: OnboardingWizardProps) 
             </div>
             
             <Button
-              onClick={finish}
+              onClick={() => { void finish(); }}
               className={tw("w-full mt-4")}
             >
               Finish Setup

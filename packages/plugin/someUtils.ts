@@ -7,7 +7,7 @@ export function formatToSafeName(format: string) {
 export function sanitizeFileName(fileName: string): string {
   if (!fileName) return "";
   // Replace invalid characters (/, \, :, *, ?, ", <, >, |) with dashes (-)
-  return fileName.replace(/[\/\\:*?"<>|]/g, " -");
+  return fileName.replace(/[/\\:*?"<>|]/g, " -");
 }
 export function cleanPath(path: string) {
   const trimmedPath = path.trim();
@@ -19,11 +19,11 @@ export function cleanPath(path: string) {
   return pathWithoutLeadingAndTrailingSlashes;
 }
 
-export const logMessage = (...messages: any[]) => {
+export const logMessage = (...messages: unknown[]) => {
   logger.debug(...messages);
 };
 
-export const logError = (error: Error | string, details?: any) => {
+export const logError = (error: Error | string, details?: unknown) => {
   const message = error instanceof Error ? error.message : error;
   console.error(message);
   logger.error(message, details);

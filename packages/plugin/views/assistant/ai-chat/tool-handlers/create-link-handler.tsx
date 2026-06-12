@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { TFile } from "obsidian";
+import { parseJsonString } from "../../../../lib/api-json";
 import { ToolHandlerProps } from "./types";
 import { resolveFile } from "./resolve-file";
 
@@ -121,7 +122,7 @@ export function CreateLinkHandler({
       }
     };
 
-    execute();
+    void execute();
   }, [toolInvocation, handleAddResult, app]);
 
   const args = toolInvocation.args as CreateLinkArgs;
@@ -129,7 +130,11 @@ export function CreateLinkHandler({
   let statusText = "Adding link...";
   if (isComplete && typeof toolInvocation.result === "string") {
     try {
-      const result = JSON.parse(toolInvocation.result);
+      const result = parseJsonString<{
+        success?: boolean;
+        alreadyPresent?: boolean;
+        message?: string;
+      }>(toolInvocation.result);
       if (result.success) {
         statusText = result.alreadyPresent ? "Link already present" : "Link added";
       } else {

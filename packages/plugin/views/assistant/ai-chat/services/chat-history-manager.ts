@@ -1,6 +1,7 @@
 import { normalizePath, App } from "obsidian";
 import { Message } from "ai";
 import { logger } from "../../../../services/logger";
+import { parseJsonString } from "../../../../lib/api-json";
 
 type TimeoutID = ReturnType<typeof setTimeout>;
 
@@ -14,13 +15,13 @@ export interface ChatSession {
   contextSnapshot?: string; // Optional: context used when session was created
   messageContextSnapshots?: Record<string, string>; // Map of message ID to context snapshot for refresh
   contextItems?: {
-    files?: Record<string, any>;
-    folders?: Record<string, any>;
-    tags?: Record<string, any>;
-    youtubeVideos?: Record<string, any>;
-    searchResults?: Record<string, any>;
-    textSelections?: Record<string, any>;
-    currentFile?: any | null;
+    files?: Record<string, unknown>;
+    folders?: Record<string, unknown>;
+    tags?: Record<string, unknown>;
+    youtubeVideos?: Record<string, unknown>;
+    searchResults?: Record<string, unknown>;
+    textSelections?: Record<string, unknown>;
+    currentFile?: unknown;
   }; // Store context items to restore when switching chats
 }
 
@@ -51,13 +52,13 @@ export class ChatHistoryManager {
 
   private async loadSessions(): Promise<void> {
     try {
-      console.log("[ChatHistory] Loading sessions from:", this.CHAT_HISTORY_PATH);
+      console.debug("[ChatHistory] Loading sessions from:", this.CHAT_HISTORY_PATH);
       const chatHistoryFileExists = await this.app.vault.adapter.exists(
         this.CHAT_HISTORY_PATH
       );
 
       if (!chatHistoryFileExists) {
-        console.log("[ChatHistory] File does not exist, starting with empty history");
+        console.debug("[ChatHistory] File does not exist, starting with empty history");
         this.sessions = new Map();
         return;
       }
@@ -73,9 +74,11 @@ export class ChatHistoryManager {
       }
 
       // Try to parse JSON
-      let data;
+      let data: { sessions?: [string, ChatSession][] } | Record<string, ChatSession>;
       try {
-        data = JSON.parse(content);
+        data = parseJsonString<
+          { sessions?: [string, ChatSession][] } | Record<string, ChatSession>
+        >(content);
       } catch (parseError) {
         console.error("[ChatHistory] ❌ JSON parse error:", parseError);
         console.error("[ChatHistory] File content (first 500 chars):", content.substring(0, 500));
@@ -84,7 +87,7 @@ export class ChatHistoryManager {
         try {
           const backupPath = this.CHAT_HISTORY_PATH.replace('.chat-history.json', `.chat-history-corrupted-${Date.now()}.json`);
           await this.app.vault.adapter.write(backupPath, content);
-          console.log("[ChatHistory] Created backup of corrupted file at:", backupPath);
+          console.debug("[ChatHistory] Created backup of corrupted file at:", backupPath);
         } catch (backupError) {
           console.error("[ChatHistory] Failed to create backup:", backupError);
         }
@@ -94,21 +97,29 @@ export class ChatHistoryManager {
         return;
       }
 
-      console.log("[ChatHistory] Parsed data:", {
-        hasSessions: !!data.sessions,
-        sessionsType: Array.isArray(data.sessions) ? "array" : typeof data.sessions,
-        sessionsLength: data.sessions?.length || 0,
+      console.debug("[ChatHistory] Parsed data:", {
+        hasSessions: "sessions" in data && !!data.sessions,
+        sessionsType:
+          "sessions" in data && Array.isArray(data.sessions)
+            ? "array"
+            : typeof data,
+        sessionsLength:
+          "sessions" in data && Array.isArray(data.sessions)
+            ? data.sessions.length
+            : 0,
         dataKeys: Object.keys(data),
       });
 
       // Convert array of entries back to Map
-      if (data.sessions && Array.isArray(data.sessions)) {
+      if ("sessions" in data && data.sessions && Array.isArray(data.sessions)) {
         this.sessions = new Map(data.sessions);
-        console.log("[ChatHistory] ✅ Loaded", this.sessions.size, "sessions");
+        console.debug("[ChatHistory] ✅ Loaded", this.sessions.size, "sessions");
       } else if (data && typeof data === "object" && !Array.isArray(data)) {
         // Handle legacy format (object with session IDs as keys)
-        this.sessions = new Map(Object.entries(data));
-        console.log("[ChatHistory] ✅ Loaded", this.sessions.size, "sessions (legacy format)");
+        this.sessions = new Map(
+          Object.entries(data as Record<string, ChatSession>)
+        );
+        console.debug("[ChatHistory] ✅ Loaded", this.sessions.size, "sessions (legacy format)");
       } else {
         console.warn("[ChatHistory] ⚠️ Unexpected data format:", typeof data);
         console.warn("[ChatHistory] Data content:", JSON.stringify(data).substring(0, 200));
@@ -125,10 +136,10 @@ export class ChatHistoryManager {
 
   private debounceSave(): void {
     if (this.debounceTimeout) {
-      clearTimeout(this.debounceTimeout);
+      window.clearTimeout(this.debounceTimeout);
     }
 
-    this.debounceTimeout = setTimeout(() => this.saveSessions(), 1000);
+    this.debounceTimeout = window.setTimeout(() => { void this.saveSessions(); }, 1000);
   }
 
   private async saveSessions(): Promise<void> {
@@ -201,7 +212,7 @@ export class ChatHistoryManager {
   public getAllSessions(): ChatSession[] {
     const sessions = Array.from(this.sessions.values())
       .sort((a, b) => b.updatedAt - a.updatedAt);
-    console.log("[ChatHistory] getAllSessions() returning", sessions.length, "sessions");
+    console.debug("[ChatHistory] getAllSessions() returning", sessions.length, "sessions");
     return sessions;
   }
 
@@ -209,7 +220,7 @@ export class ChatHistoryManager {
    * Wait for initial load to complete (useful when component mounts)
    */
   public async waitForLoad(): Promise<void> {
-    if (this.loadPromise) {
+    if (this.loadPromise !== null) {
       await this.loadPromise;
     }
   }
@@ -253,7 +264,7 @@ export class ChatHistoryManager {
    * Manually reload sessions from disk (useful for debugging)
    */
   public async reloadSessions(): Promise<void> {
-    console.log("[ChatHistory] Manually reloading sessions...");
+    console.debug("[ChatHistory] Manually reloading sessions...");
     await this.loadSessions();
   }
 

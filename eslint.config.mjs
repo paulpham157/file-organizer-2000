@@ -27,6 +27,7 @@ export default tseslint.config(
     "**/postcss.config.js",
     "**/tailwind.config.js",
     "**/jest.config.*",
+    "packages/plugin/**/*.test.ts",
   ]),
   {
     files: ["packages/plugin/**/*.{ts,tsx}"],

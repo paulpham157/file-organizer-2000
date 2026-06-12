@@ -36,7 +36,7 @@ export interface EventRecord {
   fileRecordId: string;
   timestamp: string;
   message: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface QueueStatus {
@@ -72,7 +72,7 @@ export interface ClassificationResult {
   classification: string;
   formattedText: string;
   confidence?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CacheEntry<T> {

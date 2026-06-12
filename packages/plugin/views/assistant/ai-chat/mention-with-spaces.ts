@@ -8,7 +8,7 @@ const MentionWithSpaces = Mention.extend({
   name: "mention",
 
   // Override renderText to display label without @ prefix
-  renderText({ node }) {
+  renderText({ node }: { node: { attrs: { label?: string; id?: string } } }) {
     return node.attrs.label || node.attrs.id || "";
   },
 });

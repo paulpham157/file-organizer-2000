@@ -1,7 +1,8 @@
+import { requestUrl } from "obsidian";
 import { logger } from "../../services/logger";
 import FileOrganizer from "../../index";
 import { fetchTranscript } from "youtube-transcript-plus";
-import { requestUrl } from "obsidian";
+import { obsidianFetch } from "../../lib/obsidian-fetch";
 
 // Regex patterns for both YouTube URL formats
 const YOUTUBE_URL_PATTERNS = [
@@ -22,48 +23,6 @@ export function extractYouTubeVideoId(
 }
 
 /**
- * Wraps Obsidian's requestUrl to match the fetch API signature
- * This allows youtube-transcript-plus to work in Obsidian's Electron environment
- */
-function createObsidianFetch() {
-  return async (
-    url: string,
-    options?: {
-      method?: string;
-      headers?: Record<string, string>;
-      body?: string;
-    }
-  ): Promise<Response> => {
-    const response = await requestUrl({
-      url,
-      method:
-        (options?.method as "GET" | "POST" | "PUT" | "DELETE" | "PATCH") ||
-        "GET",
-      headers: options?.headers || {},
-      body: options?.body,
-    });
-
-    // Convert Obsidian's RequestUrlResponse to a fetch-like Response
-    return {
-      ok: response.status >= 200 && response.status < 300,
-      status: response.status,
-      statusText: "", // RequestUrlResponse doesn't have statusText
-      text: async () => response.text,
-      json: async () => {
-        try {
-          return typeof response.json === "string"
-            ? JSON.parse(response.json)
-            : response.json;
-        } catch {
-          throw new Error("Invalid JSON response");
-        }
-      },
-      headers: new Headers(response.headers || {}),
-    } as Response;
-  };
-}
-
-/**
  * Decodes HTML entities in a string
  * Works in both browser and Node.js environments
  * Handles double-encoded entities like &amp;#39; by doing multiple passes
@@ -78,10 +37,10 @@ function decodeHtmlEntities(text: string): string {
 
     // Decode numeric entities (&#39;, &#x27;, etc.) - must come before &amp; decoding
     decoded = decoded
-      .replace(/&#(\d+);/g, (match, dec) =>
+      .replace(/&#(\d+);/g, (_match: string, dec: string) =>
         String.fromCharCode(parseInt(dec, 10))
       )
-      .replace(/&#x([0-9a-fA-F]+);/gi, (match, hex) =>
+      .replace(/&#x([0-9a-fA-F]+);/gi, (_match: string, hex: string) =>
         String.fromCharCode(parseInt(hex, 16))
       );
 
@@ -92,18 +51,6 @@ function decodeHtmlEntities(text: string): string {
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
       .replace(/&amp;/g, "&"); // Decode &amp; last so it doesn't interfere with numeric entities
-  }
-
-  // Try DOM API as additional pass (works in browser/Electron)
-  if (typeof document !== "undefined" && decoded !== text) {
-    try {
-      const div = document.createElement("div");
-      div.innerHTML = decoded; // Use innerHTML to let browser decode any remaining entities
-      const domDecoded = div.textContent || div.innerText || decoded;
-      return domDecoded;
-    } catch (e) {
-      // Return regex-decoded version
-    }
   }
 
   return decoded;
@@ -134,30 +81,43 @@ function parseJsonLdFromHtml(html: string): {
       const data = JSON.parse(raw) as unknown;
       const items = Array.isArray(data) ? data : [data];
       for (const item of items) {
-        if (item && typeof item === "object") {
-          // VideoObject: uploadDate, author.name or publisher.name
-          if (item["@type"] === "VideoObject") {
-            if (item.uploadDate && typeof item.uploadDate === "string") {
-              result.datePublished = item.uploadDate;
+        if (!item || typeof item !== "object") continue;
+        const record = item as Record<string, unknown>;
+
+        // VideoObject: uploadDate, author.name or publisher.name
+        if (record["@type"] === "VideoObject") {
+          if (typeof record.uploadDate === "string") {
+            result.datePublished = record.uploadDate;
+          }
+          const author = record.author;
+          if (author && typeof author === "object") {
+            const authorName = (author as Record<string, unknown>).name;
+            if (typeof authorName === "string") {
+              result.channel = authorName.trim();
             }
-            const author = item.author;
-            if (author && typeof author === "object" && author.name) {
-              result.channel = String(author.name).trim();
-            }
-            if (!result.channel) {
-              const publisher = item.publisher;
-              if (publisher && typeof publisher === "object" && publisher.name) {
-                result.channel = String(publisher.name).trim();
+          }
+          if (!result.channel) {
+            const publisher = record.publisher;
+            if (publisher && typeof publisher === "object") {
+              const publisherName = (publisher as Record<string, unknown>).name;
+              if (typeof publisherName === "string") {
+                result.channel = publisherName.trim();
               }
             }
-            if (result.channel && result.datePublished) return result;
           }
-          // BreadcrumbList may contain channel in itemListElement
-          if (item["@type"] === "BreadcrumbList" && Array.isArray(item.itemListElement)) {
-            const last = item.itemListElement[item.itemListElement.length - 1];
-            if (last?.name && !result.channel) {
-              result.channel = String(last.name).trim();
-            }
+          if (result.channel && result.datePublished) return result;
+        }
+
+        // BreadcrumbList may contain channel in itemListElement
+        if (
+          record["@type"] === "BreadcrumbList" &&
+          Array.isArray(record.itemListElement)
+        ) {
+          const elements = record.itemListElement as Record<string, unknown>[];
+          const last = elements[elements.length - 1];
+          const lastName = last?.name;
+          if (typeof lastName === "string" && !result.channel) {
+            result.channel = lastName.trim();
           }
         }
       }
@@ -179,7 +139,7 @@ function parseYtInitialDataChannel(html: string): string | undefined {
   );
   if (!match || !match[1]) return undefined;
 
-  const startIndex = match.index! + match[0].length - 1; // index of first `{`
+  const startIndex = match.index + match[0].length - 1; // index of first `{`
   let depth = 0;
   let inString: "'" | '"' | null = null;
   let i = startIndex;
@@ -273,7 +233,7 @@ function getChannelFromYtInitialData(data: unknown): string | undefined {
   // Primary: results.results.contents
   const results = twoCol.results as Record<string, unknown> | undefined;
   const resultsInner = results?.results as Record<string, unknown> | undefined;
-  const resultsContents = resultsInner?.contents as unknown;
+  const resultsContents = resultsInner?.contents;
   const ch1 = searchVideoSecondaryInfo(resultsContents);
   if (ch1) return ch1;
 
@@ -306,7 +266,7 @@ function formatDatePublished(isoDate: string): string {
 async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
   try {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
-    console.log("[YouTube Service] Fetching metadata from:", url);
+    console.debug("[YouTube Service] Fetching metadata from:", url);
 
     const response = await requestUrl({
       url,
@@ -359,7 +319,7 @@ async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
       throw new Error("Could not extract title from YouTube page");
     }
 
-    console.log("[YouTube Service] Extracted metadata:", {
+    console.debug("[YouTube Service] Extracted metadata:", {
       title: metadata.title,
       channel: metadata.channel ?? "(none)",
       datePublished: metadata.datePublished ?? "(none)",
@@ -412,18 +372,15 @@ export async function getYouTubeContent(
     );
   }
 
-  console.log(
+  console.debug(
     "[YouTube Service] Fetching YouTube content directly (client-side):",
     finalVideoId,
     `(original: ${typeof videoId === 'string' ? videoId : JSON.stringify(videoId)})`
   );
 
   try {
-    // Create Obsidian-compatible fetch function
-    const obsidianFetch = createObsidianFetch();
-
     // Fetch transcript and metadata (title, channel, date) in parallel
-    console.log(
+    console.debug(
       "[YouTube Service] Starting parallel fetch of transcript and metadata..."
     );
 
@@ -508,7 +465,7 @@ export async function getYouTubeContent(
     // Ensure title is properly decoded (double-check)
     const decodedTitle = decodeHtmlEntities(metadata.title);
 
-    console.log("[YouTube Service] Successfully fetched:", {
+    console.debug("[YouTube Service] Successfully fetched:", {
       title: decodedTitle,
       channel: metadata.channel ?? "(none)",
       datePublished: metadata.datePublished ?? "(none)",

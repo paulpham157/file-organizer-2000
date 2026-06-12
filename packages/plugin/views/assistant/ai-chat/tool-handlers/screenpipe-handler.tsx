@@ -8,6 +8,26 @@ import {
   type ScreenpipeResult,
 } from "../../../../services/screenpipe-client";
 
+interface ScreenpipeToolArgs {
+  q?: string;
+  content_type?: ScreenpipeSearchParams["content_type"];
+  limit?: number;
+  start_time?: string;
+  end_time?: string;
+  app_name?: string;
+  window_name?: string;
+}
+
+interface GroupedScreenpipeItem {
+  type: string;
+  timestamp: string;
+  app: string;
+  window: string;
+  text?: string;
+  url?: string;
+  preview: string;
+}
+
 export function ScreenpipeHandler({
   toolInvocation,
   handleAddResult,
@@ -29,7 +49,7 @@ export function ScreenpipeHandler({
 
   // Debug: Log when component mounts
   React.useEffect(() => {
-    console.log("[ScreenPipe Handler] Component mounted", {
+    console.debug("[ScreenPipe Handler] Component mounted", {
       toolCallId: toolInvocation.toolCallId,
       toolName: toolInvocation.toolName,
       hasPlugin: !!plugin,
@@ -39,23 +59,23 @@ export function ScreenpipeHandler({
   React.useEffect(() => {
     // CRITICAL: Check immediately if already executed - before any async operations
     if (hasFetchedRef.current) {
-      console.log("[ScreenPipe Handler] Already executed, skipping useEffect");
+      console.debug("[ScreenPipe Handler] Already executed, skipping useEffect");
       return;
     }
 
     // If result already exists, don't execute
     if ("result" in toolInvocation) {
-      console.log("[ScreenPipe Handler] Result already exists, skipping");
+      console.debug("[ScreenPipe Handler] Result already exists, skipping");
       return;
     }
 
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: number | null = null;
     let isMounted = true;
 
     const execute = async () => {
       // Double-check before executing
       if (hasFetchedRef.current || !isMounted) {
-        console.log(
+        console.debug(
           "[ScreenPipe Handler] Already executed or unmounted, skipping"
         );
         return;
@@ -79,7 +99,7 @@ export function ScreenpipeHandler({
 
         if (!isMounted || hasFetchedRef.current) return;
         retryCountRef.current += 1;
-        console.log(
+        console.debug(
           "[ScreenPipe Handler] Plugin not available yet, retrying...",
           retryCountRef.current
         );
@@ -87,13 +107,13 @@ export function ScreenpipeHandler({
           `Waiting for plugin context... (${retryCountRef.current}/10)`
         );
         // Retry after a short delay
-        timeoutId = setTimeout(() => {
+        timeoutId = window.setTimeout(() => {
           if (
             isMounted &&
             !hasFetchedRef.current &&
             retryCountRef.current < 10
           ) {
-            execute();
+            void execute();
           }
         }, 100);
         return;
@@ -118,7 +138,7 @@ export function ScreenpipeHandler({
         fullToolInvocation: toolInvocation,
       });
 
-      console.log("[ScreenPipe Handler] Starting execution", {
+      console.debug("[ScreenPipe Handler] Starting execution", {
         toolCallId: toolInvocation.toolCallId,
         toolName: toolInvocation.toolName,
         args: toolInvocation.args,
@@ -172,7 +192,7 @@ export function ScreenpipeHandler({
 
         setStatus("Searching ScreenPipe...");
         // Execute search - normalize empty strings to undefined
-        const rawArgs = toolInvocation.args as any;
+        const rawArgs = toolInvocation.args as ScreenpipeToolArgs;
 
         // Smart mapping: translate common website/service names to actual app names
         // This handles cases where users/AI ask for "YouTube" but need "Google Chrome"
@@ -306,10 +326,7 @@ export function ScreenpipeHandler({
 
         const normalizedArgs: ScreenpipeSearchParams = {
           q: rawArgs.q && rawArgs.q.trim() !== "" ? rawArgs.q : undefined,
-          content_type:
-            rawArgs.content_type && rawArgs.content_type !== ""
-              ? rawArgs.content_type
-              : undefined,
+          content_type: rawArgs.content_type,
           limit: searchLimit,
           start_time: startTime,
           end_time: endTime,
@@ -391,7 +408,7 @@ export function ScreenpipeHandler({
 
         setStatus("Formatting results...");
         // Format results for AI and group by same activity (window + app)
-        const groupedResults = new Map<string, any[]>();
+        const groupedResults = new Map<string, GroupedScreenpipeItem[]>();
 
         results.forEach((r: ScreenpipeResult) => {
           const app = r.content.app_name || "Unknown";
@@ -403,7 +420,10 @@ export function ScreenpipeHandler({
             groupedResults.set(groupKey, []);
           }
 
-          groupedResults.get(groupKey)!.push({
+          const group = groupedResults.get(groupKey);
+          if (!group) return;
+
+          group.push({
             type: r.type,
             timestamp: r.content.timestamp,
             app: app,
@@ -520,13 +540,13 @@ export function ScreenpipeHandler({
     };
 
     // Execute once
-    execute();
+    void execute();
 
     // Cleanup function
     return () => {
       isMounted = false;
       if (timeoutId) {
-        clearTimeout(timeoutId);
+        window.clearTimeout(timeoutId);
         timeoutId = null;
       }
     };
@@ -541,11 +561,16 @@ export function ScreenpipeHandler({
     try {
       const resultStr =
         typeof result === "string" ? result : JSON.stringify(result);
-      const parsed = JSON.parse(resultStr);
-      const results = Array.isArray(parsed) ? parsed : parsed.data || [];
-      resultCount = results.length;
-    } catch (e) {
-      // If parsing fails, try to use result directly
+      const parsed: unknown = JSON.parse(resultStr);
+      if (Array.isArray(parsed)) {
+        resultCount = parsed.length;
+      } else if (typeof parsed === "object" && parsed !== null && "data" in parsed) {
+        const data = (parsed as Record<string, unknown>).data;
+        if (Array.isArray(data)) {
+          resultCount = data.length;
+        }
+      }
+    } catch {
       resultCount = Array.isArray(result) ? result.length : 0;
     }
   }

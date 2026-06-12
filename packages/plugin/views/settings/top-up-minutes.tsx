@@ -3,6 +3,15 @@ import { Button } from "../assistant/ai-chat/button";
 import FileOrganizer from "../..";
 import { Notice } from "obsidian";
 import { validateApiKey } from "../../apiUtils";
+import { obsidianFetch } from "../../lib/obsidian-fetch";
+import { readResponseJson } from "../../lib/api-json";
+
+type TopUpMinutesResponse = {
+  anonymousUserCreated?: boolean;
+  invalidKeyDetected?: boolean;
+  url?: string;
+  licenseKey?: string;
+};
 
 export function TopUpMinutes({
   plugin,
@@ -28,7 +37,7 @@ export function TopUpMinutes({
 
     try {
       setLoading(true);
-      const response = await fetch(
+      const response = await obsidianFetch(
         `${plugin.getServerUrl()}/api/top-up-minutes`,
         {
           method: "POST",
@@ -39,7 +48,7 @@ export function TopUpMinutes({
         }
       );
 
-      const data = await response.json();
+      const data = await readResponseJson<TopUpMinutesResponse>(response);
 
       // Check if anonymous user was created due to invalid key
       if (data.anonymousUserCreated && data.invalidKeyDetected) {
@@ -71,7 +80,7 @@ export function TopUpMinutes({
   };
 
   return (
-    <Button onClick={handleTopUp} disabled={loading} className="w-full">
+    <Button onClick={() => { void handleTopUp(); }} disabled={loading} className="w-full">
       {loading ? "Processing..." : "Top Up 300 Minutes ($10)"}
     </Button>
   );

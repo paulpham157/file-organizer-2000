@@ -1,6 +1,6 @@
-import { TFile, moment, TFolder, Vault, Notice } from "obsidian";
+import { TFile, Notice } from "obsidian";
 import FileOrganizer from "../index";
-import { Queue } from "./services/queue";
+import { Queue, type QueueTaskMetadata } from "./services/queue";
 import {
   FileRecord,
   RecordManager,
@@ -24,10 +24,9 @@ import {
 import {
   safeCreate,
   safeRename,
-  safeCopy,
   safeMove,
-  safeModifyContent as safeModify,
 } from "../fileUtils";
+import { getErrorMessage, getErrorStack } from "../lib/api-json";
 import { sanitizeContent } from "../fileUtils";
 import {
   extractYouTubeVideoId,
@@ -65,7 +64,7 @@ interface EventRecord {
   fileRecordId: string;
   timestamp: string;
   message: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ProcessingContext {
@@ -205,7 +204,7 @@ export class Inbox {
     this.queue = new Queue<TFile>({
       concurrency: MAX_CONCURRENT_TASKS,
       timeout: 30000,
-      onProcess: async (file: TFile, metadata?: Record<string, any>) => {
+      onProcess: async (file: TFile, metadata?: QueueTaskMetadata) => {
         try {
           const isMediaFile = this.plugin.shouldCreateMarkdownContainer(file);
 
@@ -227,7 +226,7 @@ export class Inbox {
           if (isMediaFile) {
             this.activeMediaTasks--;
             // Process next media file if available
-            this.processNextMediaFile();
+            void this.processNextMediaFile();
           }
         } finally {
           if (metadata?.hash) {
@@ -876,13 +875,15 @@ async function completeProcessing(
 // Error handling
 
 async function handleError(
-  error: any,
+  error: unknown,
   context: ProcessingContext
 ): Promise<void> {
   const lastError = context.recordManager.getLastError(context.hash);
 
+  const errorMessageText = getErrorMessage(error);
+
   logger.error(`Error in step ${lastError?.action}:`, {
-    error: error.message,
+    error: errorMessageText,
     step: lastError?.action,
     file: context.inboxFile.path,
   });
@@ -890,7 +891,8 @@ async function handleError(
   context.recordManager.setStatus(context.hash, "error");
 
   const fileName = context.inboxFile.basename;
-  const errorMessage = lastError?.error?.message || error.message || "Unknown error";
+  const errorMessage =
+    lastError?.error?.message || errorMessageText || "Unknown error";
   const errorAction = lastError?.action;
 
   // Determine destination folder and error type
@@ -1150,8 +1152,8 @@ async function executeStep(
     context.recordManager.addAction(context.hash, errorAction);
     context.recordManager.addError(context.hash, {
       action: errorAction,
-      message: error.message,
-      stack: error.stack,
+      message: getErrorMessage(error),
+      stack: getErrorStack(error),
     });
     throw error;
   }
@@ -1163,6 +1165,6 @@ async function shouldProcessYouTube(
 ): Promise<boolean> {
   if (!context.content) return false;
 
-  const videoId = await extractYouTubeVideoId(context.content);
+  const videoId = extractYouTubeVideoId(context.content);
   return !!videoId;
 }

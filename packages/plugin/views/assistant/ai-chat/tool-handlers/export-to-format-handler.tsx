@@ -1,18 +1,22 @@
 import React, { useRef, useState } from "react";
-import { App, TFile, Notice } from "obsidian";
-import { ToolInvocation } from "ai";
+import { TFile, Notice } from "obsidian";
+import { ToolHandlerProps } from "./types";
 
-interface ExportToFormatHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+type ExportFormat = "html" | "txt" | "pdf" | "md";
+
+interface ExportToFormatArgs {
+  filePaths: string[];
+  format: ExportFormat;
+  outputFolder?: string;
+  includeMetadata?: boolean;
+  message?: string;
 }
 
 export function ExportToFormatHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: ExportToFormatHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -23,12 +27,12 @@ export function ExportToFormatHandler({
     const validateFiles = () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { filePaths } = toolInvocation.args;
+        const { filePaths } = toolInvocation.args as ExportToFormatArgs;
 
         const valid: TFile[] = [];
         const invalid: string[] = [];
 
-        filePaths.forEach((path: string) => {
+        filePaths.forEach((path) => {
           const file = app.vault.getAbstractFileByPath(path);
           if (file instanceof TFile) {
             valid.push(file);
@@ -55,10 +59,9 @@ export function ExportToFormatHandler({
       format,
       outputFolder = "Exports",
       includeMetadata = false,
-    } = toolInvocation.args;
+    } = toolInvocation.args as ExportToFormatArgs;
 
     try {
-      // Ensure export folder exists
       const folderExists = app.vault.getAbstractFileByPath(outputFolder);
       if (!folderExists) {
         await app.vault.createFolder(outputFolder);
@@ -72,18 +75,15 @@ export function ExportToFormatHandler({
         try {
           let content = await app.vault.read(file);
 
-          // Remove frontmatter if requested
           if (!includeMetadata) {
             content = stripFrontmatter(content);
           }
 
           const baseName = file.basename;
           let exportedContent = content;
-          let extension = format;
+          const extension = format;
 
-          // Format-specific processing
           if (format === "html") {
-            // Basic markdown to HTML conversion
             exportedContent = `<!DOCTYPE html>
 <html>
 <head>
@@ -102,28 +102,24 @@ ${content.replace(/\n/g, "<br>\n")}
 </body>
 </html>`;
           } else if (format === "txt") {
-            // Plain text - strip markdown formatting
             exportedContent = content
-              .replace(/#{1,6}\s/g, "") // Remove heading markers
-              .replace(/\*\*(.+?)\*\*/g, "$1") // Remove bold
-              .replace(/\*(.+?)\*/g, "$1") // Remove italic
-              .replace(/\[(.+?)\]\(.+?\)/g, "$1") // Remove links, keep text
-              .replace(/`(.+?)`/g, "$1"); // Remove inline code
+              .replace(/#{1,6}\s/g, "")
+              .replace(/\*\*(.+?)\*\*/g, "$1")
+              .replace(/\*(.+?)\*/g, "$1")
+              .replace(/\[(.+?)\]\(.+?\)/g, "$1")
+              .replace(/`(.+?)`/g, "$1");
           } else if (format === "pdf") {
-            // PDF export is not directly supported in Obsidian plugin
-            // Would need external library or API
             errors.push(
               `${file.path}: PDF export requires external converter (not yet implemented)`
             );
             continue;
           }
 
-          // Create export file
           const exportPath = `${outputFolder}/${baseName}.${extension}`;
           const existingExport = app.vault.getAbstractFileByPath(exportPath);
 
-          if (existingExport) {
-            await app.vault.modify(existingExport as TFile, exportedContent);
+          if (existingExport instanceof TFile) {
+            await app.vault.modify(existingExport, exportedContent);
           } else {
             await app.vault.create(exportPath, exportedContent);
           }
@@ -131,7 +127,9 @@ ${content.replace(/\n/g, "<br>\n")}
           exportedFiles.push(exportPath);
           exportedCount++;
         } catch (error) {
-          errors.push(`${file.path}: ${error.message}`);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          errors.push(`${file.path}: ${errorMessage}`);
         }
       }
 
@@ -154,11 +152,13 @@ ${content.replace(/\n/g, "<br>\n")}
       );
     } catch (error) {
       setIsDone(true);
-      new Notice(`Export failed: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      new Notice(`Export failed: ${errorMessage}`);
       handleAddResult(
         JSON.stringify({
           success: false,
-          error: error.message,
+          error: errorMessage,
         })
       );
     }
@@ -179,7 +179,7 @@ ${content.replace(/\n/g, "<br>\n")}
     outputFolder = "Exports",
     includeMetadata = false,
     message: reason,
-  } = toolInvocation.args;
+  } = toolInvocation.args as ExportToFormatArgs;
   const isComplete = "result" in toolInvocation;
 
   if (isComplete || isDone) {
@@ -226,7 +226,8 @@ ${content.replace(/\n/g, "<br>\n")}
             <strong>Output:</strong> {outputFolder}/
           </div>
           <div className="text-[--text-normal]">
-            <strong>Metadata:</strong> {includeMetadata ? "Included" : "Excluded"}
+            <strong>Metadata:</strong>{" "}
+            {includeMetadata ? "Included" : "Excluded"}
           </div>
         </div>
       </div>
@@ -269,7 +270,7 @@ ${content.replace(/\n/g, "<br>\n")}
         <button
           onClick={() => {
             setIsConfirmed(true);
-            handleConfirmExport();
+            void handleConfirmExport();
           }}
           className="flex-1 px-3 py-1.5 text-xs bg-[--interactive-accent] hover:bg-[--interactive-accent-hover] text-white"
         >

@@ -2,7 +2,18 @@ import { TFile } from "obsidian";
 import { logger } from "../../../services/logger";
 import FileOrganizer from "../../../index";
 import { RecordingMetadata, MeetingMetadataManager } from "./meeting-metadata";
-import { Notice } from "obsidian";
+import { obsidianFetch } from "../../../lib/obsidian-fetch";
+import {
+  readResponseJson,
+  getApiError,
+  type ApiErrorBody,
+} from "../../../lib/api-json";
+
+type TranscribeResponse = { text: string };
+type UsageResponse = {
+  maxAudioTranscriptionMinutes: number;
+  audioTranscriptionMinutes: number;
+};
 
 export interface TranscribeResult {
   success: boolean;
@@ -48,14 +59,14 @@ export class TranscribeHandler {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await readResponseJson<ApiErrorBody>(response);
         return {
           success: false,
-          error: errorData.error || "Transcription failed",
+          error: getApiError(errorData) ?? "Transcription failed",
         };
       }
 
-      const data = await response.json();
+      const data = await readResponseJson<TranscribeResponse>(response);
       const transcript = data.text;
 
       // Store transcript in vault
@@ -104,7 +115,7 @@ export class TranscribeHandler {
       const estimatedMinutes = Math.ceil(fileSizeInMB * 2);
 
       // Get usage info
-      const usageResponse = await fetch(
+      const usageResponse = await obsidianFetch(
         `${plugin.getServerUrl()}/api/usage`,
         {
           headers: {
@@ -120,7 +131,7 @@ export class TranscribeHandler {
         };
       }
 
-      const usageData = await usageResponse.json();
+      const usageData = await readResponseJson<UsageResponse>(usageResponse);
       const remainingMinutes =
         usageData.maxAudioTranscriptionMinutes -
         usageData.audioTranscriptionMinutes;

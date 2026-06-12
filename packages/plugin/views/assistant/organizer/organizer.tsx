@@ -1,7 +1,6 @@
 import * as React from "react";
 import { TFile, WorkspaceLeaf, Notice, TAbstractFile } from "obsidian";
 import FileOrganizer from "../../../index";
-import { debounce } from "lodash";
 
 import { SectionHeader } from "../section-header";
 import { SimilarTags } from "./tags";
@@ -29,6 +28,34 @@ const checkIfIsMediaFile = (file: TFile | null): boolean => {
   return VALID_MEDIA_EXTENSIONS.includes(file.extension);
 };
 
+type DebouncedFn = {
+  (): void;
+  cancel: () => void;
+};
+
+function createDebouncedFn(fn: () => void, delayMs: number): DebouncedFn {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = () => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+    timeoutId = window.setTimeout(() => {
+      timeoutId = null;
+      fn();
+    }, delayMs);
+  };
+
+  debounced.cancel = () => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  return debounced;
+}
+
 export const AssistantView: React.FC<AssistantViewProps> = ({
   plugin,
   leaf,
@@ -39,7 +66,6 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
   const [refreshKey, setRefreshKey] = React.useState<number>(0);
   const [error, setError] = React.useState<string | null>(null);
   const [isLicenseValid, setIsLicenseValid] = React.useState(false);
-  const [isConnected, setIsConnected] = React.useState(true);
 
   // Use refs to track the active file and path for rename detection
   const activeFilePathRef = React.useRef<string | null>(null);
@@ -56,7 +82,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
       plugin
         .getAllIgnoredFolders()
         .some(folder => activeFile?.path.startsWith(folder)),
-    [activeFile, plugin.getAllIgnoredFolders]
+    [activeFile, plugin]
   );
 
   const updateActiveFile = React.useCallback(async () => {
@@ -86,18 +112,13 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
       logger.error("Error updating active file:", err);
       setError("Failed to load file content");
     }
-  }, [
-    plugin.app.workspace,
-    plugin.app.vault,
-    leaf.view.containerEl,
-    plugin.app.workspace.rightSplit.collapsed,
-    leaf.view.containerEl.isShown,
-    isMediaFile,
-  ]);
+  }, [plugin, leaf, isMediaFile]);
 
   React.useEffect(() => {
-    updateActiveFile();
-    const debouncedUpdate = debounce(updateActiveFile, 300);
+    void updateActiveFile();
+    const debouncedUpdate = createDebouncedFn(() => {
+      void updateActiveFile();
+    }, 300);
 
     // Handle file rename - update activeFile if the current file was renamed
     const handleRename = (file: TAbstractFile, oldPath: string) => {
@@ -131,8 +152,8 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
 
         // Also refresh the active file to ensure we have the latest reference
         // Use a small delay to ensure Obsidian has fully processed the rename
-        setTimeout(() => {
-          updateActiveFile();
+        window.setTimeout(() => {
+          void updateActiveFile();
         }, 100);
       } else {
         // Fallback: Check if workspace active file path differs from our state
@@ -156,26 +177,30 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
           setActiveFile(file);
           activeFileRef.current = file;
           activeFilePathRef.current = file.path;
-          setTimeout(() => {
-            updateActiveFile();
+          window.setTimeout(() => {
+            void updateActiveFile();
           }, 100);
         }
       }
     };
 
+    const onWorkspaceChange = () => {
+      debouncedUpdate();
+    };
+
     // Attach event listeners
-    plugin.app.workspace.on("file-open", debouncedUpdate);
-    plugin.app.workspace.on("active-leaf-change", debouncedUpdate);
+    plugin.app.workspace.on("file-open", onWorkspaceChange);
+    plugin.app.workspace.on("active-leaf-change", onWorkspaceChange);
     plugin.app.vault.on("rename", handleRename);
 
     // Cleanup function to remove event listeners
     return () => {
-      plugin.app.workspace.off("file-open", debouncedUpdate);
-      plugin.app.workspace.off("active-leaf-change", debouncedUpdate);
+      plugin.app.workspace.off("file-open", onWorkspaceChange);
+      plugin.app.workspace.off("active-leaf-change", onWorkspaceChange);
       plugin.app.vault.off("rename", handleRename);
       debouncedUpdate.cancel();
     };
-  }, [updateActiveFile, plugin.app.workspace, plugin.app.vault]);
+  }, [updateActiveFile, plugin]);
 
   const refreshContext = React.useCallback(() => {
     setRefreshKey(prevKey => prevKey + 1);
@@ -188,8 +213,8 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
     setNoteContent("");
 
     // Then update the active file with fresh checks
-    setTimeout(() => {
-      updateActiveFile();
+    window.setTimeout(() => {
+      void updateActiveFile();
     }, 50); // Small delay to ensure state is cleared before updating
   }, [updateActiveFile]);
 
@@ -209,7 +234,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
     if (!activeFile) return;
 
     try {
-      await plugin.app.vault.delete(activeFile);
+      await plugin.app.fileManager.trashFile(activeFile);
       new Notice("File deleted successfully");
     } catch (err) {
       logger.error("Error deleting file:", err);
@@ -327,7 +352,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
             showRefresh={false}
             onRefresh={refreshContext}
             showDelete={true}
-            onDelete={handleDelete}
+            onDelete={() => { void handleDelete(); }}
           />
         </div>
       </div>
@@ -359,7 +384,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
             content={noteContent}
             refreshKey={refreshKey}
             onTokenLimitError={onTokenLimitError}
-            onFileRename={async newFile => {
+            onFileRename={(newFile) => { void (async () => {
               // Set flag to prevent updateActiveFile from interfering
               isRenamingRef.current = true;
 
@@ -382,7 +407,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
               setRefreshKey(prev => prev + 1);
 
               // Clear the flag after a delay to allow other updates
-              setTimeout(() => {
+              window.setTimeout(() => {
                 isRenamingRef.current = false;
                 // Verify state is correct, fix if needed
                 const currentActive = plugin.app.workspace.getActiveFile();
@@ -396,7 +421,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
                   activeFilePathRef.current = newFile.path;
                 }
               }, 500);
-            }}
+            })(); }}
           />,
           "Error loading classification"
         )}

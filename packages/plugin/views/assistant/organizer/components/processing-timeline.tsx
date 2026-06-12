@@ -51,7 +51,7 @@ export const ProcessingTimeline: React.FC<ProcessingTimelineProps> = ({ record }
           [Action.APPEND]: "Append",
           [Action.TAGGING]: "Tags",
           [Action.COMPLETED]: "Complete",
-        } as any;
+        } as unknown;
         return labels[action] || action.toString();
       };
 

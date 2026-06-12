@@ -21,7 +21,7 @@ export function ChatTabs({
 }: ChatTabsProps) {
   // Debug: Log to verify component is rendering
   React.useEffect(() => {
-    console.log('[ChatTabs] Rendering with sessions:', sessions.length, 'activeChatId:', activeChatId);
+    console.debug('[ChatTabs] Rendering with sessions:', sessions.length, 'activeChatId:', activeChatId);
   }, [sessions.length, activeChatId]);
 
   // Always show tabs, even if no sessions (will show New button)

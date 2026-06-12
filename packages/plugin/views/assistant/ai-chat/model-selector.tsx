@@ -78,7 +78,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           <div className="absolute bottom-full right-0 mb-1 bg-[--background-primary] border border-[--background-modifier-border]">
             <div className="py-1">
               <div
-                onClick={() => handleModelSelect("gpt-4o-mini")}
+                onClick={() => { void handleModelSelect("gpt-4o-mini"); }}
                 className="cursor-pointer block w-full text-left px-4 py-2 text-sm text-[--text-normal] hover:bg-[--background-modifier-hover]"
               >
                 {getDisplayName("gpt-4o-mini")}
@@ -101,7 +101,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                       Cancel
                     </button>
                     <button
-                      onClick={handleCustomModelSave}
+                      onClick={() => { void handleCustomModelSave(); }}
                       className="px-2 py-1 text-xs text-[--text-accent] hover:text-[--text-accent-hover]"
                     >
                       Save
@@ -110,7 +110,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 </div>
               ) : (
                 <div
-                  onClick={() => handleModelSelect("custom")}
+                  onClick={() => { void handleModelSelect("custom"); }}
                   className="cursor-pointer block w-full text-left px-4 py-2 text-sm text-[--text-normal] hover:bg-[--background-modifier-hover]"
                 >
                   {getDisplayName("custom")}

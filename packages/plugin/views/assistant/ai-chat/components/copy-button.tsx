@@ -18,11 +18,8 @@ export const CopyButton: React.FC<CopyButtonProps> = ({ content }) => {
 
   return (
     <button
-      onClick={handleCopy}
-      className="p-0.5 rounded outline-none border-none shadow-none bg-transparent hover:shadow-sm transition-shadow flex items-center justify-center"
-      style={{ boxShadow: 'none', width: '20px', height: '20px', backgroundColor: 'transparent' }}
-      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+      onClick={() => { void handleCopy(); }}
+      className="p-0.5 rounded outline-none border-none shadow-none bg-transparent hover:shadow-sm transition-shadow flex items-center justify-center w-5 h-5"
       title="Copy to clipboard"
     >
       <Copy size={16} className="text-[--text-muted]" />

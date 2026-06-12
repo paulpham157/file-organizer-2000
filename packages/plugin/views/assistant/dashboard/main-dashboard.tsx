@@ -58,7 +58,7 @@ export function MainDashboard() {
         setActiveContent("");
       }
     };
-    handleFileOpen();
+    void handleFileOpen();
     plugin.app.workspace.on("file-open", handleFileOpen);
     return () => {
       plugin.app.workspace.off("file-open", handleFileOpen);
@@ -71,7 +71,7 @@ export function MainDashboard() {
     setLongTaskProgress(0);
     let progress = 0;
     while (progress < 100) {
-      await new Promise(res => setTimeout(res, 200));
+      await new Promise(res => window.setTimeout(res, 200));
       progress += 10;
       setLongTaskProgress(progress);
     }
@@ -95,7 +95,7 @@ export function MainDashboard() {
   const handleOnboardingComplete = () => {
     setIsOnboardingComplete(true);
     plugin.settings.hasRunOnboarding = true;
-    plugin.saveSettings();
+    void plugin.saveSettings();
   };
 
   // The floating button can provide context-based suggestions
@@ -149,7 +149,7 @@ export function MainDashboard() {
         <div className="p-2">
           <Organizer 
             plugin={plugin} 
-            leaf={plugin.app.workspace.activeLeaf} 
+            leaf={plugin.app.workspace.getMostRecentLeaf()}
           />
         </div>
       </CollapsibleSection>

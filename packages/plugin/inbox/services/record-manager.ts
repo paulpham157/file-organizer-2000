@@ -1,10 +1,8 @@
-import { normalizePath, TFile } from "obsidian";
+import { normalizePath, TFile, App } from "obsidian";
 import { IdService } from "./id-service";
-import moment from "moment";
-import { App, TAbstractFile } from "obsidian";
-import { FileOrganizerSettings } from "../../settings";
-// Using setTimeout type instead of NodeJS.Timeout
-type TimeoutID = ReturnType<typeof setTimeout>;
+import { parseJsonString } from "../../lib/api-json";
+/** Browser timer handle from `window.setTimeout` (Obsidian/Electron). */
+type TimeoutID = number;
 
 export type FileStatus =
   | "queued"
@@ -101,7 +99,7 @@ export class RecordManager {
     this.settings = {
       recordFilePath: normalizePath("_NoteCompanion/.records"),
     };
-    this.loadRecords();
+    void this.loadRecords();
   }
 
   public static getInstance(app?: App): RecordManager {
@@ -125,13 +123,15 @@ export class RecordManager {
         const content = await this.app.vault.adapter.read(
           this.settings.recordFilePath
         );
-        const data = JSON.parse(content);
+        const data = parseJsonString<Record<string, Omit<FileRecord, "file">>>(
+          content
+        );
 
         // Convert the plain objects back to Map entries
         this.records = new Map(
           Object.entries(data).map(([hash, record]) => {
             // Restore TFile reference as null since it can't be serialized
-            return [hash, { ...record as FileRecord, file: null } as FileRecord];
+            return [hash, { ...record, file: null }];
           })
         );
       }
@@ -144,21 +144,31 @@ export class RecordManager {
 
   private debounceSave(): void {
     if (this.debounceTimeout) {
-      clearTimeout(this.debounceTimeout);
+      window.clearTimeout(this.debounceTimeout);
     }
 
-    this.debounceTimeout = setTimeout(() => this.saveRecords(), 1000);
+    this.debounceTimeout = window.setTimeout(() => { void this.saveRecords(); }, 1000);
   }
 
   private async saveRecords(): Promise<void> {
     try {
       // Convert Map to a plain object for serialization
       const recordsObj = Object.fromEntries(
-        Array.from(this.records.entries()).map(([hash, record]) => {
-          // Create a copy without the TFile reference
-          const { file, ...recordWithoutFile } = record;
-          return [hash, recordWithoutFile];
-        })
+        Array.from(this.records.entries()).map(([hash, record]) => [
+          hash,
+          {
+            id: record.id,
+            tags: record.tags,
+            classification: record.classification,
+            formatted: record.formatted,
+            newPath: record.newPath,
+            newName: record.newName,
+            originalName: record.originalName,
+            logs: record.logs,
+            status: record.status,
+            folder: record.folder,
+          },
+        ])
       );
 
       const content = JSON.stringify(recordsObj, null, 2);
@@ -242,7 +252,7 @@ export class RecordManager {
 
       // For new actions, add them as in-progress or skipped
       record.logs[step] = {
-        timestamp: moment().format("YYYY-MM-DD HH:mm:ss"),
+        timestamp: window.moment().format("YYYY-MM-DD HH:mm:ss"),
         completed,
         skipped,
       };
@@ -346,7 +356,7 @@ export class RecordManager {
     return steps.reduce((latest, [action, log]) => {
       if (
         !latest ||
-        moment(log.timestamp).isAfter(moment(record.logs[latest].timestamp))
+        window.moment(log.timestamp).isAfter(window.moment(record.logs[latest].timestamp))
       ) {
         return action as Action;
       }
@@ -396,7 +406,7 @@ export class RecordManager {
     const record = this.records.get(hash);
     if (record) {
       record.logs[error.action] = {
-        timestamp: moment().format("YYYY-MM-DD HH:mm:ss"),
+        timestamp: window.moment().format("YYYY-MM-DD HH:mm:ss"),
         completed: false,
         error: {
           message: error.message,

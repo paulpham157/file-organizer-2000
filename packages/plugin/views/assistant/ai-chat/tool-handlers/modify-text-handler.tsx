@@ -1,12 +1,19 @@
 import React, { useRef, useState } from "react";
-import { App, TFile } from "obsidian";
+import { TFile, Editor } from "obsidian";
 import { logger } from "../../../../services/logger";
 import { usePlugin } from "../../provider";
+import { obsidianFetch } from "../../../../lib/obsidian-fetch";
+import {
+  readResponseJson,
+  getApiError,
+  type ApiErrorBody,
+} from "../../../../lib/api-json";
+import { ToolHandlerProps } from "./types";
 
-interface ModifyTextHandlerProps {
-  toolInvocation: any;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface ModifyTextArgs {
+  content: string;
+  path?: string;
+  instructions: string;
 }
 
 interface DiffLine {
@@ -15,11 +22,17 @@ interface DiffLine {
   removed?: boolean;
 }
 
+interface ModifyResponse {
+  content: string;
+  diff: DiffLine[];
+  explanation: string;
+}
+
 export function ModifyTextHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: ModifyTextHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const [modifySuccess, setModifySuccess] = useState<boolean | null>(null);
   const [diff, setDiff] = useState<DiffLine[]>([]);
@@ -28,7 +41,7 @@ export function ModifyTextHandler({
   const [pendingChanges, setPendingChanges] = useState<{
     content: string;
     targetFile: TFile;
-    editor?: any;
+    editor?: Editor;
   } | null>(null);
   const plugin = usePlugin();
 
@@ -36,71 +49,81 @@ export function ModifyTextHandler({
     const fetchModifications = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { content, path, instructions } = toolInvocation.args;
+        const { content, path, instructions } =
+          toolInvocation.args as ModifyTextArgs;
         try {
           let targetFile: TFile;
           let originalContent: string;
-          
+
           if (path) {
-            targetFile = app.vault.getAbstractFileByPath(path) as TFile;
-            if (!targetFile) {
+            const abstractFile = app.vault.getAbstractFileByPath(path);
+            if (!(abstractFile instanceof TFile)) {
               throw new Error(`File not found at path: ${path}`);
             }
+            targetFile = abstractFile;
           } else {
-            targetFile = app.workspace.getActiveFile();
-            if (!targetFile) {
+            const activeFile = app.workspace.getActiveFile();
+            if (!activeFile) {
               throw new Error("No active file found");
             }
+            targetFile = activeFile;
           }
-          
+
           originalContent = await app.vault.read(targetFile);
-          
-          const response = await fetch(`${plugin.getServerUrl()}/api/modify`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${plugin.getApiKey()}`,
-            },
-            body: JSON.stringify({
-              content,
-              originalContent,
-              instructions
-            }),
-          });
+
+          const response = await obsidianFetch(
+            `${plugin.getServerUrl()}/api/modify`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${plugin.getApiKey()}`,
+              },
+              body: JSON.stringify({
+                content,
+                originalContent,
+                instructions,
+              }),
+            }
+          );
 
           if (!response.ok) {
-            throw new Error("Failed to generate modification");
+            const errorData = await readResponseJson<ApiErrorBody>(response);
+            throw new Error(
+              getApiError(errorData) ?? "Failed to generate modification"
+            );
           }
 
-          const data = await response.json();
+          const data = await readResponseJson<ModifyResponse>(response);
           setDiff(data.diff);
           setExplanation(data.explanation);
-          
+
           const editor = app.workspace.activeEditor?.editor;
           setPendingChanges({
             content: data.content,
             targetFile,
-            editor
+            editor,
           });
-          
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           logger.error("Error modifying text in document:", error);
-          handleAddResult(`Error: ${error.message}`);
+          handleAddResult(`Error: ${errorMessage}`);
           setModifySuccess(false);
         }
       }
     };
 
-    fetchModifications();
-  }, [toolInvocation, handleAddResult, app]);
+    void fetchModifications();
+  }, [toolInvocation, handleAddResult, app, plugin]);
 
   const handleApplyChanges = async () => {
     if (!pendingChanges) return;
-    
+
     setIsApplying(true);
     try {
       const { content, targetFile, editor } = pendingChanges;
-      
+
       if (editor) {
         const selection = editor.getSelection();
         if (selection) {
@@ -111,13 +134,17 @@ export function ModifyTextHandler({
       } else {
         await app.vault.modify(targetFile, content);
       }
-      
+
       logger.info(`Successfully modified text in document: ${targetFile.path}`);
-      handleAddResult(`Successfully modified text in document${targetFile.path ? `: ${targetFile.path}` : ""}`);
+      handleAddResult(
+        `Successfully modified text in document${targetFile.path ? `: ${targetFile.path}` : ""}`
+      );
       setModifySuccess(true);
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       logger.error("Error applying modifications:", error);
-      handleAddResult(`Error applying changes: ${error.message}`);
+      handleAddResult(`Error applying changes: ${errorMessage}`);
       setModifySuccess(false);
     } finally {
       setIsApplying(false);
@@ -134,43 +161,49 @@ export function ModifyTextHandler({
     return (
       <div className="font-mono text-xs leading-snug">
         {diff.map((line, index) => {
-          // Skip empty unchanged lines for better readability
           if (!line.added && !line.removed && !line.value.trim()) {
             return null;
           }
 
-          // Determine background color
-          let bgColor = '';
+          let bgColor = "";
           if (line.added) {
-            bgColor = 'rgba(var(--color-green-rgb, 0, 255, 0), 0.15)';
+            bgColor = "rgba(var(--color-green-rgb, 0, 255, 0), 0.15)";
           } else if (line.removed) {
-            bgColor = 'rgba(var(--color-red-rgb, 255, 0, 0), 0.15)';
+            bgColor = "rgba(var(--color-red-rgb, 255, 0, 0), 0.15)";
           }
 
           return (
-            <div 
+            <div
               key={index}
               style={bgColor ? { backgroundColor: bgColor } : {}}
               className={`py-0.5 px-2 flex items-start border-l-2 ${
-                line.added 
-                  ? "border-[--text-success]" 
-                  : line.removed 
-                  ? "border-[--text-error]" 
-                  : "border-transparent"
+                line.added
+                  ? "border-[--text-success]"
+                  : line.removed
+                    ? "border-[--text-error]"
+                    : "border-transparent"
               }`}
             >
-              <span className={`select-none mr-2 w-4 flex-shrink-0 font-bold ${
-                line.added ? "text-[--text-success]" : line.removed ? "text-[--text-error]" : "text-[--text-faint]"
-              }`}>
+              <span
+                className={`select-none mr-2 w-4 flex-shrink-0 font-bold ${
+                  line.added
+                    ? "text-[--text-success]"
+                    : line.removed
+                      ? "text-[--text-error]"
+                      : "text-[--text-faint]"
+                }`}
+              >
                 {line.added ? "+" : line.removed ? "−" : ""}
               </span>
-              <span className={`flex-1 whitespace-pre-wrap break-words ${
-                line.removed ? "line-through opacity-75 text-[--text-error]" : ""
-              } ${
-                line.added ? "font-medium text-[--text-success]" : ""
-              } ${
-                !line.added && !line.removed ? "text-[--text-muted]" : ""
-              }`}>
+              <span
+                className={`flex-1 whitespace-pre-wrap break-words ${
+                  line.removed ? "line-through opacity-75 text-[--text-error]" : ""
+                } ${
+                  line.added ? "font-medium text-[--text-success]" : ""
+                } ${
+                  !line.added && !line.removed ? "text-[--text-muted]" : ""
+                }`}
+              >
                 {line.value}
               </span>
             </div>
@@ -189,10 +222,8 @@ export function ModifyTextHandler({
   }
 
   if (pendingChanges && !modifySuccess) {
-    // Calculate diff stats
-    const addedCount = diff.filter(d => d.added).length;
-    const removedCount = diff.filter(d => d.removed).length;
-    const unchangedCount = diff.filter(d => !d.added && !d.removed).length;
+    const addedCount = diff.filter((d) => d.added).length;
+    const removedCount = diff.filter((d) => d.removed).length;
 
     return (
       <div className="space-y-2">
@@ -209,7 +240,9 @@ export function ModifyTextHandler({
               Discard
             </button>
             <button
-              onClick={handleApplyChanges}
+              onClick={() => {
+                void handleApplyChanges();
+              }}
               disabled={isApplying}
               className="px-2 py-1 text-xs bg-[--interactive-accent] hover:bg-[--interactive-accent-hover] text-[--text-on-accent] flex items-center gap-1"
             >
@@ -233,9 +266,7 @@ export function ModifyTextHandler({
             <div className="text-xs font-semibold text-[--text-muted] uppercase mb-1">
               Summary
             </div>
-            <div className="text-xs text-[--text-normal]">
-              {explanation}
-            </div>
+            <div className="text-xs text-[--text-normal]">{explanation}</div>
           </div>
         )}
 
@@ -259,9 +290,7 @@ export function ModifyTextHandler({
               )}
             </div>
           </div>
-          <div className="max-h-[300px] overflow-y-auto">
-            {renderDiff()}
-          </div>
+          <div className="max-h-[300px] overflow-y-auto">{renderDiff()}</div>
         </div>
       </div>
     );
@@ -275,9 +304,7 @@ export function ModifyTextHandler({
           <span className="text-sm font-medium">Changes Applied Successfully</span>
         </div>
         {explanation && (
-          <div className="text-xs text-[--text-muted]">
-            {explanation}
-          </div>
+          <div className="text-xs text-[--text-muted]">{explanation}</div>
         )}
       </div>
     );
@@ -296,4 +323,4 @@ export function ModifyTextHandler({
       )}
     </div>
   );
-} 
+}

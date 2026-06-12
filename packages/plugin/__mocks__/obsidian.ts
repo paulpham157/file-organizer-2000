@@ -6,7 +6,7 @@ export class Notice {
 
 export interface RequestUrlResponse {
   status: number;
-  json: any;
+  json: unknown;
   headers?: Record<string, string>;
 }
 
@@ -48,14 +48,19 @@ export const moment = {
   toISOString: () => new Date().toISOString(),
 };
 
-export function loadPdfJs(): Promise<any> {
+export function loadPdfJs(): Promise<unknown> {
   return Promise.resolve({});
 }
 
 export function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  return Buffer.from(buffer).toString('base64');
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
 }
 
-export interface CachedMetadata {}
-export interface LinkCache {}
+export type CachedMetadata = Record<string, never>;
+export type LinkCache = Record<string, never>;
 

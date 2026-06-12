@@ -110,7 +110,7 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
       setIsRecording(false);
 
       if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+        window.clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
 
@@ -208,7 +208,7 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+        window.clearInterval(intervalRef.current);
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -231,7 +231,7 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({ plugin }) => {
           </h3>
         </div>
         <Button
-          onClick={isRecording ? stopRecording : startRecording}
+          onClick={() => { void (isRecording ? stopRecording() : startRecording()); }}
           disabled={isSaving}
           className={tw(
             "flex items-center gap-2",

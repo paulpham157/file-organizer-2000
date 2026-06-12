@@ -28,9 +28,11 @@ function getMessageContentAsString(message: Message): string {
   const content = message.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    return content
-      .map((part: { type?: string; text?: string }) =>
-        part && typeof part === "object" && "text" in part && typeof part.text === "string"
+    type TextPart = { type?: string; text?: string };
+    const parts = content as TextPart[];
+    return parts
+      .map((part) =>
+        part && typeof part === "object" && typeof part.text === "string"
           ? part.text
           : ""
       )
@@ -72,9 +74,10 @@ function getToolInvocations(message: Message): ToolInvocationLike[] {
       })
       .filter((t) => t.toolCallId);
   }
-  if (msg.toolInvocations && Array.isArray(msg.toolInvocations)) {
-    return msg.toolInvocations.map((t) => ({
-      toolCallId: t.toolCallId,
+  const legacyInvocations = (msg as Record<string, unknown>)["toolInvocations"];
+  if (Array.isArray(legacyInvocations)) {
+    return legacyInvocations.map((t) => ({
+      toolCallId: (t as ToolInvocationLike).toolCallId,
       toolName: (t as ToolInvocationLike).toolName,
       result: (t as ToolInvocationLike).result ?? (t as ToolInvocationLike).output,
     }));
@@ -92,7 +95,7 @@ function formatToolResultSummary(result: unknown): string {
       ? result
       : typeof result === "object"
         ? JSON.stringify(result)
-        : String(result);
+        : JSON.stringify(result);
   if (str.length <= TOOL_RESULT_MAX_CHARS) return str;
   return str.slice(0, TOOL_RESULT_MAX_CHARS).trim() + "…";
 }
@@ -190,7 +193,7 @@ export async function exportChatToVault(
 
   const file = await safeCreate(app, desiredPath, markdown);
   new Notice(`Chat exported to ${file.path}`);
-  app.workspace.getLeaf().openFile(file);
+  void app.workspace.getLeaf().openFile(file);
 }
 
 /**

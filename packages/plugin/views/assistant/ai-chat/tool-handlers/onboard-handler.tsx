@@ -178,7 +178,7 @@ export function OnboardHandler({
       handleAddResult(
         JSON.stringify({
           success: false,
-          error: error.message || "An error occurred during analysis",
+          error: error instanceof Error ? error.message : "An error occurred during analysis",
         })
       );
     } finally {
@@ -201,7 +201,7 @@ export function OnboardHandler({
 
       <div className="flex justify-end">
         <button
-          onClick={handleAnalyze}
+          onClick={() => { void handleAnalyze(); }}
           disabled={isAnalyzing}
           className={`
                 px-4 py-2 

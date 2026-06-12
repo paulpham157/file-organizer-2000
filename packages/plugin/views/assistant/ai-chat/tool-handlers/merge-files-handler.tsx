@@ -1,19 +1,60 @@
 import React, { useRef, useState } from "react";
-import { App, TFile, Notice } from "obsidian";
-import { ToolInvocation } from "ai";
+import { TFile, Notice, Modal } from "obsidian";
+import { ToolHandlerProps } from "./types";
 import { resolveFile } from "./resolve-file";
 
-interface MergeFilesHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface MergeFilesArgs {
+  sourceFiles: string[];
+  outputFileName: string;
+  outputFolder?: string;
+  separator?: string;
+  deleteSource?: boolean;
+  message?: string;
+}
+
+function confirmOverwrite(
+  app: ToolHandlerProps["app"],
+  outputFileName: string
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    class OverwriteModal extends Modal {
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h2", { text: "Overwrite existing file?" });
+        contentEl.createEl("p", {
+          text: `File "${outputFileName}.md" already exists. Overwrite?`,
+        });
+        const buttonContainer = contentEl.createDiv({
+          attr: { style: "display: flex; gap: 10px; margin-top: 1em;" },
+        });
+        buttonContainer
+          .createEl("button", { text: "Cancel" })
+          .addEventListener("click", () => {
+            resolve(false);
+            this.close();
+          });
+        buttonContainer
+          .createEl("button", {
+            text: "Overwrite",
+            attr: { style: "background: var(--interactive-accent);" },
+          })
+          .addEventListener("click", () => {
+            resolve(true);
+            this.close();
+          });
+      }
+    }
+    const modal = new OverwriteModal(app);
+    modal.open();
+  });
 }
 
 export function MergeFilesHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: MergeFilesHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -26,13 +67,13 @@ export function MergeFilesHandler({
     const validateFiles = () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { sourceFiles } = toolInvocation.args;
+        const { sourceFiles } = toolInvocation.args as MergeFilesArgs;
 
         const valid: TFile[] = [];
         const invalid: string[] = [];
         const seenPaths = new Set<string>();
 
-        sourceFiles.forEach((path: string) => {
+        sourceFiles.forEach((path) => {
           const file = resolveFile(app, path);
           if (file instanceof TFile) {
             if (!seenPaths.has(file.path)) {
@@ -52,7 +93,6 @@ export function MergeFilesHandler({
     validateFiles();
   }, [toolInvocation, app]);
 
-  // Auto-execute merge when all paths resolved and no destructive options, so the chat can complete without requiring a click
   React.useEffect(() => {
     if (
       hasAutoRunRef.current ||
@@ -62,18 +102,20 @@ export function MergeFilesHandler({
     ) {
       return;
     }
-    const { deleteSource = false, outputFileName, outputFolder = "" } = toolInvocation.args;
+    const { deleteSource = false, outputFileName, outputFolder = "" } =
+      toolInvocation.args as MergeFilesArgs;
     if (deleteSource) return;
     const outputPath = outputFolder
       ? `${outputFolder}/${outputFileName}.md`
       : `${outputFileName}.md`;
     if (app.vault.getAbstractFileByPath(outputPath) instanceof TFile) {
-      return; // Output exists: show confirm UI so user can choose overwrite or cancel
+      return;
     }
 
     hasAutoRunRef.current = true;
     const run = async () => {
-      const { separator = "\n\n---\n\n" } = toolInvocation.args;
+      const { separator = "\n\n---\n\n" } =
+        toolInvocation.args as MergeFilesArgs;
       try {
         const contents: string[] = [];
         for (const file of validFiles) {
@@ -82,7 +124,9 @@ export function MergeFilesHandler({
         const mergedContent = contents.join(separator);
         await app.vault.create(outputPath, mergedContent);
         setIsDone(true);
-        new Notice(`Merged ${validFiles.length} files into "${outputFileName}.md"`);
+        new Notice(
+          `Merged ${validFiles.length} files into "${outputFileName}.md"`
+        );
         handleAddResult(
           JSON.stringify({
             success: true,
@@ -95,20 +139,15 @@ export function MergeFilesHandler({
       } catch (err) {
         hasAutoRunRef.current = false;
         setIsDone(true);
-        new Notice(`Failed to merge: ${(err as Error).message}`);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        new Notice(`Failed to merge: ${errorMessage}`);
         handleAddResult(
-          JSON.stringify({ success: false, error: (err as Error).message })
+          JSON.stringify({ success: false, error: errorMessage })
         );
       }
     };
-    run();
-  }, [
-    toolInvocation,
-    validFiles,
-    invalidPaths,
-    app,
-    handleAddResult,
-  ]);
+    void run();
+  }, [toolInvocation, validFiles, invalidPaths, app, handleAddResult]);
 
   const handleConfirmMerge = async () => {
     const {
@@ -116,32 +155,25 @@ export function MergeFilesHandler({
       outputFolder = "",
       separator = "\n\n---\n\n",
       deleteSource = false,
-    } = toolInvocation.args;
+    } = toolInvocation.args as MergeFilesArgs;
 
     try {
-      // Read all file contents
       const contents: string[] = [];
       for (const file of validFiles) {
         const content = await app.vault.read(file);
         contents.push(content);
       }
 
-      // Merge contents
       const mergedContent = contents.join(separator);
 
-      // Determine output path
       const outputPath = outputFolder
         ? `${outputFolder}/${outputFileName}.md`
         : `${outputFileName}.md`;
 
-      // Create merged file
       const existingFile = app.vault.getAbstractFileByPath(outputPath);
       if (existingFile instanceof TFile) {
-        // File exists, ask to overwrite
-        const confirmOverwrite = confirm(
-          `File "${outputFileName}.md" already exists. Overwrite?`
-        );
-        if (!confirmOverwrite) {
+        const shouldOverwrite = await confirmOverwrite(app, outputFileName);
+        if (!shouldOverwrite) {
           setIsDone(true);
           handleAddResult(
             JSON.stringify({
@@ -153,14 +185,12 @@ export function MergeFilesHandler({
         }
         await app.vault.modify(existingFile, mergedContent);
       } else {
-        // Create new file
         await app.vault.create(outputPath, mergedContent);
       }
 
-      // Delete source files if requested
       if (deleteSource) {
         for (const file of validFiles) {
-          await app.vault.trash(file, false);
+          await app.fileManager.trashFile(file);
         }
       }
 
@@ -183,11 +213,13 @@ export function MergeFilesHandler({
       );
     } catch (error) {
       setIsDone(true);
-      new Notice(`Failed to merge files: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      new Notice(`Failed to merge files: ${errorMessage}`);
       handleAddResult(
         JSON.stringify({
           success: false,
-          error: error.message,
+          error: errorMessage,
         })
       );
     }
@@ -207,7 +239,7 @@ export function MergeFilesHandler({
     message: reason,
     outputFileName,
     deleteSource = false,
-  } = toolInvocation.args;
+  } = toolInvocation.args as MergeFilesArgs;
   const isComplete = "result" in toolInvocation;
 
   if (isComplete || isDone) {
@@ -298,7 +330,7 @@ export function MergeFilesHandler({
         <button
           onClick={() => {
             setIsConfirmed(true);
-            handleConfirmMerge();
+            void handleConfirmMerge();
           }}
           className="flex-1 px-3 py-1.5 text-xs bg-[--interactive-accent] hover:bg-[--interactive-accent-hover] text-white"
         >

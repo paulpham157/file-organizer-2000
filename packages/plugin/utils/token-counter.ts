@@ -1,15 +1,22 @@
 import { init, get_encoding } from "tiktoken/init";
 import wasmBinary from "tiktoken/tiktoken_bg.wasm";
 
-let encoding: any = null;
+interface TiktokenEncoding {
+  encode(text: string): { length: number };
+  free(): void;
+}
+
+let encoding: TiktokenEncoding | null = null;
 let initPromise: Promise<void> | null = null;
 
 export function initializeTokenCounter() {
   // Return existing promise if initialization is in progress
-  if (initPromise) return initPromise;
+  if (initPromise !== null) return initPromise;
   
   // Create new initialization promise
-  initPromise = init((imports) => WebAssembly.instantiate(wasmBinary, imports))
+  initPromise = init((imports) => {
+    return WebAssembly.instantiate(wasmBinary, imports);
+  })
     .then(() => {
       encoding = get_encoding("cl100k_base");
     })

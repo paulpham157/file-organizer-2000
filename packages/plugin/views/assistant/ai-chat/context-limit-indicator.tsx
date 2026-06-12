@@ -38,7 +38,7 @@ export function ContextLimitIndicator({
       }
     }
 
-    setup();
+    void setup();
   }, []);
 
   // Debounced token calculation

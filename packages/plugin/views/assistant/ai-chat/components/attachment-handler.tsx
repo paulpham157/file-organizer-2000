@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useRef } from 'react';
-import { Attachment, AttachmentHandlerProps } from '../types/attachments';
+import { AttachmentHandlerProps, AttachmentPreviewProps, LocalAttachment } from '../types/attachments';
 import { logger } from '../../../../services/logger';
 
 const DEFAULT_MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
@@ -11,14 +11,14 @@ export const AttachmentHandler: React.FC<AttachmentHandlerProps> = ({
   acceptedTypes = DEFAULT_ACCEPTED_TYPES,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = useCallback(async (files: FileList | null) => {
     if (!files) return;
 
-    const newAttachments: Attachment[] = [];
+    const newAttachments: LocalAttachment[] = [];
     const errors: string[] = [];
 
     for (const file of Array.from(files)) {
@@ -88,7 +88,7 @@ export const AttachmentHandler: React.FC<AttachmentHandlerProps> = ({
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    handleFileChange(e.dataTransfer.files);
+    void handleFileChange(e.dataTransfer.files);
   }, [handleFileChange]);
 
   const handleRemove = useCallback((id: string) => {
@@ -120,7 +120,7 @@ export const AttachmentHandler: React.FC<AttachmentHandlerProps> = ({
           className="hidden"
           multiple
           accept={acceptedTypes.join(',')}
-          onChange={(e) => handleFileChange(e.target.files)}
+          onChange={(e) => { void handleFileChange(e.target.files); }}
         />
         
         <div className="text-center">
@@ -175,7 +175,7 @@ export const AttachmentHandler: React.FC<AttachmentHandlerProps> = ({
   );
 };
 
-const AttachmentPreview: React.FC<{ attachment: Attachment; onRemove: (id: string) => void }> = ({
+const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
   attachment,
   onRemove,
 }) => {

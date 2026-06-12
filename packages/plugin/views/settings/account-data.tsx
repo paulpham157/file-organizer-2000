@@ -5,16 +5,26 @@ import { logger } from "../../services/logger";
 import FileOrganizer from "../../index";
 import { Notice } from "obsidian";
 import { validateApiKey } from "../../apiUtils";
-
-interface AccountDataProps {
-  plugin: FileOrganizer;
-  onLicenseKeyChange: (key: string) => void;
-}
+import { obsidianFetch } from "../../lib/obsidian-fetch";
+import {
+  readResponseJson,
+  getApiError,
+  type ApiErrorBody,
+} from "../../lib/api-json";
 
 interface SignupResponse {
   success: boolean;
   licenseKey?: string;
   error?: string;
+}
+
+interface HealthResponse {
+  environment?: string;
+}
+
+interface AccountDataProps {
+  plugin: FileOrganizer;
+  onLicenseKeyChange: (key: string) => void;
 }
 
 export const AccountData: React.FC<AccountDataProps> = ({
@@ -36,15 +46,15 @@ export const AccountData: React.FC<AccountDataProps> = ({
     // Check if in development mode
     const checkDevMode = async () => {
       try {
-        const response = await fetch(`${plugin.getServerUrl()}/api/health`);
-        const data = await response.json();
+        const response = await obsidianFetch(`${plugin.getServerUrl()}/api/health`);
+        const data = await readResponseJson<HealthResponse>(response);
         setIsDevMode(data.environment === "development");
       } catch (error) {
         setIsDevMode(false);
       }
     };
 
-    checkDevMode();
+    void checkDevMode();
   }, [plugin]);
 
   const handleSignup = async () => {
@@ -63,7 +73,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
 
     try {
       const endpoint = isSignup ? "/api/sign-up" : "/api/sign-in";
-      const response = await fetch(`${plugin.getServerUrl()}${endpoint}`, {
+      const response = await obsidianFetch(`${plugin.getServerUrl()}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,7 +81,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
         body: JSON.stringify({ email, password }),
       });
 
-      const data: SignupResponse = await response.json();
+      const data = await readResponseJson<SignupResponse>(response);
 
       if (!data.success || !data.licenseKey) {
         setError(data.error || "Authentication failed");
@@ -113,7 +123,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
         return;
       }
 
-      const response = await fetch(
+      const response = await obsidianFetch(
         `${plugin.getServerUrl()}/api/top-up?tokens=${tokens}`,
         {
           headers: {
@@ -122,7 +132,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
         }
       );
 
-      const data = await response.json();
+      const data = await readResponseJson<ApiErrorBody>(response);
 
       if (response.ok) {
         new Notice(
@@ -130,7 +140,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
           5000
         );
       } else {
-        setError(data.error || "Failed to add tokens");
+        setError(getApiError(data) ?? "Failed to add tokens");
       }
     } catch (error) {
       setError("An error occurred while adding tokens");
@@ -156,7 +166,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
         return;
       }
 
-      const response = await fetch(
+      const response = await obsidianFetch(
         `${plugin.getServerUrl()}/api/top-up-minutes?minutes=${minutes}`,
         {
           headers: {
@@ -165,7 +175,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
         }
       );
 
-      const data = await response.json();
+      const data = await readResponseJson<ApiErrorBody>(response);
 
       if (response.ok) {
         new Notice(
@@ -173,7 +183,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
           5000
         );
       } else {
-        setError(data.error || "Failed to add minutes");
+        setError(getApiError(data) ?? "Failed to add minutes");
       }
     } catch (error) {
       setError("An error occurred while adding minutes");
@@ -264,7 +274,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
           )}
 
           <button
-            onClick={handleSignup}
+            onClick={() => { void handleSignup(); }}
             disabled={isLoading}
             className="w-full bg-[--interactive-accent] text-[--text-on-accent] py-2 rounded-md font-medium hover:bg-[--interactive-accent-hover] transition-colors disabled:opacity-50"
           >
@@ -358,7 +368,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
                   placeholder="Number of tokens"
                 />
                 <button
-                  onClick={handleDevTopUp}
+                  onClick={() => { void handleDevTopUp(); }}
                   disabled={isLoading}
                   className="bg-green-600 text-white px-4 py-2 rounded-md font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
@@ -374,7 +384,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
                   placeholder="Number of minutes"
                 />
                 <button
-                  onClick={handleDevTopUpMinutes}
+                  onClick={() => { void handleDevTopUpMinutes(); }}
                   disabled={isLoading}
                   className="bg-green-600 text-white px-4 py-2 rounded-md font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
@@ -431,7 +441,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
                   placeholder="Number of tokens"
                 />
                 <button
-                  onClick={handleDevTopUp}
+                  onClick={() => { void handleDevTopUp(); }}
                   disabled={isLoading}
                   className="bg-green-600 text-white px-4 py-2 rounded-md font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
@@ -450,7 +460,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
                   placeholder="Number of minutes"
                 />
                 <button
-                  onClick={handleDevTopUpMinutes}
+                  onClick={() => { void handleDevTopUpMinutes(); }}
                   disabled={isLoading}
                   className="bg-green-600 text-white px-4 py-2 rounded-md font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
                 >

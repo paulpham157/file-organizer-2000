@@ -1,20 +1,20 @@
 import React, { useRef, useState } from "react";
-import { App, TFile, Notice } from "obsidian";
-import { ToolInvocation } from "ai";
+import { Notice, TFile } from "obsidian";
 import { resolveFile } from "./resolve-file";
 import { useContextItems } from "../use-context-items";
+import { ToolHandlerProps } from "./types";
 
-interface DeleteFilesHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface DeleteFilesArgs {
+  filePaths: string[];
+  reason?: string;
+  permanentDelete?: boolean;
 }
 
 export function DeleteFilesHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: DeleteFilesHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -25,13 +25,13 @@ export function DeleteFilesHandler({
     const validateFiles = () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { filePaths } = toolInvocation.args;
+        const { filePaths } = toolInvocation.args as DeleteFilesArgs;
 
         const valid: TFile[] = [];
         const invalid: string[] = [];
         const seenPaths = new Set<string>();
 
-        filePaths.forEach((path: string) => {
+        for (const path of filePaths) {
           const file = resolveFile(app, path);
           if (file instanceof TFile) {
             if (!seenPaths.has(file.path)) {
@@ -41,7 +41,7 @@ export function DeleteFilesHandler({
           } else {
             invalid.push(path);
           }
-        });
+        }
 
         setValidFiles(valid);
         setInvalidPaths(invalid);
@@ -52,7 +52,7 @@ export function DeleteFilesHandler({
   }, [toolInvocation, app]);
 
   const handleConfirmDelete = async () => {
-    const { permanentDelete = false } = toolInvocation.args;
+    const { permanentDelete = false } = toolInvocation.args as DeleteFilesArgs;
 
     const results: Array<{ path: string; success: boolean; error?: string }> = [];
     let deletedCount = 0;
@@ -60,15 +60,22 @@ export function DeleteFilesHandler({
 
     for (const file of validFiles) {
       try {
-        // Move to trash by default, permanent delete if requested
-        await app.vault.trash(file, permanentDelete);
+        if (permanentDelete) {
+          // Permanent deletion must bypass trash; trashFile has no permanent option.
+          // eslint-disable-next-line obsidianmd/prefer-file-manager-trash-file -- intentional permanent delete
+          await app.vault.delete(file);
+        } else {
+          await app.fileManager.trashFile(file);
+        }
         results.push({ path: file.path, success: true });
         deletedCount++;
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         results.push({
           path: file.path,
           success: false,
-          error: error.message,
+          error: errorMessage,
         });
         failedCount++;
       }
@@ -119,7 +126,8 @@ export function DeleteFilesHandler({
     );
   };
 
-  const { reason, permanentDelete = false } = toolInvocation.args;
+  const { reason, permanentDelete = false } =
+    toolInvocation.args as DeleteFilesArgs;
   const isComplete = "result" in toolInvocation;
 
   if (isComplete || isDone) {
@@ -196,7 +204,7 @@ export function DeleteFilesHandler({
         <button
           onClick={() => {
             setIsConfirmed(true);
-            handleConfirmDelete();
+            void handleConfirmDelete();
           }}
           className="flex-1 px-3 py-1.5 text-xs bg-[--text-error] hover:opacity-90 text-white"
         >

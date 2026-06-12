@@ -8,6 +8,10 @@ import {
   getTokenCount,
   initializeTokenCounter,
 } from "../../../../utils/token-counter";
+import {
+  isTokenLimitError,
+  getTokenLimitErrorMessage,
+} from "../../../../lib/token-limit-error";
 
 interface UserTemplatesProps {
   plugin: FileOrganizer;
@@ -57,7 +61,7 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
       }
     };
 
-    checkTokenCount();
+    void checkTokenCount();
 
     return () => {
       isMounted = false;
@@ -110,16 +114,14 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
         logger.error("Error in fetchClassificationAndTemplates:", error);
 
         // Check if this is a token limit error
-        if (error && typeof error === 'object' && 'status' in error && (error as any).status === 429) {
-          const errorMessage = (error as any).message || "Token limit exceeded. Please upgrade your plan for more tokens.";
-          // Notify parent component to show upgrade button
-          onTokenLimitError?.(errorMessage);
+        if (isTokenLimitError(error)) {
+          onTokenLimitError?.(getTokenLimitErrorMessage(error));
         }
 
         setClassificationStatus("error");
       }
     };
-    fetchClassificationAndTemplates();
+    void fetchClassificationAndTemplates();
 
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -151,7 +153,7 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
     if (selectedTemplateName) {
       setFormatting(true);
       try {
-        await onFormat(selectedTemplateName);
+        onFormat(selectedTemplateName);
       } catch (error) {
         logger.error("Error formatting:", error);
       } finally {
@@ -232,7 +234,7 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
               : "bg-[--interactive-accent] text-white hover:bg-[--interactive-accent-hover]"
           }`}
           disabled={!selectedTemplateName || formatting || isFileTooLarge}
-          onClick={handleFormatClick}
+          onClick={() => { void handleFormatClick(); }}
         >
           {formatting ? (
             <span className="flex items-center justify-center">

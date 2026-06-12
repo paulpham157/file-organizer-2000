@@ -39,11 +39,11 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
   // Check key status on mount if we have a key
   useEffect(() => {
     if (plugin.settings.API_KEY) {
-      checkLicenseStatus();
+      void checkLicenseStatus();
     }
 
     // Always fetch usage data regardless of license key status
-    fetchUsageData();
+    void fetchUsageData();
   }, []);
 
   const fetchUsageData = async () => {
@@ -87,7 +87,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
 
     // Refresh usage data after key validation
     if (isValid) {
-      fetchUsageData();
+      void fetchUsageData();
     }
   };
 
@@ -215,10 +215,10 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                 }`}
                 placeholder="Enter your Note Companion license key"
                 value={licenseKey}
-                onChange={e => handleLicenseKeyChange(e.target.value)}
+                onChange={e => { void handleLicenseKeyChange(e.target.value); }}
               />
               <button
-                onClick={handleActivate}
+                onClick={() => { void handleActivate(); }}
                 disabled={!licenseKey || !!validationError}
                 className="bg-[--interactive-accent] text-[--text-on-accent] px-4 py-1.5 rounded hover:bg-[--interactive-accent-hover] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -390,7 +390,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
 
       <AccountData
         plugin={plugin}
-        onLicenseKeyChange={handleLicenseKeyChange}
+        onLicenseKeyChange={(value) => { void handleLicenseKeyChange(value); }}
       />
 
       <div className="bg-[--background-primary-alt] p-4 rounded-lg">

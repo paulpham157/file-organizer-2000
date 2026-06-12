@@ -6,34 +6,41 @@ import {
   extractYouTubeVideoId,
 } from "../../../../inbox/services/youtube-service";
 import { usePlugin } from "../../provider";
-import { ToolInvocation } from "ai";
+import { ToolHandlerProps } from "./types";
 
-interface YouTubeHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (_toolResult: string) => void;
+interface YouTubeArgs {
+  videoId?: string;
+}
+
+function isThenable(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  return typeof Reflect.get(value, "then") === "function";
 }
 
 export function YouTubeHandler({
   toolInvocation,
   handleAddResult,
-}: YouTubeHandlerProps) {
+}: ToolHandlerProps) {
   const plugin = usePlugin();
   const hasFetchedRef = useRef(false);
   const [fetchSuccess, setFetchSuccess] = useState<boolean | null>(null);
 
   React.useEffect(() => {
-    console.log("[YouTube Handler] useEffect triggered", {
+    const args = toolInvocation.args as YouTubeArgs;
+
+    console.debug("[YouTube Handler] useEffect triggered", {
       toolName: toolInvocation.toolName,
-      hasArgs: !!toolInvocation.args,
-      videoId: toolInvocation.args?.videoId,
+      hasArgs: !!args,
+      videoId: args.videoId,
       hasFetched: hasFetchedRef.current,
       hasResult: "result" in toolInvocation,
     });
 
     const handleYouTubeTranscript = async () => {
-      // Prevent double execution
       if (hasFetchedRef.current || "result" in toolInvocation) {
-        console.log(
+        console.debug(
           "[YouTube Handler] Skipping - already fetched or has result",
           {
             hasFetched: hasFetchedRef.current,
@@ -43,14 +50,13 @@ export function YouTubeHandler({
         return;
       }
 
-      console.log("[YouTube Handler] Starting handler execution");
+      console.debug("[YouTube Handler] Starting handler execution");
       hasFetchedRef.current = true;
 
       try {
-        let { videoId } = toolInvocation.args || {};
+        let videoId = args.videoId;
 
-        // Check if videoId is a Promise (shouldn't happen, but handle it gracefully)
-        if (videoId && typeof videoId.then === "function") {
+        if (isThenable(videoId)) {
           const errorMsg =
             "Invalid videoId: received a Promise instead of a string value";
           logger.error(errorMsg, { args: toolInvocation.args });
@@ -59,7 +65,6 @@ export function YouTubeHandler({
           return;
         }
 
-        // Validate videoId exists and is a string
         if (!videoId || typeof videoId !== "string") {
           const errorMsg = `Invalid videoId: videoId is required and must be a string. Received type: ${typeof videoId}, value: ${String(
             videoId
@@ -70,12 +75,10 @@ export function YouTubeHandler({
           return;
         }
 
-        // Extract videoId from URL if full URL was passed (AI might pass full URL)
         const extractedId = extractYouTubeVideoId(videoId);
         if (extractedId) {
           videoId = extractedId;
         } else if (!/^[a-zA-Z0-9_-]+$/.test(videoId)) {
-          // If it's not a valid videoId format and not extractable, it's invalid
           const errorMsg = `Invalid videoId format. Expected YouTube video ID or URL, got: ${videoId.substring(
             0,
             50
@@ -86,8 +89,7 @@ export function YouTubeHandler({
           return;
         }
 
-        // Use the new backend API via youtube-service
-        console.log(
+        console.debug(
           "[YouTube Handler] About to fetch content for videoId:",
           videoId
         );
@@ -100,37 +102,31 @@ export function YouTubeHandler({
           title = contentResult.title;
           transcript = contentResult.transcript;
 
-          console.log("[YouTube Handler] Successfully fetched content:", {
+          console.debug("[YouTube Handler] Successfully fetched content:", {
             title,
             transcriptLength: transcript.length,
           });
         } catch (error) {
           console.error("[YouTube Handler] Error in getYouTubeContent:", error);
-          throw error; // Re-throw to be caught by outer try-catch
+          throw error;
         }
 
-        // Add full transcript to context for AI to access
-        console.log("[YouTube Handler] About to add to context");
+        console.debug("[YouTube Handler] About to add to context");
         try {
           addYouTubeContext({
             videoId,
             title,
             transcript,
           });
-          console.log("[YouTube Handler] Called addYouTubeContext");
+          console.debug("[YouTube Handler] Called addYouTubeContext");
         } catch (error) {
           console.error("[YouTube Handler] Error in addYouTubeContext:", error);
-          // Don't throw - continue even if context add fails
         }
 
-        // CRITICAL: Wait a tick to ensure Zustand store update has propagated
-        // Then verify it was added before sending tool result
-        // Wait longer to ensure store update is fully propagated before triggering AI SDK continuation
-        await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay to ensure store update
+        await new Promise(resolve => window.setTimeout(resolve, 100));
 
         const store = useContextItems.getState();
 
-        // Check if youtubeVideos exists in store
         if (!store.youtubeVideos) {
           console.error(
             "[YouTube Handler] ERROR: store.youtubeVideos is undefined!"
@@ -152,13 +148,12 @@ export function YouTubeHandler({
               : [],
             storeKeys: Object.keys(store),
           });
-          // Try adding again
           addYouTubeContext({
             videoId,
             title,
             transcript,
           });
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise(resolve => window.setTimeout(resolve, 10));
           const store2 = useContextItems.getState();
           const addedVideo2 = store2.youtubeVideos?.[`youtube-${videoId}`];
           if (!addedVideo2) {
@@ -173,12 +168,12 @@ export function YouTubeHandler({
                 : [],
             });
           } else {
-            console.log("[YouTube Handler] Successfully added on retry!");
+            console.debug("[YouTube Handler] Successfully added on retry!");
           }
         }
 
         const finalStore = useContextItems.getState();
-        console.log("[YouTube Handler] Added to context:", {
+        console.debug("[YouTube Handler] Added to context:", {
           videoId,
           title,
           transcriptLength: transcript.length,
@@ -192,8 +187,6 @@ export function YouTubeHandler({
 
         const wordCount = transcript.split(/\s+/).length;
 
-        // CRITICAL: Verify video is still in store one more time before sending result
-        // This ensures the store update has fully propagated
         const verifyStore = useContextItems.getState();
         const videoStillInStore =
           !!verifyStore.youtubeVideos?.[`youtube-${videoId}`];
@@ -203,7 +196,7 @@ export function YouTubeHandler({
             "[YouTube Handler] CRITICAL: Video not in store before handleAddResult! Re-adding..."
           );
           addYouTubeContext({ videoId, title, transcript });
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => window.setTimeout(resolve, 50));
           const verifyStore2 = useContextItems.getState();
           if (!verifyStore2.youtubeVideos?.[`youtube-${videoId}`]) {
             console.error(
@@ -212,10 +205,8 @@ export function YouTubeHandler({
           }
         }
 
-        // Return result with transcript - keep it simple so AI continues
-        // The AI SDK will automatically continue after tool results with maxSteps > 1
         const finalVerifyStore = useContextItems.getState();
-        console.log(
+        console.debug(
           "[YouTube Handler] About to call handleAddResult - video is in store:",
           {
             videoId,
@@ -227,14 +218,12 @@ export function YouTubeHandler({
           }
         );
 
-        // CRITICAL: Wait one more time before sending result to ensure store is definitely updated
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => window.setTimeout(resolve, 100));
 
-        // Final store check
         const finalCheckStore = useContextItems.getState();
         const finalCheckVideo =
           !!finalCheckStore.youtubeVideos?.[`youtube-${videoId}`];
-        console.log(
+        console.debug(
           "[YouTube Handler] Final store check before handleAddResult:",
           {
             videoInStore: finalCheckVideo,
@@ -244,9 +233,6 @@ export function YouTubeHandler({
           }
         );
 
-        // CRITICAL: Include FULL transcript in tool result so AI has it immediately
-        // The AI SDK will include this in the conversation, and the AI can use it directly
-        // Format the result as a clear message with the transcript
         const toolResultMessage = `YouTube Video Transcript Retrieved
 
 Title: ${title}
@@ -264,18 +250,17 @@ Please provide a comprehensive summary of this video, including:
 
 The full transcript is provided above - use it to create a detailed, accurate summary.`;
 
-        console.log(
+        console.debug(
           "[YouTube Handler] Calling handleAddResult with transcript length:",
           transcript.length
         );
         handleAddResult(toolResultMessage);
 
-        console.log(
+        console.debug(
           "[YouTube Handler] handleAddResult called - AI SDK should continue now"
         );
         setFetchSuccess(true);
       } catch (error) {
-        // Catch all errors to prevent Obsidian crashes
         logger.error("Error fetching YouTube transcript:", error);
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
@@ -284,8 +269,8 @@ The full transcript is provided above - use it to create a detailed, accurate su
       }
     };
 
-    handleYouTubeTranscript();
-  }, [toolInvocation.toolCallId]); // Only re-run if toolCallId changes (prevents excessive re-renders)
+    void handleYouTubeTranscript();
+  }, [toolInvocation.toolCallId, toolInvocation, handleAddResult, plugin]);
 
   if (fetchSuccess === null) {
     return (

@@ -62,11 +62,11 @@ export const AtomicNotes: React.FC<DocumentChunksProps> = ({ plugin, activeFile,
     if (!content) return;
     
     try {
-      await MarkdownRenderer.renderMarkdown(
+      await MarkdownRenderer.render(
+        plugin.app,
         content,
         containerEl,
-        activeFile.path,
-        plugin
+        activeFile.path
       );
     } catch (error) {
       logger.error("Error rendering markdown:", error);
@@ -80,7 +80,7 @@ export const AtomicNotes: React.FC<DocumentChunksProps> = ({ plugin, activeFile,
     containers.forEach((container) => {
       const content = container.getAttribute('data-content');
       if (content) {
-        renderMarkdown(content, container as HTMLElement);
+        void renderMarkdown(content, container as HTMLElement);
       }
     });
   }, [chunks, renderMarkdown]);
@@ -93,7 +93,7 @@ export const AtomicNotes: React.FC<DocumentChunksProps> = ({ plugin, activeFile,
       />
       <button
         className="bg-accent text-accent-foreground px-2 py-1"
-        onClick={() => createFileInSameFolder(chunk.concept, chunk.content)}
+        onClick={() => { void createFileInSameFolder(chunk.concept, chunk.content); }}
       >
         Create Note
       </button>
@@ -103,7 +103,7 @@ export const AtomicNotes: React.FC<DocumentChunksProps> = ({ plugin, activeFile,
   return (
     <div className="document-chunks">
       <button
-        onClick={parseDocument}
+        onClick={() => { void parseDocument(); }}
         disabled={loading}
         className="bg-accent text-accent-foreground px-2 py-1"
       >

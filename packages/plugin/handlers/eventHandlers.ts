@@ -15,7 +15,7 @@ export function registerEventHandlers(plugin: FileOrganizer) {
 
   plugin.registerEvent(
     plugin.app.vault.on("create", async file => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => window.setTimeout(resolve, 1000));
       if (!isInInboxFolder(file.path, pathToWatch)) return;
       if (file instanceof TFile) {
         new Notice("Inbox is looking at new file: " + file.basename);
@@ -26,7 +26,7 @@ export function registerEventHandlers(plugin: FileOrganizer) {
 
   plugin.registerEvent(
     plugin.app.vault.on("rename", async (file, _oldPath) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => window.setTimeout(resolve, 1000));
       if (!isInInboxFolder(file.path, pathToWatch)) return;
       if (file instanceof TFile) {
         new Notice("Inbox is looking at new file: " + file.basename);

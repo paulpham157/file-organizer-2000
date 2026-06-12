@@ -228,8 +228,8 @@ export function buildSessionTitle(evidence: ScreenpipeItem[]): {
   detectedVia: DetectionReason;
 } {
   const first = evidence[0]?.content ?? {};
-  const urlRaw = (first.browser_url ?? first.url ?? "") as string;
-  const windowName = (first.window_name ?? "") as string;
+  const urlRaw = (first.browser_url ?? first.url ?? "");
+  const windowName = (first.window_name ?? "");
   const provider = inferProvider(urlRaw, windowName);
 
   let title =

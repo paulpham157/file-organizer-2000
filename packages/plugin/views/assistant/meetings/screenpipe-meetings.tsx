@@ -26,6 +26,8 @@ import {
   type MeetingSession,
   type ScreenpipeItem,
 } from "./screenpipe-meetings-utils";
+import { getApiError, readResponseJson, type ApiErrorBody } from "../../../lib/api-json";
+import { obsidianFetch } from "../../../lib/obsidian-fetch";
 
 interface ScreenpipeMeetingsProps {
   plugin: FileOrganizer;
@@ -41,10 +43,10 @@ const PREVIEW_TRANSCRIPT_CHARS = 80;
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
-  // eslint-disable-next-line no-unused-vars -- callback type; implementation uses the arg
+   
   fn: (item: T) => Promise<R>
 ): Promise<R[]> {
-  const results: R[] = new Array(items.length);
+  const results = Array.from({ length: items.length }, () => undefined as R);
   let nextIdx = 0;
   async function worker(): Promise<void> {
     while (nextIdx < items.length) {
@@ -203,7 +205,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
               base.evidence
             );
             if (audio.length > 0) {
-              console.log(
+              console.debug(
                 "[screenpipe meetings] session audio items:",
                 audio.length
               );
@@ -222,7 +224,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
           }
         );
 
-        console.log(
+        console.debug(
           "[screenpipe meetings] detection:",
           detection.length,
           "meetingHits:",
@@ -247,7 +249,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
 
   useEffect(() => {
     if (!plugin.settings.enableScreenpipe) return;
-    fetchMeetings();
+    void fetchMeetings();
   }, [plugin.settings.enableScreenpipe, fetchMeetings]);
 
   if (!plugin.settings.enableScreenpipe) return null;
@@ -268,7 +270,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
             From ScreenPipe
           </h3>
           <button
-            onClick={() => fetchMeetings(true)}
+            onClick={() => { void fetchMeetings(true); }}
             disabled={isRefreshing}
             className={tw(
               "flex items-center gap-1.5 px-2 py-1 text-xs",
@@ -340,7 +342,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
       ""
     );
 
-    const response = await fetch(
+    const response = await obsidianFetch(
       `${plugin.getServerUrl()}/api/enhance-meeting-note`,
       {
         method: "POST",
@@ -360,8 +362,8 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
     );
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error ?? "Enhancement failed");
+      const errorData = await readResponseJson<ApiErrorBody>(response);
+      throw new Error(getApiError(errorData) ?? "Enhancement failed");
     }
 
     const reader = response.body?.getReader();
@@ -465,7 +467,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
         recordingDate,
         recordingFileName
       );
-      plugin.app.workspace.openLinkText(filePath, "", true);
+      void plugin.app.workspace.openLinkText(filePath, "", true);
       new Notice("Note created and enhanced.");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Create note failed";
@@ -481,7 +483,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
           From ScreenPipe
         </h3>
         <button
-          onClick={() => fetchMeetings(true)}
+          onClick={() => { void fetchMeetings(true); }}
           disabled={isRefreshing}
           className={tw(
             "flex items-center gap-1.5 px-2 py-1 text-xs",
@@ -603,7 +605,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
                 </div>
                 <div className={tw("flex items-center gap-2 mt-2")}>
                   <Button
-                    onClick={() => handleEnhanceNote(session)}
+                    onClick={() => { void handleEnhanceNote(session); }}
                     disabled={!hasTranscript}
                     className={tw("flex items-center gap-2 text-xs")}
                     title={
@@ -616,7 +618,7 @@ export const ScreenpipeMeetings: React.FC<ScreenpipeMeetingsProps> = ({
                     Enhance note
                   </Button>
                   <Button
-                    onClick={() => handleCreateNote(session)}
+                    onClick={() => { void handleCreateNote(session); }}
                     disabled={!hasTranscript}
                     className={tw("flex items-center gap-2 text-xs")}
                     title={

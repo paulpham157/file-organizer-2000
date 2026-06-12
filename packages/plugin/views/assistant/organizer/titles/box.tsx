@@ -56,7 +56,7 @@ export const RenameSuggestion: React.FC<RenameSuggestionProps> = ({
   }, [file, plugin]);
 
   React.useEffect(() => {
-    suggestTitles();
+    void suggestTitles();
   }, [suggestTitles, refreshKey]);
 
   const handleTitleApply = async (title: string) => {
@@ -87,7 +87,7 @@ export const RenameSuggestion: React.FC<RenameSuggestionProps> = ({
       {loading ? (
         <SkeletonLoader count={3} rows={4} width="70%" />
       ) : error ? (
-        <ErrorDisplay message={error.message} onRetry={suggestTitles} />
+        <ErrorDisplay message={error.message} onRetry={() => { void suggestTitles(); }} />
       ) : !suggestions.length ? (
         <div>No title suggestions available</div>
       ) : (
@@ -102,7 +102,7 @@ export const RenameSuggestion: React.FC<RenameSuggestionProps> = ({
               <ExistingFolderButton
                 key={index}
                 folder={suggestion.title}
-                onClick={handleTitleApply}
+                onClick={() => { void handleTitleApply(); }}
                 score={suggestion.score}
                 reason={suggestion.reason}
               />

@@ -12,7 +12,7 @@ export const SearchRenameHandler: React.FC<ToolHandlerProps> = ({ toolInvocation
   useEffect(() => {
     if (isSearching) {
       try {
-        const { query } = toolInvocation.args;
+        const { query } = toolInvocation.args as { query: string };
         const allFiles = plugin.app.vault.getMarkdownFiles();
         
         // Create a regex pattern from the query, escaping special characters
@@ -28,7 +28,8 @@ export const SearchRenameHandler: React.FC<ToolHandlerProps> = ({ toolInvocation
         setMatchedFiles(files);
         setError(null);
       } catch (err) {
-        setError(err.message);
+        const message = err instanceof Error ? err.message : String(err);
+        setError(message);
         console.error("Search error:", err);
       }
       setIsSearching(false);

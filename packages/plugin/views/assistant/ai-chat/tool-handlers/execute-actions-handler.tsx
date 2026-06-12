@@ -23,14 +23,17 @@ export function ExecuteActionsHandler({ toolInvocation, handleAddResult, app }: 
   const handleExecute = async () => {
     try {
       setIsProcessing(true);
-      const { filePaths, userPrompt } = toolInvocation.args;
+      const { filePaths, userPrompt } = toolInvocation.args as {
+        filePaths: string[];
+        userPrompt: string;
+      };
       const actionResults: string[] = [];
       const action = determineAction(userPrompt);
 
       for (const filePath of filePaths) {
         try {
-          const file = plugin.app.vault.getAbstractFileByPath(filePath) as TFile;
-          if (!file) {
+          const file = plugin.app.vault.getAbstractFileByPath(filePath);
+          if (!(file instanceof TFile)) {
             actionResults.push(`❌ File not found: ${filePath}`);
             continue;
           }
@@ -75,7 +78,9 @@ export function ExecuteActionsHandler({ toolInvocation, handleAddResult, app }: 
             }
           }
         } catch (error) {
-          actionResults.push(`❌ Error processing ${filePath}: ${error.message}`);
+          actionResults.push(
+            `❌ Error processing ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
 
@@ -83,9 +88,10 @@ export function ExecuteActionsHandler({ toolInvocation, handleAddResult, app }: 
       setIsDone(true);
       handleAddResult(JSON.stringify({ success: true, actionResults }));
     } catch (error) {
-      setResults([`❌ Error: ${error.message}`]);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setResults([`❌ Error: ${errorMessage}`]);
       setIsDone(true);
-      handleAddResult(JSON.stringify({ success: false, error: error.message }));
+      handleAddResult(JSON.stringify({ success: false, error: errorMessage }));
     } finally {
       setIsProcessing(false);
     }
@@ -117,7 +123,7 @@ export function ExecuteActionsHandler({ toolInvocation, handleAddResult, app }: 
       {!isDone && (
         <button
           className="px-4 py-2 bg-[--interactive-accent] text-[--text-on-accent] hover:bg-[--interactive-accent-hover] disabled:opacity-50"
-          onClick={handleExecute}
+          onClick={() => { void handleExecute(); }}
           disabled={isProcessing}
         >
           {isProcessing ? "Processing..." : "Execute Actions"}

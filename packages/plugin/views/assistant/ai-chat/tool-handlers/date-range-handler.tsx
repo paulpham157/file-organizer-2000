@@ -86,12 +86,14 @@ export function DateRangeHandler({
           handleAddResult(JSON.stringify(minimalResults));
         } catch (error) {
           logger.error("Error filtering notes by date:", error);
-          handleAddResult(JSON.stringify({ error: error.message }));
+          handleAddResult(JSON.stringify({
+            error: error instanceof Error ? error.message : String(error),
+          }));
         }
       }
     };
 
-    handleDateRangeSearch();
+    void handleDateRangeSearch();
   }, [toolInvocation, handleAddResult, app, clearAll]);
 
   const files = useContextItems(state => state.files);

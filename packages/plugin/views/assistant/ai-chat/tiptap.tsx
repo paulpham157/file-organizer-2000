@@ -39,7 +39,7 @@ const Tiptap: React.FC<TiptapProps> = ({
   const [isEmpty, setIsEmpty] = React.useState(!value || value.trim() === "");
 
   const handleUpdate = useCallback(
-    ({ editor }: { editor: any }) => {
+    ({ editor }: { editor: { getText(): string } }) => {
       const content = editor.getText();
       setIsEmpty(!content || content.trim() === "");
       onChange(content);
@@ -89,11 +89,11 @@ const Tiptap: React.FC<TiptapProps> = ({
         break;
 
       case "tag":
-        addTagContext(props.title, plugin.app);
+        void addTagContext(props.title, plugin.app);
         break;
 
       case "folder":
-        addFolderContext(props.path, plugin.app);
+        void addFolderContext(props.path, plugin.app);
         break;
     }
   };
@@ -110,7 +110,7 @@ const Tiptap: React.FC<TiptapProps> = ({
           char: "@",
           items: ({ query, editor }) => suggestion.items({ query, editor }),
           render: () => suggestion.render(),
-          command: handleMentionCommand,
+          command: (props) => { void handleMentionCommand(props); },
           decorationClass:
             "bg-[--background-modifier-active-hover] text-[--text-accent]  px-1 py-0.5",
         },
@@ -169,7 +169,7 @@ const Tiptap: React.FC<TiptapProps> = ({
 
           // If we found @ and we're typing the query (no space yet), replace space with underscore
           if (foundAt && textAfterAt && !textAfterAt.includes(" ") && textAfterAt.length > 0) {
-            console.log("[Tiptap] Intercepting space in mention context, replacing with underscore");
+            console.debug("[Tiptap] Intercepting space in mention context, replacing with underscore");
             event.preventDefault();
             event.stopPropagation();
 
@@ -209,7 +209,7 @@ const Tiptap: React.FC<TiptapProps> = ({
       }
     };
 
-    loadTemplates();
+    void loadTemplates();
   }, [editor, plugin]);
 
   // Sync editor content with value prop

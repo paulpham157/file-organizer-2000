@@ -20,7 +20,7 @@ export class DashboardView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "File Organizer Dashboard";
+    return "File organizer dashboard";
   }
 
   getIcon(): string {

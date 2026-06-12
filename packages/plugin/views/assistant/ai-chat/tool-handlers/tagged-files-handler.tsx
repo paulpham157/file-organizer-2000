@@ -1,18 +1,25 @@
 import React, { useRef } from "react";
-import { App, TFile } from "obsidian";
-import { ToolInvocation } from "ai";
+import { TFile } from "obsidian";
+import { ToolHandlerProps } from "./types";
 
-interface TaggedFilesHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface TaggedFilesArgs {
+  tags: string[];
+  matchAll?: boolean;
+  excludeTags?: string[];
+  folder?: string;
+}
+
+interface TaggedFileResult {
+  path: string;
+  name: string;
+  tags: string[];
 }
 
 export function TaggedFilesHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: TaggedFilesHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
 
   const getAllFileTags = (file: TFile): string[] => {
@@ -42,7 +49,7 @@ export function TaggedFilesHandler({
     matchAll: boolean,
     excludeTags?: string[],
     folder?: string
-  ) => {
+  ): TaggedFileResult[] => {
     const normalizedTags = tags.map(t =>
       t.replace(/^#/, "").toLowerCase()
     );
@@ -59,7 +66,7 @@ export function TaggedFilesHandler({
       );
     }
 
-    const results = [];
+    const results: TaggedFileResult[] = [];
 
     for (const file of files) {
       const fileTags = getAllFileTags(file);
@@ -89,12 +96,13 @@ export function TaggedFilesHandler({
     const handleGetTaggedFiles = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { tags, matchAll, excludeTags, folder } = toolInvocation.args;
+        const { tags, matchAll, excludeTags, folder } =
+          toolInvocation.args as TaggedFilesArgs;
 
         try {
           const results = findTaggedFiles(
             tags,
-            matchAll || false,
+            matchAll ?? false,
             excludeTags,
             folder
           );
@@ -113,19 +121,21 @@ export function TaggedFilesHandler({
             })
           );
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           handleAddResult(
             JSON.stringify({
-              error: `Failed to find tagged files: ${error.message}`,
+              error: `Failed to find tagged files: ${errorMessage}`,
             })
           );
         }
       }
     };
 
-    handleGetTaggedFiles();
+    void handleGetTaggedFiles();
   }, [toolInvocation, handleAddResult, app]);
 
-  const { tags } = toolInvocation.args;
+  const { tags } = toolInvocation.args as TaggedFilesArgs;
   const isComplete = "result" in toolInvocation;
 
   return (
@@ -133,7 +143,7 @@ export function TaggedFilesHandler({
       {!isComplete ? (
         <div className="text-[--text-muted]">
           Searching for files tagged{" "}
-          {tags.map((t: string) => `#${t}`).join(", ")}...
+          {tags.map(t => `#${t}`).join(", ")}...
         </div>
       ) : (
         <div className="text-[--text-normal]">

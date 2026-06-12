@@ -1,22 +1,56 @@
 import React, { useRef } from "react";
 import { App, TFile } from "obsidian";
-import { ToolInvocation } from "ai";
+import { ToolHandlerProps, getToolArgs } from "./types";
 
-interface BacklinksHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface BacklinksArgs {
+  filePaths: string[];
+  includeUnresolved?: boolean;
+}
+
+interface BacklinkEntry {
+  path: string;
+  count: number;
+}
+
+interface BacklinkFileResult {
+  path: string;
+  success: boolean;
+  error?: string;
+  resolved?: BacklinkEntry[];
+  unresolved?: BacklinkEntry[];
+  totalResolved?: number;
+  totalUnresolved?: number;
+  resolvedTruncated?: boolean;
+  unresolvedTruncated?: boolean;
+  listsTruncated?: boolean;
+}
+
+interface MetadataCacheWithBacklinks {
+  getBacklinksForFile(file: TFile): Map<string, number> | undefined;
+}
+
+/** Obsidian exposes this at runtime but it is not in public MetadataCache typings. */
+function getBacklinksForFile(
+  metadataCache: App["metadataCache"],
+  file: TFile
+): Map<string, number> | undefined {
+  return (
+    metadataCache as unknown as MetadataCacheWithBacklinks
+  ).getBacklinksForFile(file);
 }
 
 export function BacklinksHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: BacklinksHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const MAX_BACKLINK_ROWS = 150;
 
-  const getBacklinks = (filePath: string, includeUnresolved: boolean) => {
+  const getBacklinks = (
+    filePath: string,
+    includeUnresolved: boolean
+  ): BacklinkFileResult => {
     const file = app.vault.getAbstractFileByPath(filePath);
     if (!(file instanceof TFile)) {
       return {
@@ -26,17 +60,15 @@ export function BacklinksHandler({
       };
     }
 
-    // Get resolved backlinks
-    const backlinksForFile = (app.metadataCache as any).getBacklinksForFile(file);
-    const resolved = backlinksForFile
-      ? Array.from(backlinksForFile.keys()).map((path: string) => ({
+    const backlinksForFile = getBacklinksForFile(app.metadataCache, file);
+    const resolved: BacklinkEntry[] = backlinksForFile
+      ? Array.from(backlinksForFile.keys()).map((path) => ({
           path,
-          count: backlinksForFile.get(path) || 0,
+          count: backlinksForFile.get(path) ?? 0,
         }))
       : [];
 
-    // Get unresolved backlinks if requested
-    let unresolved: Array<{ path: string; count: number }> = [];
+    let unresolved: BacklinkEntry[] = [];
     if (includeUnresolved) {
       const unresolvedLinks = app.metadataCache.unresolvedLinks;
       unresolved = Object.entries(unresolvedLinks)
@@ -61,16 +93,17 @@ export function BacklinksHandler({
     const handleGetBacklinks = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { filePaths, includeUnresolved } = toolInvocation.args;
+        const { filePaths, includeUnresolved } =
+          getToolArgs<BacklinksArgs>(toolInvocation.args);
 
         try {
-          const results = filePaths.map((path: string) =>
-            getBacklinks(path, includeUnresolved || false)
+          const results = filePaths.map((path) =>
+            getBacklinks(path, includeUnresolved ?? false)
           );
-          const capped = results.map((r: Record<string, unknown>) => {
-            if (typeof r.success === "boolean" && r.success === false) return r;
-            const resolved = Array.isArray(r.resolved) ? r.resolved : [];
-            const unresolved = Array.isArray(r.unresolved) ? r.unresolved : [];
+          const capped = results.map((r) => {
+            if (!r.success) return r;
+            const resolved = r.resolved ?? [];
+            const unresolved = r.unresolved ?? [];
             const resTrunc = resolved.length > MAX_BACKLINK_ROWS;
             const unresTrunc = unresolved.length > MAX_BACKLINK_ROWS;
             if (!resTrunc && !unresTrunc) return r;
@@ -87,19 +120,21 @@ export function BacklinksHandler({
           });
           handleAddResult(JSON.stringify(capped));
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           handleAddResult(
             JSON.stringify({
-              error: `Failed to get backlinks: ${error.message}`,
+              error: `Failed to get backlinks: ${errorMessage}`,
             })
           );
         }
       }
     };
 
-    handleGetBacklinks();
+    void handleGetBacklinks();
   }, [toolInvocation, handleAddResult, app]);
 
-  const { filePaths } = toolInvocation.args;
+  const { filePaths } = getToolArgs<BacklinksArgs>(toolInvocation.args);
   const isComplete = "result" in toolInvocation;
 
   return (

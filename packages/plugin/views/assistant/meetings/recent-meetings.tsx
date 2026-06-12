@@ -11,6 +11,7 @@ import {
   RecordingMetadata,
 } from "./meeting-metadata";
 import { EnhanceNoteHandler } from "./enhance-note-handler";
+import { showConfirmModal } from "../../../lib/show-confirm-modal";
 
 interface RecentMeetingsProps {
   plugin: FileOrganizer;
@@ -60,11 +61,11 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
   };
 
   useEffect(() => {
-    loadRecordings();
+    void loadRecordings();
 
     // Listen for new recordings
     const handleRecording = () => {
-      loadRecordings();
+      void loadRecordings();
     };
     window.addEventListener("meeting-recorded", handleRecording);
 
@@ -83,7 +84,7 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
         await loadRecordings();
       }
     };
-    doInitialDiscovery();
+    void doInitialDiscovery();
 
     return () => {
       window.removeEventListener("meeting-recorded", handleRecording);
@@ -91,7 +92,12 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
   }, []);
 
   const handleDelete = async (filePath: string) => {
-    if (!confirm("Delete this recording?")) return;
+    const confirmed = await showConfirmModal(plugin.app, {
+      title: "Delete recording?",
+      message: "Delete this recording?",
+      confirmText: "Delete",
+    });
+    if (!confirmed) return;
 
     try {
       const file = plugin.app.vault.getAbstractFileByPath(filePath);
@@ -110,7 +116,7 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
   const handleOpenInVault = (filePath: string) => {
     const file = plugin.app.vault.getAbstractFileByPath(filePath);
     if (file && file instanceof TFile) {
-      plugin.app.workspace.openLinkText(filePath, "", true);
+      void plugin.app.workspace.openLinkText(filePath, "", true);
     }
   };
 
@@ -161,7 +167,7 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
             Recent Meetings
           </h3>
           <button
-            onClick={scanForRecordings}
+            onClick={() => { void scanForRecordings(); }}
             disabled={isScanning}
             className={tw(
               "flex items-center gap-1.5 px-2 py-1 text-xs",
@@ -198,7 +204,7 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
           Recent Meetings
         </h3>
         <button
-          onClick={scanForRecordings}
+          onClick={() => { void scanForRecordings(); }}
           disabled={isScanning}
           className={tw(
             "flex items-center gap-1.5 px-2 py-1 text-xs",
@@ -286,7 +292,7 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
                     <ExternalLink className="w-3 h-3" />
                   </Button>
                   <Button
-                    onClick={() => handleDelete(recording.filePath)}
+                    onClick={() => { void handleDelete(recording.filePath); }}
                     className={tw("p-1 text-[--text-error]")}
                     title="Delete"
                   >
@@ -299,7 +305,7 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
                   plugin={plugin}
                   recording={recording}
                   metadataManager={metadataManager}
-                  onEnhanced={() => loadRecordings()}
+                  onEnhanced={() => { void loadRecordings(); }}
                 />
               </div>
             </div>

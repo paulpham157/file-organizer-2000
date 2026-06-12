@@ -15,7 +15,7 @@ const SlashCommand = Mention.extend({
       },
       suggestion: {
         char: "/",
-        items: ({ query, editor }: { query: string; editor: any }) => {
+        items: ({ query, editor }: { query: string; editor: unknown }) => {
           return slashSuggestion.items({ query, editor });
         },
         render: () => {

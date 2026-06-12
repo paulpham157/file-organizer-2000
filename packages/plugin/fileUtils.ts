@@ -548,13 +548,18 @@ export async function moveFile(
   await app.fileManager.renameFile(sourceFile, normalizedFinalPath);
 
   // Get the moved file object and return it
-  const movedFile = app.vault.getAbstractFileByPath(
-    normalizedFinalPath
-  ) as TFile;
+  const movedFile = app.vault.getAbstractFileByPath(normalizedFinalPath);
+  if (!(movedFile instanceof TFile)) {
+    throw new Error(`Failed to move file to ${normalizedFinalPath}`);
+  }
   return movedFile;
 }
 
-export function isTFolder(file: any): file is TFolder {
+export function isTFile(file: unknown): file is TFile {
+  return file instanceof TFile;
+}
+
+export function isTFolder(file: unknown): file is TFolder {
   return file instanceof TFolder;
 }
 
@@ -713,7 +718,7 @@ export async function safeModifyContent(
       if (parts.length >= 3) {
         try {
           // Try to parse the YAML part (index 1) to validate it
-          const frontmatter = parseYaml(parts[1]);
+          const frontmatter = parseYaml(parts[1]) as Record<string, unknown>;
 
           // If parsing succeeds, use processFrontMatter to ensure proper handling of arrays
           await app.fileManager.processFrontMatter(file, fm => {

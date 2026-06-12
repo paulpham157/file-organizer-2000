@@ -20,7 +20,7 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
   useEffect(() => {
     if (plugin.settings.useFolderEmbeddings !== false) {
       plugin.settings.useFolderEmbeddings = false;
-      plugin.saveSettings();
+      void plugin.saveSettings();
     }
   }, []); // Empty array = run only once on mount
 
@@ -52,13 +52,13 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
             name="Inbox Auto-Renaming"
             description="Automatically rename new files when they are processed through the inbox."
             value={enableFileRenaming}
-            onChange={(value) => handleToggleChange(value, setEnableFileRenaming, 'enableFileRenaming')}
+            onChange={(value) => { void handleToggleChange(value, setEnableFileRenaming, 'enableFileRenaming'); }}
           />
           <ToggleSetting
             name="Inbox Auto-Formatting"
             description="Automatically format new documents when they match a template category during inbox processing."
             value={enableDocumentClassification}
-            onChange={(value) => handleToggleChange(value, setEnableDocumentClassification, 'enableDocumentClassification')}
+            onChange={(value) => { void handleToggleChange(value, setEnableDocumentClassification, 'enableDocumentClassification'); }}
           />
           <div className="bg-[--background-secondary] p-4 rounded-lg mt-2">
             <div className="font-medium text-[--text-normal] mb-2">Document Type Templates</div>
@@ -73,7 +73,7 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
             name="Inbox Similar Tags"
             description="Automatically append similar tags to new files during inbox processing."
             value={useSimilarTags}
-            onChange={(value) => handleToggleChange(value, setUseSimilarTags, 'useSimilarTags')}
+            onChange={(value) => { void handleToggleChange(value, setUseSimilarTags, 'useSimilarTags'); }}
           />
         </div>
       </section>
@@ -97,13 +97,13 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
               name="Rename Instructions"
               description="Instructions for how files should be renamed based on their content."
               value={renameInstructions}
-              onChange={(value) => handleTextChange(value, setRenameInstructions, 'renameInstructions')}
+              onChange={(value) => { void handleTextChange(value, setRenameInstructions, 'renameInstructions'); }}
             />
             <ToggleSetting
               name="Use Vault Context"
               description="Improve AI-generated titles by providing examples from your vault (uses 20 random titles)."
               value={useVaultTitles}
-              onChange={(value) => handleToggleChange(value, setUseVaultTitles, 'useVaultTitles')}
+              onChange={(value) => { void handleToggleChange(value, setUseVaultTitles, 'useVaultTitles'); }}
             />
           </div>
         </div>
@@ -116,13 +116,13 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
               name="Use Frontmatter"
               description="Add similar tags in frontmatter instead of inline."
               value={useSimilarTagsInFrontmatter}
-              onChange={(value) => handleToggleChange(value, setUseSimilarTagsInFrontmatter, 'useSimilarTagsInFrontmatter')}
+              onChange={(value) => { void handleToggleChange(value, setUseSimilarTagsInFrontmatter, 'useSimilarTagsInFrontmatter'); }}
             />
             <TextAreaSetting
               name="Tag Generation Instructions"
               description="Custom instructions for generating tags for your notes."
               value={customTagInstructions}
-              onChange={(value) => handleTextChange(value, setCustomTagInstructions, 'customTagInstructions')}
+              onChange={(value) => { void handleTextChange(value, setCustomTagInstructions, 'customTagInstructions'); }}
             />
           </div>
         </div>
@@ -135,7 +135,7 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
               name="Custom Folder Determination Instructions"
               description="Provide custom instructions for determining which folders to place your notes in."
               value={customFolderInstructions}
-              onChange={(value) => handleTextChange(value, setCustomFolderInstructions, 'customFolderInstructions')}
+              onChange={(value) => { void handleTextChange(value, setCustomFolderInstructions, 'customFolderInstructions'); }}
             />
           </div>
         </div>
@@ -148,7 +148,7 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
               name="Image Instructions"
               description="Provide instructions for how to process and describe images in your documents."
               value={imageInstructions}
-              onChange={(value) => handleTextChange(value, setImageInstructions, 'imageInstructions')}
+              onChange={(value) => { void handleTextChange(value, setImageInstructions, 'imageInstructions'); }}
             />
             <div className="bg-[--background-secondary] p-4 rounded-lg">
               <div className="text-sm text-[--text-muted]">

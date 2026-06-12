@@ -1,19 +1,21 @@
-import React, { useRef, useState } from "react";
-import { App, Notice } from "obsidian";
-import { ToolInvocation } from "ai";
+import React, { useState } from "react";
+import { Notice, TFile } from "obsidian";
+import { showConfirmModal } from "../../../../lib/show-confirm-modal";
+import { ToolHandlerProps, getToolArgs } from "./types";
 
-interface CreateTemplateHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface CreateTemplateArgs {
+  templateName: string;
+  templateContent: string;
+  templateFolder?: string;
+  description?: string;
+  message?: string;
 }
 
 export function CreateTemplateHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: CreateTemplateHandlerProps) {
-  const hasFetchedRef = useRef(false);
+}: ToolHandlerProps) {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
@@ -22,25 +24,23 @@ export function CreateTemplateHandler({
       templateName,
       templateContent,
       templateFolder = "Templates",
-      description,
-    } = toolInvocation.args;
+    } = getToolArgs<CreateTemplateArgs>(toolInvocation.args);
 
     try {
-      // Ensure templates folder exists
       const folderExists = app.vault.getAbstractFileByPath(templateFolder);
       if (!folderExists) {
         await app.vault.createFolder(templateFolder);
       }
 
-      // Create template file path
       const templatePath = `${templateFolder}/${templateName}.md`;
-
-      // Check if template already exists
       const existingFile = app.vault.getAbstractFileByPath(templatePath);
-      if (existingFile) {
-        const confirmOverwrite = confirm(
-          `Template "${templateName}" already exists. Overwrite?`
-        );
+
+      if (existingFile instanceof TFile) {
+        const confirmOverwrite = await showConfirmModal(app, {
+          title: "Overwrite template?",
+          message: `Template "${templateName}" already exists. Overwrite?`,
+          confirmText: "Overwrite",
+        });
         if (!confirmOverwrite) {
           setIsDone(true);
           handleAddResult(
@@ -51,7 +51,7 @@ export function CreateTemplateHandler({
           );
           return;
         }
-        await app.vault.modify(existingFile as any, templateContent);
+        await app.vault.modify(existingFile, templateContent);
       } else {
         await app.vault.create(templatePath, templateContent);
       }
@@ -70,12 +70,14 @@ export function CreateTemplateHandler({
         })
       );
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       setIsDone(true);
-      new Notice(`Failed to create template: ${error.message}`);
+      new Notice(`Failed to create template: ${errorMessage}`);
       handleAddResult(
         JSON.stringify({
           success: false,
-          error: error.message,
+          error: errorMessage,
         })
       );
     }
@@ -96,7 +98,7 @@ export function CreateTemplateHandler({
     templateContent,
     description,
     message: reason,
-  } = toolInvocation.args;
+  } = getToolArgs<CreateTemplateArgs>(toolInvocation.args);
   const isComplete = "result" in toolInvocation;
 
   if (isComplete || isDone) {
@@ -155,7 +157,7 @@ export function CreateTemplateHandler({
         <button
           onClick={() => {
             setIsConfirmed(true);
-            handleConfirmCreate();
+            void handleConfirmCreate();
           }}
           className="flex-1 px-3 py-1.5 text-xs bg-[--interactive-accent] hover:bg-[--interactive-accent-hover] text-white"
         >

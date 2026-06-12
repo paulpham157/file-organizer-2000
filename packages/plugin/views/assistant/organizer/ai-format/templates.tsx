@@ -51,16 +51,16 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
         templateName === "youtube_video.md"
       ) {
         videoId = extractYouTubeVideoId(fileContent);
-        console.log("[YouTube Format] Extracted video ID:", videoId);
+        console.debug("[YouTube Format] Extracted video ID:", videoId);
         if (videoId) {
           try {
-            console.log("[YouTube Format] Starting transcript and metadata fetch...");
+            console.debug("[YouTube Format] Starting transcript and metadata fetch...");
             logger.info("Fetching YouTube transcript and metadata for formatting...");
             new Notice("Fetching YouTube transcript...", 2000);
             const { title, transcript, channel, datePublished } =
               await getYouTubeContent(videoId, plugin);
             videoTitle = title; // Store for potential file renaming
-            console.log("[YouTube Format] Successfully fetched:", {
+            console.debug("[YouTube Format] Successfully fetched:", {
               title,
               channel: channel ?? "(none)",
               datePublished: datePublished ?? "(none)",
@@ -126,7 +126,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
           videoTitle
         ) {
           try {
-            console.log("[YouTube Format] Attempting to rename file with title:", {
+            console.debug("[YouTube Format] Attempting to rename file with title:", {
               videoTitle,
               videoId,
               currentFileName: file.name,
@@ -146,7 +146,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
               ""
             );
 
-            console.log("[YouTube Format] Rename check:", {
+            console.debug("[YouTube Format] Rename check:", {
               sanitizedTitle,
               newFileName,
               currentFileName: file.name,
@@ -160,25 +160,26 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
               newFileName !== file.name
             ) {
               const pathExists = await plugin.app.vault.adapter.exists(newPath);
-              console.log("[YouTube Format] Path exists check:", {
+              console.debug("[YouTube Format] Path exists check:", {
                 newPath,
                 exists: pathExists,
               });
 
               if (!pathExists) {
                 await plugin.app.fileManager.renameFile(file, newPath);
-                targetFile = plugin.app.vault.getAbstractFileByPath(
+                const renamedFile = plugin.app.vault.getAbstractFileByPath(
                   newPath
-                ) as TFile;
-                if (!targetFile) {
-                  targetFile = file; // Fallback to original if rename failed
-                  console.warn("[YouTube Format] Rename failed: targetFile not found after rename");
-                } else {
+                );
+                if (renamedFile instanceof TFile) {
+                  targetFile = renamedFile;
                   logger.info(`Renamed file to match video title: ${newFileName}`);
                   // Notify parent component about the rename
                   if (onFileRename) {
                     onFileRename(targetFile);
                   }
+                } else {
+                  targetFile = file; // Fallback to original if rename failed
+                  console.warn("[YouTube Format] Rename failed: targetFile not found after rename");
                 }
               } else {
                 // File with that name already exists - try to find a unique name
@@ -201,25 +202,26 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
 
                 if (counter <= 100) {
                   await plugin.app.fileManager.renameFile(file, uniquePath);
-                  targetFile = plugin.app.vault.getAbstractFileByPath(
+                  const renamedFile = plugin.app.vault.getAbstractFileByPath(
                     uniquePath
-                  ) as TFile;
-                  if (!targetFile) {
-                    targetFile = file;
-                    console.warn("[YouTube Format] Rename failed: targetFile not found after rename");
-                  } else {
+                  );
+                  if (renamedFile instanceof TFile) {
+                    targetFile = renamedFile;
                     logger.info(`Renamed file to match video title: ${uniquePath}`);
                     // Notify parent component about the rename
                     if (onFileRename) {
                       onFileRename(targetFile);
                     }
+                  } else {
+                    targetFile = file;
+                    console.warn("[YouTube Format] Rename failed: targetFile not found after rename");
                   }
                 } else {
                   console.warn("[YouTube Format] Cannot rename: too many duplicate files exist");
                 }
               }
             } else {
-              console.log("[YouTube Format] Skipping rename:", {
+              console.debug("[YouTube Format] Skipping rename:", {
                 reason: !sanitizedTitle ? "no sanitized title" : "filename unchanged",
                 sanitizedTitle,
                 newFileName,
@@ -232,7 +234,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
             // Continue with original filename
           }
         } else {
-          console.log("[YouTube Format] Not renaming - conditions not met:", {
+          console.debug("[YouTube Format] Not renaming - conditions not met:", {
             isYouTubeTemplate: templateName === "youtube_video" || templateName === "youtube_video.md",
             hasVideoId: !!videoId,
             hasVideoTitle: !!videoTitle,
@@ -269,14 +271,14 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
     if (!file || !backupFile) return;
 
     try {
-      const backupTFile = plugin.app.vault.getAbstractFileByPath(
+      const backupFileRef = plugin.app.vault.getAbstractFileByPath(
         backupFile
-      ) as TFile;
-      if (!backupTFile) {
+      );
+      if (!(backupFileRef instanceof TFile)) {
         throw new Error("Backup file not found");
       }
 
-      const backupContent = await plugin.app.vault.read(backupTFile);
+      const backupContent = await plugin.app.vault.read(backupFileRef);
       await plugin.app.vault.modify(file, backupContent);
       new Notice("Successfully reverted to backup version", 3000);
     } catch (error) {
@@ -319,7 +321,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
           <select
             id="formatBehavior"
             value={formatBehavior}
-            onChange={handleFormatBehaviorChange}
+            onChange={(e) => { void handleFormatBehaviorChange(e); }}
             className="px-2 py-1 border border-[--background-modifier-border]"
           >
             <option value="override">Replace</option>
@@ -329,7 +331,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
           <div className="flex justify-between items-center">
             {backupFile && (
               <button
-                onClick={handleRevert}
+                onClick={() => { void handleRevert(); }}
                 className="px-3 py-1 text-sm bg-[--background-modifier-error] text-[--text-on-accent] hover:opacity-90 transition-opacity"
               >
                 Revert
@@ -342,7 +344,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
           file={file}
           content={content}
           refreshKey={refreshKey}
-          onFormat={handleFormat}
+          onFormat={(templateName) => { void handleFormat(templateName); }}
           onTokenLimitError={onTokenLimitError}
         />
       </div>

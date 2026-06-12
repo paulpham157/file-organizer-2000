@@ -9,6 +9,10 @@ import {
   NewFolderButton,
 } from "./components/suggestion-buttons";
 import { logger } from "../../../services/logger";
+import {
+  isTokenLimitError,
+  getTokenLimitErrorMessage,
+} from "../../../lib/token-limit-error";
 // Rename the button components for tags
 const ExistingTagButton = ExistingFolderButton;
 const NewTagButton = NewFolderButton;
@@ -65,21 +69,19 @@ export const SimilarTags: React.FC<SimilarTagsProps> = ({
         logger.error("Error in tag fetching process:", error);
 
         // Check if this is a token limit error
-        if (error && typeof error === 'object' && 'status' in error && (error as any).status === 429) {
-          const errorMessage = (error as any).message || "Token limit exceeded. Please upgrade your plan for more tokens.";
-          // Notify parent component to show upgrade button
-          onTokenLimitError?.(errorMessage);
+        if (isTokenLimitError(error)) {
+          onTokenLimitError?.(getTokenLimitErrorMessage(error));
         }
       } finally {
         setLoading(false);
         setInitialLoadComplete(true);
       }
     };
-    fetchTags();
+    void fetchTags();
   }, [file, content, refreshKey, plugin, onTokenLimitError]);
 
   const handleTagClick = (tag: string) => {
-    plugin.appendTag(file!, tag);
+    void plugin.appendTag(file, tag);
   };
 
   const renderContent = () => {

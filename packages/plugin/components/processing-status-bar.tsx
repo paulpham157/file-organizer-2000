@@ -1,7 +1,8 @@
 import * as React from 'react';
+import { App } from "obsidian";
 import { Inbox } from '../inbox';
 import { FileRecord, Action, RecordManager } from '../inbox/services/record-manager';
-import { FileOrganizer } from '../index';
+import FileOrganizer from '../index';
 import { getActionDisplayName } from '../inbox/index';
 
 function calculateProgress(record: FileRecord): number {
@@ -29,7 +30,7 @@ function calculateProgress(record: FileRecord): number {
   return Math.round((completedSteps / totalSteps) * 100);
 }
 
-function getCurrentAction(record: FileRecord, app: any): string {
+function getCurrentAction(record: FileRecord, app: App): string {
   try {
     const recordManager = RecordManager.getInstance(app);
     const lastStep = recordManager.getLastStep(record.id);
@@ -52,7 +53,7 @@ export function ProcessingStatusBar({ plugin }: { plugin: FileOrganizer }) {
 
   // Poll inbox status every 500ms
   React.useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       try {
         const inbox = Inbox.getInstance();
         const analytics = inbox.getAnalytics();
@@ -86,10 +87,7 @@ export function ProcessingStatusBar({ plugin }: { plugin: FileOrganizer }) {
           let currentAction: string | undefined;
           if (processing) {
             progress = calculateProgress(processing);
-            currentAction = getCurrentAction(
-              processing,
-              plugin.app
-            );
+            currentAction = getCurrentAction(processing, plugin.app);
           }
 
           setStatus({
@@ -108,7 +106,7 @@ export function ProcessingStatusBar({ plugin }: { plugin: FileOrganizer }) {
       }
     }, 500);
 
-    return () => clearInterval(interval);
+    return () => window.clearInterval(interval);
   }, [plugin]);
 
   if (!status) return null;

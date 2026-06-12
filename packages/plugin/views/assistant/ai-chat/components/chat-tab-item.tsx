@@ -2,7 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { ChatSession } from "../services/chat-history-manager";
 import { tw } from "../../../../lib/utils";
-import { moment } from "obsidian";
+import { formatRelativeTime } from "../../../../lib/format-relative-time";
 
 interface ChatTabItemProps {
   session: ChatSession;
@@ -22,7 +22,7 @@ export function ChatTabItem({
     onDelete();
   };
 
-  const relativeTime = moment(session.updatedAt).fromNow();
+  const relativeTime = formatRelativeTime(session.updatedAt);
 
   return (
     <div

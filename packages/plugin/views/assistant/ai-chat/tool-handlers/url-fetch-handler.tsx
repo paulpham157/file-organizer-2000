@@ -2,6 +2,8 @@ import React, { useRef, useState } from "react";
 import { logger } from "../../../../services/logger";
 import { usePlugin } from "../../provider";
 import { ToolInvocation } from "ai";
+import { readResponseJson } from "../../../../lib/api-json";
+import { obsidianFetch } from "../../../../lib/obsidian-fetch";
 
 interface UrlFetchHandlerProps {
   toolInvocation: ToolInvocation;
@@ -28,7 +30,7 @@ export function UrlFetchHandler({
       }
       hasFetchedRef.current = true;
 
-      let url = toolInvocation.args?.url;
+      let url = (toolInvocation.args as { url?: string }).url;
       if (url && typeof (url as { then?: unknown }).then === "function") {
         handleAddResult(
           JSON.stringify({
@@ -70,7 +72,7 @@ export function UrlFetchHandler({
           return;
         }
 
-        const response = await fetch(
+        const response = await obsidianFetch(
           `${plugin.getServerUrl()}/api/fetch-url`,
           {
             method: "POST",
@@ -82,12 +84,12 @@ export function UrlFetchHandler({
           }
         );
 
-        const data = (await response.json()) as {
+        const data = await readResponseJson<{
           title?: string;
           content?: string;
           url?: string;
           error?: string;
-        };
+        }>(response);
 
         if (!response.ok) {
           const msg =
@@ -127,8 +129,6 @@ export function UrlFetchHandler({
     };
 
     void run();
-    // Intentionally only toolCallId: run once per invocation (matches YouTubeHandler)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable handleAddResult/plugin from parent
   }, [toolInvocation.toolCallId]);
 
   if (status === "loading") {

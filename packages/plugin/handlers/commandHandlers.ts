@@ -9,8 +9,8 @@ export function initializeOrganizer(plugin: FileOrganizer) {
     (leaf: WorkspaceLeaf) => new AssistantViewWrapper(leaf, plugin)
   );
 
-  plugin.addRibbonIcon("sparkle", "Note Companion", () => {
-    plugin.ensureAssistantView();
+  plugin.addRibbonIcon("sparkle", "Note companion", () => {
+    void plugin.ensureAssistantView();
   });
 }
 

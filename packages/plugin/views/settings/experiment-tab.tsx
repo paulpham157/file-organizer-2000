@@ -92,13 +92,13 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                 name="Atomic Notes"
                 description="Enable the generation of atomic notes in the assistant sidebar."
                 value={enableAtomicNotes}
-                onChange={value =>
-                  handleToggleChange(
+                onChange={value => {
+                  void handleToggleChange(
                     value,
                     setEnableAtomicNotes,
                     "enableAtomicNotes"
-                  )
-                }
+                  );
+                }}
               />
 
               <ToggleSetting
@@ -124,13 +124,13 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                   </div>
                 }
                 value={showLocalLLMInChat}
-                onChange={value =>
-                  handleToggleChange(
+                onChange={value => {
+                  void handleToggleChange(
                     value,
                     setShowLocalLLMInChat,
                     "showLocalLLMInChat"
-                  )
-                }
+                  );
+                }}
               />
               <ToggleSetting
                 name="Web Search for AI Responses"
@@ -148,13 +148,13 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                   </div>
                 }
                 value={enableSearchGrounding}
-                onChange={value =>
-                  handleToggleChange(
+                onChange={value => {
+                  void handleToggleChange(
                     value,
                     setEnableSearchGrounding,
                     "enableSearchGrounding"
-                  )
-                }
+                  );
+                }}
               />
 
               {enableSearchGrounding && (
@@ -175,13 +175,13 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                       </div>
                     }
                     value={enableDeepSearch}
-                    onChange={value =>
-                      handleToggleChange(
+                    onChange={value => {
+                      void handleToggleChange(
                         value,
                         setEnableDeepSearch,
                         "enableDeepSearch"
-                      )
-                    }
+                      );
+                    }}
                   />
                 </div>
               )}
@@ -199,13 +199,13 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                 <select
                   className="w-full max-w-xs px-2 py-1.5 bg-[--background-primary] border border-[--background-modifier-border] rounded text-[--text-normal]"
                   value={chatMaxStepsPref}
-                  onChange={async e => {
+                  onChange={(e) => { void (async (e) => {
                     const v = e.target.value as "auto" | "3" | "5";
                     setChatMaxStepsPref(v);
                     plugin.settings.chatMaxStepsPreference =
                       v === "auto" ? "auto" : (Number(v) as 3 | 5);
                     await plugin.saveSettings();
-                  }}
+                  })(e); }}
                 >
                   <option value="auto">Auto (plan default)</option>
                   <option value="3">Prefer 3 steps</option>
@@ -239,13 +239,13 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                   </div>
                 }
                 value={enableTitleSuggestions}
-                onChange={value =>
-                  handleToggleChange(
+                onChange={value => {
+                  void handleToggleChange(
                     value,
                     setEnableTitleSuggestions,
                     "enableTitleSuggestions"
-                  )
-                }
+                  );
+                }}
               />
             </div>
           </div>
@@ -284,9 +284,9 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                     </div>
                   }
                   value={showSyncTab}
-                  onChange={value =>
-                    handleToggleChange(value, setShowSyncTab, "showSyncTab")
-                  }
+                  onChange={value => {
+                    void handleToggleChange(value, setShowSyncTab, "showSyncTab");
+                  }}
                 />
                 <ToggleSetting
                   name="ScreenPipe Integration"
@@ -316,12 +316,12 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                                 min="1"
                                 max="24"
                                 value={screenpipeTimeRange}
-                                onChange={async e => {
+                                onChange={(e) => { void (async (e) => {
                                   const value = Number(e.target.value);
                                   setScreenpipeTimeRange(value);
                                   plugin.settings.screenpipeTimeRange = value;
                                   await plugin.saveSettings();
-                                }}
+                                })(e); }}
                                 className="w-20 px-2 py-1 bg-[--background-primary] border border-[--background-modifier-border] rounded"
                               />
                               <span className="text-sm text-[--text-muted]">hours</span>
@@ -342,12 +342,12 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                                 min="1"
                                 max="100"
                                 value={queryScreenpipeLimit}
-                                onChange={async e => {
+                                onChange={(e) => { void (async (e) => {
                                   const value = Number(e.target.value);
                                   setQueryScreenpipeLimit(value);
                                   plugin.settings.queryScreenpipeLimit = value;
                                   await plugin.saveSettings();
-                                }}
+                                })(e); }}
                                 className="w-20 px-2 py-1 bg-[--background-primary] border border-[--background-modifier-border] rounded"
                               />
                               <span className="text-sm text-[--text-muted]">items</span>
@@ -362,9 +362,9 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                     </div>
                   }
                   value={enableScreenpipe}
-                  onChange={value =>
-                    handleToggleChange(value, setEnableScreenpipe, "enableScreenpipe")
-                  }
+                  onChange={value => {
+                    void handleToggleChange(value, setEnableScreenpipe, "enableScreenpipe");
+                  }}
                 />
               </div>
             </div>
@@ -377,7 +377,7 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
 
 interface ToggleSettingProps {
   name: string;
-  description: string | JSX.Element;
+  description: string | React.JSX.Element;
   value: boolean;
   onChange: (value: boolean) => void;
 }

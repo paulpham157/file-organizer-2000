@@ -1,11 +1,11 @@
 import * as React from "react";
-import { FileRecord, FileStatus, RecordManager, Action } from "../../../inbox/services/record-manager";
-import { usePlugin } from "../provider";
+import { FileRecord, FileStatus, RecordManager } from "../../../inbox/services/record-manager";
 import { TFile, Notice } from "obsidian";
 import { Inbox } from "../../../inbox";
 import { tw } from "../../../lib/utils";
-import { RotateCcw, AlertCircle, Ban } from "lucide-react";
+import { RotateCcw, AlertCircle } from "lucide-react";
 import { Button } from "../../../components/ui/button";
+import FileOrganizer from "../../../index";
 
 // Status badge component (reused from inbox-logs.tsx pattern)
 const StatusBadge: React.FC<{ status: FileStatus }> = ({ status }) => {
@@ -34,7 +34,7 @@ const StatusBadge: React.FC<{ status: FileStatus }> = ({ status }) => {
 // Issue card component
 const IssueCard: React.FC<{
   record: FileRecord;
-  plugin: any;
+  plugin: FileOrganizer;
   onRetry: (record: FileRecord) => Promise<void>;
 }> = ({ record, plugin, onRetry }) => {
   const [isRetrying, setIsRetrying] = React.useState(false);
@@ -51,7 +51,7 @@ const IssueCard: React.FC<{
       // Bypassed files throw errors with "Bypassed due to " + reason
       const allErrors = Object.values(record.logs)
         .filter(log => log.error)
-        .map(log => log.error!.message);
+        .map(log => log.error.message);
 
       // Look for bypass reason in error messages
       for (const errorMsg of allErrors) {
@@ -113,7 +113,7 @@ const IssueCard: React.FC<{
           )}
         </div>
         <Button
-          onClick={handleRetry}
+          onClick={() => { void handleRetry(); }}
           disabled={isRetrying}
           size="sm"
           variant="outline"
@@ -129,7 +129,7 @@ const IssueCard: React.FC<{
 };
 
 // Main Recent Issues Panel component
-export const RecentIssuesPanel: React.FC<{ plugin: any }> = ({ plugin }) => {
+export const RecentIssuesPanel: React.FC<{ plugin: FileOrganizer }> = ({ plugin }) => {
   const [issues, setIssues] = React.useState<FileRecord[]>([]);
 
   // Fetch and filter issues
@@ -166,8 +166,8 @@ export const RecentIssuesPanel: React.FC<{ plugin: any }> = ({ plugin }) => {
 
     fetchIssues();
     // Poll every 2 seconds (less frequent than main InboxLogs since this is a summary)
-    const interval = setInterval(fetchIssues, 2000);
-    return () => clearInterval(interval);
+    const interval = window.setInterval(fetchIssues, 2000);
+    return () => window.clearInterval(interval);
   }, [plugin.app]);
 
   // Retry handler
@@ -238,7 +238,9 @@ export const RecentIssuesPanel: React.FC<{ plugin: any }> = ({ plugin }) => {
           // Try searching by original name across all files
           if (!fileToRetry) {
             const allLoadedFiles = plugin.app.vault.getAllLoadedFiles();
-            const allFiles = allLoadedFiles.filter((f) => f instanceof TFile) as TFile[];
+            const allFiles = allLoadedFiles.filter(
+              (f): f is TFile => f instanceof TFile
+            );
             fileToRetry =
               allFiles.find((f) => f.basename === record.originalName || f.name === record.originalName) || null;
           }
@@ -265,9 +267,10 @@ export const RecentIssuesPanel: React.FC<{ plugin: any }> = ({ plugin }) => {
           const targetPath = `${inboxPath}/${fileToRetry.name}`;
           await plugin.app.fileManager.renameFile(fileToRetry, targetPath);
           // Get the file again after move
-          fileToRetry =
-            plugin.app.vault.getAbstractFileByPath(targetPath) || null;
-          if (!fileToRetry) {
+          const movedFile = plugin.app.vault.getAbstractFileByPath(targetPath);
+          if (movedFile instanceof TFile) {
+            fileToRetry = movedFile;
+          } else {
             new Notice("Failed to move file back to inbox");
             return;
           }
@@ -276,9 +279,10 @@ export const RecentIssuesPanel: React.FC<{ plugin: any }> = ({ plugin }) => {
         // Re-enqueue the file
         inbox.enqueueFile(fileToRetry);
         new Notice(`Retrying processing for ${record.originalName}`);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error retrying file:", error);
-        new Notice(`Failed to retry: ${error.message || "Unknown error"}`);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        new Notice(`Failed to retry: ${message}`);
       }
     },
     [plugin]
@@ -315,4 +319,3 @@ export const RecentIssuesPanel: React.FC<{ plugin: any }> = ({ plugin }) => {
     </div>
   );
 };
-

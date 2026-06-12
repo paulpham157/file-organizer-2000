@@ -11,7 +11,7 @@ export enum ErrorSeverity {
 export interface ErrorDetails {
   message: string;
   severity: ErrorSeverity;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   error?: Error;
   shouldNotify?: boolean;
 }

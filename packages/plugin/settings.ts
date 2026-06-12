@@ -68,6 +68,7 @@ export class FileOrganizerSettings {
   screenpipeApiUrl = "http://localhost:3030"; // ScreenPipe API URL
   screenpipeTimeRange = 4; // Default time range in hours for ScreenPipe searches (1-24)
   queryScreenpipeLimit = 10; // Default query limit for ScreenPipe searches (1-100)
+  downloadedSyncFileIds: string[] = [];
 }
 
 export const DEFAULT_SETTINGS = new FileOrganizerSettings();

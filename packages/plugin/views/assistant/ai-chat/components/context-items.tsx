@@ -44,7 +44,7 @@ export const ContextItems: React.FC = () => {
     } else {
       setShowClearConfirm(true);
       // Auto-hide confirmation after 3 seconds
-      setTimeout(() => setShowClearConfirm(false), 3000);
+      window.setTimeout(() => setShowClearConfirm(false), 3000);
     }
   };
 
@@ -65,15 +65,16 @@ export const ContextItems: React.FC = () => {
   ) => {
     switch (type) {
       case "file":
-        handleOpenFile(title);
+        void handleOpenFile(title);
         break;
       case "folder":
         handleOpenFolder(title);
         break;
-      case "youtube":
+      case "youtube": {
         const videoId = id.replace("youtube-", "");
         window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
         break;
+      }
       case "tag":
         handleOpenTag(title);
         break;
@@ -101,12 +102,12 @@ export const ContextItems: React.FC = () => {
       const fileExplorerLeaf =
         app.workspace.getLeavesOfType("file-explorer")[0];
       if (fileExplorerLeaf) {
-        app.workspace.revealLeaf(fileExplorerLeaf);
+        void app.workspace.revealLeaf(fileExplorerLeaf);
         app.workspace.setActiveLeaf(fileExplorerLeaf);
-        const fileExplorer = fileExplorerLeaf.view as any;
-        if (fileExplorer?.expandFolder) {
-          fileExplorer.expandFolder(folder);
-        }
+        const fileExplorer = fileExplorerLeaf.view as {
+          expandFolder?: (folder: TFolder) => void;
+        };
+        fileExplorer.expandFolder?.(folder);
       }
     }
   };
@@ -115,11 +116,11 @@ export const ContextItems: React.FC = () => {
     // Open search with tag query
     const searchLeaf = app.workspace.getLeavesOfType("search")[0];
     if (searchLeaf) {
-      app.workspace.revealLeaf(searchLeaf);
-      const searchView = searchLeaf.view as any;
-      if (searchView?.setQuery) {
-        searchView.setQuery(`tag:${tagName}`);
-      }
+      void app.workspace.revealLeaf(searchLeaf);
+      const searchView = searchLeaf.view as {
+        setQuery?: (query: string) => void;
+      };
+      searchView.setQuery?.(`tag:${tagName}`);
     }
   };
 

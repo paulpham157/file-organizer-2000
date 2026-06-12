@@ -13,7 +13,7 @@ export const RefreshButton: React.FC<RefreshButtonProps> = ({ onRefresh }) => {
     setLoading(true);
     onRefresh();
     // Simulate async operation
-    setTimeout(() => {
+    window.setTimeout(() => {
       setLoading(false);
     }, 2000); // Adjust the timeout as needed
   };

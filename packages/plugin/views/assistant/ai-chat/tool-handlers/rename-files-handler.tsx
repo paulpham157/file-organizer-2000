@@ -1,41 +1,48 @@
 import React, { useState, useRef } from "react";
 import { TFile } from "obsidian";
-import { ToolHandlerProps } from "./types";
+import { ToolHandlerProps, getToolArgs } from "./types";
 import { usePlugin } from "../../provider";
 import { sanitizeFileName } from "../../../../someUtils";
+
+interface RenameFileEntry {
+  oldPath: string;
+  newName: string;
+}
+
+interface RenameFilesArgs {
+  files: RenameFileEntry[];
+  message?: string;
+}
 
 export function RenameFilesHandler({ toolInvocation, handleAddResult, app }: ToolHandlerProps) {
   const plugin = usePlugin();
   const [isDone, setIsDone] = useState(false);
   const [results, setResults] = useState<string[]>([]);
-  const [filesToRename, setFilesToRename] = useState<Array<{oldPath: string; newName: string}>>([]);
+  const [filesToRename, setFilesToRename] = useState<RenameFileEntry[]>([]);
   const hasExecutedRef = useRef(false);
 
   React.useEffect(() => {
     if (!isDone && !filesToRename.length) {
-      const { files } = toolInvocation.args;
+      const { files } = getToolArgs<RenameFilesArgs>(toolInvocation.args);
       setFilesToRename(files);
     }
-  }, [toolInvocation.args, isDone]);
+  }, [toolInvocation.args, isDone, filesToRename.length]);
 
   const handleRename = React.useCallback(async () => {
-    const { files } = toolInvocation.args;
+    const { files } = getToolArgs<RenameFilesArgs>(toolInvocation.args);
     const renameResults: string[] = [];
 
     for (const fileData of files) {
       try {
-        const existingFile = plugin.app.vault.getAbstractFileByPath(fileData.oldPath);
-        if (existingFile && existingFile instanceof TFile) {
-          // Remove .md extension if present (tool description says it will be added automatically)
+        const existingFile = app.vault.getAbstractFileByPath(fileData.oldPath);
+        if (existingFile instanceof TFile) {
           let newName = fileData.newName;
           if (newName.endsWith('.md')) {
             newName = newName.slice(0, -3);
           }
 
-          // Sanitize the filename to remove invalid characters
           newName = sanitizeFileName(newName);
 
-          // Build new path: replace just the filename part, keeping the folder structure
           const folderPath = existingFile.parent?.path || '';
           const newPath = folderPath ? `${folderPath}/${newName}.md` : `${newName}.md`;
 
@@ -53,23 +60,23 @@ export function RenameFilesHandler({ toolInvocation, handleAddResult, app }: Too
     setResults(renameResults);
     setIsDone(true);
     handleAddResult(JSON.stringify({ success: true, results: renameResults }));
-  }, [toolInvocation.args, plugin.app, handleAddResult]);
+  }, [toolInvocation.args, plugin.app, handleAddResult, app]);
 
-  // Auto-execute for single file renames (especially current file)
   React.useEffect(() => {
     if (!hasExecutedRef.current && !isDone && filesToRename.length === 1 && !("result" in toolInvocation)) {
       hasExecutedRef.current = true;
-      // Small delay to ensure UI is ready
-      setTimeout(() => {
-        handleRename();
+      window.setTimeout(() => {
+        void handleRename();
       }, 100);
     }
   }, [filesToRename.length, isDone, toolInvocation, handleRename]);
 
+  const args = getToolArgs<RenameFilesArgs>(toolInvocation.args);
+
   return (
     <div className="flex flex-col space-y-4 p-4 border border-[--background-modifier-border]">
       <div className="text-[--text-normal]">
-        {toolInvocation.args.message || "Ready to rename files"}
+        {args.message || "Ready to rename files"}
       </div>
 
       {!isDone && filesToRename.length > 0 && (
@@ -106,7 +113,7 @@ export function RenameFilesHandler({ toolInvocation, handleAddResult, app }: Too
       {!isDone && (
         <div className="flex space-x-2">
           <button
-            onClick={handleRename}
+            onClick={() => { void handleRename(); }}
             className="px-4 py-2 bg-[--interactive-accent] text-[--text-on-accent] hover:bg-[--interactive-accent-hover]"
           >
             Rename {filesToRename.length} Files

@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { TFile } from "obsidian";
-import { ToolHandlerProps } from "./types";
+import { ToolHandlerProps, getToolArgs } from "./types";
+import { parseJsonString } from "../../../../lib/api-json";
 
 interface FrontmatterArgs {
   filePath: string;
@@ -18,7 +19,7 @@ export function FrontmatterHandler({
 
   const updateFrontmatter = async (
     filePath: string,
-    updates?: Record<string, any>,
+    updates?: Record<string, unknown>,
     deletions?: string[]
   ): Promise<{ success: boolean; message: string }> => {
     const file = app.vault.getAbstractFileByPath(filePath);
@@ -31,7 +32,7 @@ export function FrontmatterHandler({
     }
 
     try {
-      await app.fileManager.processFrontMatter(file, (frontmatter) => {
+      await app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
         // Add/update properties
         if (updates) {
           Object.entries(updates).forEach(([key, value]) => {
@@ -71,14 +72,14 @@ export function FrontmatterHandler({
     const execute = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const args = toolInvocation.args as FrontmatterArgs;
+        const args = getToolArgs<FrontmatterArgs>(toolInvocation.args);
 
         try {
           // Parse updatesJson string into object
-          let updates: Record<string, any> | undefined;
+          let updates: Record<string, unknown> | undefined;
           if (args.updatesJson) {
             try {
-              const parsed = JSON.parse(args.updatesJson);
+              const parsed = parseJsonString<Record<string, unknown>>(args.updatesJson);
               updates = Object.keys(parsed).length > 0 ? parsed : undefined;
             } catch (e) {
               // Invalid JSON, skip updates
@@ -103,10 +104,10 @@ export function FrontmatterHandler({
       }
     };
 
-    execute();
+    void execute();
   }, [toolInvocation, handleAddResult, app]);
 
-  const args = toolInvocation.args as FrontmatterArgs;
+  const args = getToolArgs<FrontmatterArgs>(toolInvocation.args);
   const isComplete = "result" in toolInvocation;
 
   return (

@@ -43,7 +43,7 @@ export function SearchToggle({ selectedModel }: SearchToggleProps) {
   return (
     <div className="flex items-center gap-2">
       <button
-        onClick={handleToggle}
+        onClick={() => { void handleToggle(); }}
         disabled={isSearchModel}
         className={`text-xs px-1.5 py-0.5 border transition-colors ${
           isEnabled || searchAutoEnabled
@@ -57,7 +57,7 @@ export function SearchToggle({ selectedModel }: SearchToggleProps) {
       
       {(isEnabled || searchAutoEnabled) && (
         <button
-          onClick={handleDeepSearchToggle}
+          onClick={() => { void handleDeepSearchToggle(); }}
           className={`text-xs px-1.5 py-0.5 border transition-colors ${
             isDeepSearch 
               ? "bg-[--interactive-accent] text-[--text-on-accent] border-[--interactive-accent]" 

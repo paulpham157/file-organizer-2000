@@ -7,7 +7,7 @@ import React, {
   useLayoutEffect,
 } from "react";
 import { createPortal } from "react-dom";
-import { useChat, UseChatOptions } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
 import { moment, Notice, MarkdownView } from "obsidian";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertCircle, Send, Square, Bot, Download } from "lucide-react";
@@ -22,7 +22,7 @@ import { usePlugin } from "../provider";
 import { logMessage } from "../../../someUtils";
 import { MessageRenderer } from "./message-renderer";
 import ToolInvocationHandler from "./tool-handlers/tool-invocation-handler";
-import { convertToCoreMessages, streamText, ToolInvocation, Message } from "ai";
+import { convertToCoreMessages, streamText, Message } from "ai";
 import { ollama } from "ollama-ai-provider";
 import { SourcesSection } from "./components/SourcesSection";
 import { ContextLimitIndicator } from "./context-limit-indicator";
@@ -30,6 +30,17 @@ import { ModelSelector } from "./model-selector";
 import { ModelType } from "./types";
 import { AudioRecorder } from "./audio-recorder";
 import { logger } from "../../../services/logger";
+import { obsidianFetch, type ObsidianFetchInit } from "../../../lib/obsidian-fetch";
+import { parseRequestBodyJson } from "../../../lib/api-json";
+import {
+  type ChatRequestBody,
+  type NoteCompanionUseChatOptions,
+  type YouTubeVideoSummary,
+  extractToolInvocationsFromMessage,
+  getMessageToolSummary,
+  normalizeMessagesForRequest,
+  toToolInvocation,
+} from "./types/chat-api";
 import { SubmitButton } from "./submit-button";
 import {
   getUniqueReferences,
@@ -278,44 +289,16 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
   const [groundingMetadata, setGroundingMetadata] =
     useState<GroundingMetadata | null>(null);
 
-  const {
-    status,
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    stop,
-    addToolResult,
-    error,
-    reload,
-    setMessages,
-  } = useChat({
+  const chatOptions: NoteCompanionUseChatOptions = {
     // CRITICAL: Must use experimental_prepareRequestBody (the SDK ignores "prepareRequestBody")
-    experimental_prepareRequestBody: ({ messages }) => {
-      // Normalize messages: ensure toolInvocations is populated from parts
-      // The SDK's updateToolCallResult only mutates parts, not toolInvocations when it's undefined
-      const normalizedMessages = messages.map((m: any) => {
-        if (m.role === "assistant" && Array.isArray(m.parts)) {
-          const partsToolInvocations = m.parts
-            .filter((p: any) => p.type === "tool-invocation" && p.toolInvocation)
-            .map((p: any) => p.toolInvocation);
-          if (partsToolInvocations.length > 0 && (!m.toolInvocations || m.toolInvocations.length === 0)) {
-            return { ...m, toolInvocations: partsToolInvocations };
-          }
-        }
-        return m;
-      });
+    experimental_prepareRequestBody: ({ messages: requestMessages }) => {
+      const normalizedMessages = normalizeMessagesForRequest(requestMessages);
 
-      console.log(
+      console.debug(
         "[Chat] prepareRequestBody called with messages:",
         normalizedMessages.length,
         "tool summary:",
-        JSON.stringify(normalizedMessages.map((m: any) => ({
-          role: m.role,
-          toolInvocations: m.toolInvocations?.length || 0,
-          toolParts: m.parts?.filter?.((p: any) => p.type === "tool-invocation")?.length || 0,
-          hasResults: m.toolInvocations?.filter?.((t: any) => t.result != null)?.length || 0,
-        })))
+        JSON.stringify(requestMessages.map(getMessageToolSummary))
       );
       // Read directly from Zustand store to get latest values (not from closure)
       const store = useContextItems.getState();
@@ -330,7 +313,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       };
 
       // Debug: Log store state
-      console.log("[Chat] prepareRequestBody - Store state:", {
+      console.debug("[Chat] prepareRequestBody - Store state:", {
         hasYoutubeVideos: !!store.youtubeVideos,
         youtubeVideosType: typeof store.youtubeVideos,
         youtubeVideosKeys: store.youtubeVideos
@@ -465,15 +448,15 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       // Save for onFinish snapshotting
       lastContextSentRef.current = contextToSend;
 
-      console.log(
+      console.debug(
         "[Chat] prepareRequestBody: Saved context for snapshotting, length:",
         contextToSend.length
       );
       const hasYouTube =
         Object.keys(freshContextItems.youtubeVideos).length > 0;
       const contextStringLength = freshContextString.length;
-      console.log("[Chat] prepareRequestBody - Context summary:", {
-        messagesCount: messages.length,
+      console.debug("[Chat] prepareRequestBody - Context summary:", {
+        messagesCount: requestMessages.length,
         hasYouTube,
         youtubeVideoCount: Object.keys(freshContextItems.youtubeVideos).length,
         youtubeVideoIds: Object.keys(freshContextItems.youtubeVideos),
@@ -494,14 +477,13 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       });
 
       if (hasYouTube) {
-        // Log first video details
         const firstVideo = Object.values(
           freshContextItems.youtubeVideos
-        )[0] as any;
-        console.log("[Chat] First YouTube video:", {
+        )[0] as YouTubeVideoSummary | undefined;
+        console.debug("[Chat] First YouTube video:", {
           id: firstVideo?.id,
           title: firstVideo?.title,
-          transcriptLength: firstVideo?.transcript?.length || 0,
+          transcriptLength: firstVideo?.transcript?.length ?? 0,
           videoId: firstVideo?.videoId,
         });
       } else {
@@ -518,7 +500,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         );
       }
 
-      const requestBody: Record<string, unknown> = {
+      const requestBody: ChatRequestBody = {
         messages: normalizedMessages,
         currentDatetime,
         newUnifiedContext: contextToSend,
@@ -533,7 +515,6 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         requestBody.requestedMaxSteps = plugin.settings.chatMaxStepsPreference;
       }
 
-      // Return OBJECT (not string) — callChatApi will JSON.stringify it
       return requestBody;
     },
     onDataChunk: (chunk: DataChunk) => {
@@ -561,25 +542,26 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
 
       return headers;
     })(),
-    fetch: async (url, options) => {
+    fetch: async (url: RequestInfo | URL, options?: RequestInit) => {
       logMessage(plugin.settings.showLocalLLMInChat, "showLocalLLMInChat");
       logMessage(selectedModel, "selectedModel");
 
       // Handle different model types
       if (!plugin.settings.showLocalLLMInChat || selectedModel === "gpt-4o") {
-        // Use server fetch for non-local models
-        return fetch(url, options);
+        return obsidianFetch(url, options as ObsidianFetchInit | undefined);
       }
 
-      // Handle local models (llama3.2 or custom)
-      const { messages, newUnifiedContext, currentDatetime } = JSON.parse(
-        options.body as string
-      );
+      const { messages: localMessages, newUnifiedContext, currentDatetime: localDatetime } =
+        parseRequestBodyJson<{
+          messages: Message[];
+          newUnifiedContext: string;
+          currentDatetime: string;
+        }>(options?.body);
       logger.debug("local model context", {
         model: selectedModel,
         contextLength: newUnifiedContext.length,
         contextPreview: newUnifiedContext.slice(0, 200),
-        messageCount: messages.length,
+        messageCount: localMessages.length,
       });
       // Local Ollama runs on the user's machine — there is no cloud tier to cap against.
       // Keep "auto" at 5 so multi-step tools are not arbitrarily limited; cloud chat still
@@ -588,13 +570,13 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         plugin.settings.chatMaxStepsPreference === "auto"
           ? 5
           : plugin.settings.chatMaxStepsPreference;
-      const result = await streamText({
+      const result = streamText({
         model: ollama(selectedModel),
         system: `
           ${newUnifiedContext},
-          currentDatetime: ${currentDatetime},
+          currentDatetime: ${localDatetime},
           `,
-        messages: convertToCoreMessages(messages),
+        messages: convertToCoreMessages(localMessages),
         maxSteps: localMaxSteps,
       });
 
@@ -708,7 +690,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     onFinish: message => {
       // Store the exact context that produced THIS assistant message
       // Store by message ID directly (we have it in onFinish, no need to find index)
-      console.log("[Chat] onFinish called:", {
+      console.debug("[Chat] onFinish called:", {
         messageId: message?.id,
         messageRole: message?.role,
         lastContextLength: lastContextSentRef.current?.length ?? 0,
@@ -839,7 +821,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         if (contextToStore && contextToStore.length > 0) {
           // Store by message ID - this is the most reliable way
           contextByAssistantIdRef.current[message.id] = contextToStore;
-          console.log(
+          console.debug(
             "[Chat] ✅ Stored context snapshot for assistant message:",
             message.id,
             "context length:",
@@ -855,7 +837,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
 
         // After storing context, ensure messages are saved
         // Use a longer delay to ensure messages are fully added to the array
-        setTimeout(() => {
+        window.setTimeout(() => {
           const currentActiveChatId = activeChatIdRef.current;
 
           // Ensure we have an active chat session
@@ -869,7 +851,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           // Get the latest messages from ref (should be updated by now)
           const currentMessages = messagesRef.current;
 
-          console.log("[Chat] onFinish: Attempting to save", {
+          console.debug("[Chat] onFinish: Attempting to save", {
             activeChatId: currentActiveChatId,
             messagesCount: currentMessages.length,
             messageIds: currentMessages.map(m => m.id),
@@ -894,7 +876,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
                 session = allSessions[0];
                 sessionId = session.id;
                 activeChatIdRef.current = sessionId;
-                console.log(
+                console.debug(
                   "[Chat] onFinish: Using most recent session:",
                   sessionId
                 );
@@ -906,7 +888,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
                 session = chatHistoryManager.createSession();
                 sessionId = session.id;
                 activeChatIdRef.current = sessionId;
-                console.log("[Chat] onFinish: Created new session:", sessionId);
+                console.debug("[Chat] onFinish: Created new session:", sessionId);
               }
             }
 
@@ -955,7 +937,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
               // Reset saved state so the save effect will also trigger
               lastSavedMessagesRef.current = "";
 
-              console.log("[Chat] ✅ Force saved messages in onFinish:", {
+              console.debug("[Chat] ✅ Force saved messages in onFinish:", {
                 sessionId,
                 messagesCount: currentMessages.length,
                 title,
@@ -967,7 +949,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
               if (onSessionUpdateRef.current) {
                 const updatedSession = chatHistoryManager.getSession(sessionId);
                 if (updatedSession) {
-                  setTimeout(() => {
+                  window.setTimeout(() => {
                     onSessionUpdateRef.current?.(updatedSession);
                   }, 0);
                 }
@@ -996,7 +978,19 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       // because refresh won't depend on Zustand store anymore.
       // clearEphemeralContext();
     },
-  } as UseChatOptions);
+  };
+
+  const {
+    status,
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    stop,
+    addToolResult,
+    reload,
+    setMessages,
+  } = useChat(chatOptions);
 
   // Update messagesRef and chatHasStarted when messages change (must be after useChat)
   useEffect(() => {
@@ -1020,66 +1014,15 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role !== "assistant") return false;
 
-    // Extract tool invocations from parts (new format) or fallback to deprecated toolInvocations
-    interface ToolPart {
-      type?: string;
-      toolCallId?: string;
-      toolInvocation?: {
-        toolCallId: string;
-        toolName: string;
-        result?: unknown;
-        state?: string;
-      };
-      output?: unknown;
-      state?: string;
-    }
-
-    const messageWithParts = lastMessage as Message & {
-      parts?: ToolPart[];
-      toolInvocations?: ToolInvocation[];
-    };
-
-    // Extract tool invocations from parts (preferred) or fallback to deprecated property
-    let toolInvocations: any[] = [];
-
-    if (messageWithParts.parts) {
-      toolInvocations = messageWithParts.parts
-        .filter(
-          (part: ToolPart) =>
-            part.type?.startsWith("tool-") || part.toolInvocation
-        )
-        .map((part: ToolPart) => {
-          if (part.toolInvocation) {
-            return {
-              toolCallId: part.toolInvocation.toolCallId,
-              result: part.toolInvocation.result,
-              state: part.toolInvocation.state || part.state,
-            };
-          }
-          return {
-            toolCallId: part.toolCallId,
-            result: part.output,
-            state: part.state,
-          };
-        })
-        .filter((tool: any) => tool.toolCallId); // Filter out invalid entries
-    }
-
-    // Fallback to deprecated toolInvocations if parts extraction yielded nothing
-    if (toolInvocations.length === 0 && messageWithParts.toolInvocations) {
-      toolInvocations = messageWithParts.toolInvocations as any[];
-    }
-
+    const toolInvocations = extractToolInvocationsFromMessage(lastMessage);
     if (toolInvocations.length === 0) return false;
 
-    // Check if any tools are still executing (no result yet)
     const hasExecutingTools = toolInvocations.some(
-      (tool: any) => !("result" in tool) && tool.state !== "result"
+      tool => tool.result == null && tool.state !== "result"
     );
 
-    // Check if all tools are complete but AI hasn't started streaming yet
     const allToolsComplete = toolInvocations.every(
-      (tool: any) => "result" in tool || tool.state === "result"
+      tool => tool.result != null || tool.state === "result"
     );
     const waitingForAI =
       allToolsComplete &&
@@ -1100,7 +1043,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     msg: Message,
     existingTimestamp?: number
   ): Message & { createdAt?: number } => {
-    const normalized = { ...msg } as any;
+    const normalized = { ...msg } as unknown;
     if (existingTimestamp) {
       normalized.createdAt = existingTimestamp;
     } else if (msg.createdAt instanceof Date) {
@@ -1195,13 +1138,13 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
               currentFile: session.contextItems.currentFile,
               includeCurrentFile: true, // Enable display of restored current file
             });
-            console.log(
+            console.debug(
               "[Chat] ✅ Restored current file:",
               session.contextItems.currentFile.title
             );
           }
 
-          console.log(
+          console.debug(
             "[Chat] ✅ Restored context items for session:",
             activeChatId,
             {
@@ -1247,7 +1190,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
                   includeCurrentFile: true, // Enable display of current file
                 });
 
-                console.log(
+                console.debug(
                   "[Chat] ✅ Added current file to new chat context:",
                   {
                     filename: activeFile.basename,
@@ -1267,7 +1210,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         }
       }
       // Reset loading flag after a brief delay to allow state to update
-      setTimeout(() => {
+      window.setTimeout(() => {
         isLoadingSessionRef.current = false;
       }, 100);
     } else {
@@ -1320,7 +1263,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           foldersCount: Object.keys(folders).length,
           tagsCount: Object.keys(tags).length,
           hasCurrentFile: !!currentFile,
-          currentFile: currentFile?.basename || null,
+          currentFile: currentFile?.title || null,
           timestamp: Date.now(),
         };
 
@@ -1364,7 +1307,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           const updatedSession = chatHistoryManager.getSession(activeChatId);
           if (updatedSession) {
             // Use setTimeout to defer callback to next tick, preventing render loops
-            setTimeout(() => {
+            window.setTimeout(() => {
               onSessionUpdateRef.current?.(updatedSession);
             }, 0);
           }
@@ -1405,7 +1348,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
             contextItems: contextItemsToStore,
           });
 
-          console.log(
+          console.debug(
             "[Chat] ✅ Saved context items for session:",
             activeChatId
           );
@@ -1449,7 +1392,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       });
     };
     updatePosition();
-    const raf = requestAnimationFrame(updatePosition);
+    const raf = window.requestAnimationFrame(updatePosition);
     window.addEventListener("resize", updatePosition);
     return () => {
       cancelAnimationFrame(raf);
@@ -1474,7 +1417,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     const sessionTitle = activeChatId
       ? chatHistoryManager.getSession(activeChatId)?.title ?? null
       : null;
-    exportChatToVault(app, messages, sessionTitle);
+    void exportChatToVault(app, messages, sessionTitle);
   }, [activeChatId, chatHistoryManager, app, messages]);
 
   const handleExportCopy = useCallback(() => {
@@ -1482,7 +1425,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     const sessionTitle = activeChatId
       ? chatHistoryManager.getSession(activeChatId)?.title ?? null
       : null;
-    copyChatToClipboard(messages, sessionTitle);
+    void copyChatToClipboard(messages, sessionTitle);
   }, [activeChatId, chatHistoryManager, messages]);
 
   const handleAttachmentsChange = useCallback(
@@ -1549,7 +1492,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     // Use setTimeout to ensure the input state update is processed before handleSubmit
     // React batches state updates, so we need to wait for the next tick
     // This ensures useChat's handleSubmit will read the updated input value
-    setTimeout(() => {
+    window.setTimeout(() => {
       handleSubmit(e, { body: messageBody });
       // Don't clear ephemeral context here - it's now handled in onFinish after snapshotting
     }, 0);
@@ -1590,7 +1533,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     const wasActive = prevChatTabActiveRef.current;
     prevChatTabActiveRef.current = isChatTabActive;
     if (isChatTabActive && wasActive === false) {
-      requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
         scrollToBottom();
       });
     }
@@ -1617,7 +1560,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
 
   const handleRetry = () => {
     setErrorMessage(null);
-    reload();
+    void reload();
   };
 
   const handleDismissError = () => {
@@ -1646,7 +1589,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     const body = forcedReloadBodyRef.current;
     forcedReloadBodyRef.current = null;
 
-    console.log(
+    console.debug(
       "[Chat] Triggering reload after message refresh, messages count:",
       targetCount,
       "has forced body:",
@@ -1657,13 +1600,13 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       console.warn(
         "[Chat] Missing forced reload body, calling reload() without body"
       );
-      reload();
+      void reload();
       return;
     }
 
     // Use reload({ body }) to pass the exact body we want
     // This is the cleanest approach - reload accepts the same options as handleSubmit
-    reload({ body });
+    void reload({ body });
 
     // Save the context from the body for onFinish snapshotting
     if (body.newUnifiedContext) {
@@ -1709,7 +1652,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         snapshot = fullContext; // Use current full context as fallback
       }
 
-      console.log("[Chat] refresh debug", {
+      console.debug("[Chat] refresh debug", {
         messageId,
         messageIndex,
         hasSnapshot: true,
@@ -1754,7 +1697,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           : {}),
       };
 
-      console.log(
+      console.debug(
         "[Chat] handleMessageRefresh: Staged reload body with context length:",
         snapshot.length
       );
@@ -1784,7 +1727,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       // Prefer editor from the slash menu (same instance that had focus); ref can be unset when clicking the popup.
       const editor = editorFromEvent ?? tiptapEditorRef.current;
 
-      console.log("Slash command received:", action, item);
+      console.debug("Slash command received:", action, item);
 
       switch (action) {
         case "format": {
@@ -1816,7 +1759,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           ]);
 
           // Execute formatting asynchronously
-          (async () => {
+          void (async () => {
             try {
               let fileContent = await app.vault.read(activeFile);
               if (typeof fileContent !== "string") {
@@ -2050,77 +1993,26 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
             <div className="flex flex-col items-center justify-center py-12"></div>
           ) : (
             messages.map(message => {
-              // Extract tool invocations from AI SDK v4 message format.
-              // The SDK may store them in: message.toolInvocations, message.parts,
-              // or as nested toolInvocation objects inside parts.
-              const messageAny = message as any;
-
-              let toolInvocations: any[] = [];
-
-              // 1. Try message.toolInvocations (legacy / most common)
-              if (Array.isArray(messageAny.toolInvocations) && messageAny.toolInvocations.length > 0) {
-                toolInvocations = messageAny.toolInvocations;
-              }
-
-              // 2. Try message.parts (AI SDK v4 UIMessage format)
-              if (toolInvocations.length === 0 && Array.isArray(messageAny.parts)) {
-                for (const part of messageAny.parts) {
-                  // Format A: { type: "tool-invocation", toolInvocation: { toolCallId, toolName, args, ... } }
-                  if (part.type === "tool-invocation" && part.toolInvocation?.toolCallId) {
-                    toolInvocations.push({
-                      toolCallId: part.toolInvocation.toolCallId,
-                      toolName: part.toolInvocation.toolName,
-                      args: part.toolInvocation.args,
-                      result: part.toolInvocation.result,
-                      state: part.toolInvocation.state || part.state || "call",
-                    });
-                  }
-                  // Format B: { type: "tool-call", toolCallId, toolName, args }
-                  else if (part.type === "tool-call" && part.toolCallId && part.toolName) {
-                    toolInvocations.push({
-                      toolCallId: part.toolCallId,
-                      toolName: part.toolName,
-                      args: part.args || part.input,
-                      state: "call",
-                    });
-                  }
-                  // Format C: { type: "tool-result", toolCallId, result }
-                  else if (part.type === "tool-result" && part.toolCallId) {
-                    const existing = toolInvocations.find(
-                      (t: any) => t.toolCallId === part.toolCallId
-                    );
-                    if (existing) {
-                      existing.result = part.result ?? part.output;
-                      existing.state = "result";
-                    }
-                  }
-                }
-              }
-
-              // Filter out invocations without a valid toolCallId
-              toolInvocations = toolInvocations.filter(
-                (inv: any) => inv?.toolCallId && String(inv.toolCallId).trim() !== ""
-              );
+              const toolInvocations = extractToolInvocationsFromMessage(message);
 
               if (toolInvocations.length > 0) {
-                console.log("[Chat] Tool invocations for message:", message.id,
-                  toolInvocations.map((t: any) => ({
-                    id: t.toolCallId,
-                    name: t.toolName,
-                    hasResult: "result" in t && t.result != null,
-                    state: t.state,
+                console.debug("[Chat] Tool invocations for message:", message.id,
+                  toolInvocations.map(tool => ({
+                    id: tool.toolCallId,
+                    name: tool.toolName,
+                    hasResult: tool.result != null,
+                    state: tool.state,
                   }))
                 );
               }
 
               return (
                 <React.Fragment key={message.id}>
-                  {/* Render tool invocations FIRST so they appear above the message content */}
-                  {toolInvocations.map((toolInvocation: any) => {
+                  {toolInvocations.map(toolInvocation => {
                     return (
                       <ToolInvocationHandler
                         key={toolInvocation.toolCallId}
-                        toolInvocation={toolInvocation as ToolInvocation}
+                        toolInvocation={toToolInvocation(toolInvocation)}
                         addToolResult={addToolResult}
                         app={app}
                         chatStatus={status}
@@ -2231,7 +2123,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
             <EditorContextBadge context={editorContext} onClear={clearFrozen} />
             <Tiptap
               value={input}
-              onChange={handleTiptapChange}
+              onChange={(content) => { void handleTiptapChange(content); }}
               onKeyDown={handleKeyDown}
               editorRef={tiptapEditorRef}
             />

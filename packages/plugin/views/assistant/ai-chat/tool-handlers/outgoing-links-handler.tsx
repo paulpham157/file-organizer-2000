@@ -1,18 +1,18 @@
 import React, { useRef } from "react";
-import { App, TFile } from "obsidian";
-import { ToolInvocation } from "ai";
+import { TFile } from "obsidian";
+import { ToolHandlerProps } from "./types";
 
-interface OutgoingLinksHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface OutgoingLinksArgs {
+  filePaths: string[];
+  includeEmbeds?: boolean;
+  resolvedOnly?: boolean;
 }
 
 export function OutgoingLinksHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: OutgoingLinksHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const MAX_OUTGOING_PER_TYPE = 150;
 
@@ -42,19 +42,16 @@ export function OutgoingLinksHandler({
       };
     }
 
-    // Get outgoing links
     const links = (cache.links || []).map((link) => ({
       link: link.link,
       displayText: link.displayText,
       resolved: app.metadataCache.getFirstLinkpathDest(link.link, filePath) !== null,
     }));
 
-    // Filter by resolved status if requested
     const filteredLinks = resolvedOnly
       ? links.filter((l) => l.resolved)
       : links;
 
-    // Get embeds (images, PDFs, other files)
     let embeds: Array<{ link: string; displayText?: string; resolved: boolean }> = [];
     if (includeEmbeds) {
       embeds = (cache.embeds || []).map((embed) => ({
@@ -95,31 +92,34 @@ export function OutgoingLinksHandler({
     const handleGetOutgoingLinks = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { filePaths, includeEmbeds, resolvedOnly } = toolInvocation.args;
+        const { filePaths, includeEmbeds, resolvedOnly } =
+          toolInvocation.args as OutgoingLinksArgs;
 
         try {
-          const results = filePaths.map((path: string) =>
+          const results = filePaths.map((path) =>
             getOutgoingLinks(
               path,
               includeEmbeds !== false,
-              resolvedOnly || false
+              resolvedOnly ?? false
             )
           );
           handleAddResult(JSON.stringify(results));
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           handleAddResult(
             JSON.stringify({
-              error: `Failed to get outgoing links: ${error.message}`,
+              error: `Failed to get outgoing links: ${errorMessage}`,
             })
           );
         }
       }
     };
 
-    handleGetOutgoingLinks();
+    void handleGetOutgoingLinks();
   }, [toolInvocation, handleAddResult, app]);
 
-  const { filePaths } = toolInvocation.args;
+  const { filePaths } = toolInvocation.args as OutgoingLinksArgs;
   const isComplete = "result" in toolInvocation;
 
   return (

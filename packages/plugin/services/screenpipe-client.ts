@@ -1,3 +1,6 @@
+import { readResponseJson } from "../lib/api-json";
+import { obsidianFetch } from "../lib/obsidian-fetch";
+
 /**
  * Parse a timestamp string from ScreenPipe into a Date.
  * Handles: ISO 8601 (with or without Z), ISO without timezone (treated as UTC),
@@ -58,7 +61,7 @@ export class ScreenpipeClient {
    */
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.apiUrl}/health`, {
+      const response = await obsidianFetch(`${this.apiUrl}/health`, {
         signal: AbortSignal.timeout(2000), // 2 second timeout
       });
       return response.ok;
@@ -105,7 +108,7 @@ export class ScreenpipeClient {
         searchParams.append("browser_url", params.browser_url);
       }
 
-      const response = await fetch(
+      const response = await obsidianFetch(
         `${this.apiUrl}/search?${searchParams.toString()}`
       );
 
@@ -113,8 +116,8 @@ export class ScreenpipeClient {
         throw new Error(`ScreenPipe API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.data || [];
+      const data = await readResponseJson<{ data?: ScreenpipeResult[] }>(response);
+      return data.data ?? [];
     } catch (error) {
       // Return empty array on error - handler will show appropriate message
       return [];

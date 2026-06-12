@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import FileOrganizer from "../../index";
 import { cleanPath } from "../../someUtils";
-import { normalizePath, Modal, Notice } from "obsidian";
+import { normalizePath, Modal } from "obsidian";
 import { Search, X } from "lucide-react";
 import { logger } from "../../services/logger";
 interface FileConfigTabProps {
@@ -199,7 +199,7 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
     settingKey: keyof typeof plugin.settings
   ) => {
     setter(value);
-    (plugin.settings as any)[settingKey] = value;
+    (plugin.settings as unknown)[settingKey] = value;
     await plugin.saveSettings();
   };
 
@@ -249,14 +249,15 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
         errorFilePath,
       ];
 
-      const existenceResults = await Promise.all(
-        pathsToCheck.map(async path => [path, await checkPathExistence(path)])
-      );
+      const existenceResults: Record<string, boolean> = {};
+      for (const path of pathsToCheck) {
+        existenceResults[path] = await checkPathExistence(path);
+      }
 
-      setPathExistence(Object.fromEntries(existenceResults));
+      setPathExistence(existenceResults);
     };
 
-    checkPaths();
+    void checkPaths();
   }, [
     pathToWatch,
     attachmentsPath,
@@ -329,12 +330,12 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
           <div className="setting-item-error" style={{ color: "red" }}>
             Path does not exist.
             <button
-              onClick={async () => {
+              onClick={() => { void (async () => {
                 const created = await createFolder(value);
                 if (created) {
                   setPathExistence({ ...pathExistence, [value]: true });
                 }
-              }}
+              })(); }}
             >
               Create folder
             </button>
@@ -383,75 +384,81 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
           "Inbox folder",
           "Choose which folder to automatically organize files from",
           pathToWatch,
-          e =>
-            handleSettingChange(e.target.value, setPathToWatch, "pathToWatch"),
+          e => {
+            void handleSettingChange(e.target.value, setPathToWatch, "pathToWatch");
+          },
           "pathToWatch"
         )}
         {renderSettingItem(
           "Attachments folder",
           "Enter the path to the folder where the original images will be moved.",
           attachmentsPath,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setAttachmentsPath,
               "attachmentsPath"
-            ),
+            );
+          },
           "attachmentsPath"
         )}
         {renderSettingItem(
           "File Organizer log folder",
           "Choose a folder for Organization Logs e.g. Ava/Logs.",
           logFolderPath,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setLogFolderPath,
               "logFolderPath"
-            ),
+            );
+          },
           "logFolderPath"
         )}
         {renderSettingItem(
           "Output folder path",
           "Enter the path where you want to save the processed files. e.g. Processed/myfavoritefolder",
           defaultDestinationPath,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setDefaultDestinationPath,
               "defaultDestinationPath"
-            ),
+            );
+          },
           "defaultDestinationPath"
         )}
         {renderSettingItem(
           "Ignore folders",
           "Enter folder paths to ignore during organization, separated by commas(e.g. Folder1,Folder2). Or * to ignore all folders",
           ignoreFolders,
-          e => handleIgnoreFoldersChange(e.target.value),
+          e => { void handleIgnoreFoldersChange(e.target.value); },
           "ignoreFolders"
         )}
         {renderSettingItem(
           "Backup folder",
           "Choose a folder for file backups.",
           backupFolderPath,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setBackupFolderPath,
               "backupFolderPath"
-            ),
+            );
+          },
           "backupFolderPath"
         )}
         {renderSettingItem(
           "Templates folder",
           "Choose a folder for document templates.",
           templatePaths,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setTemplatePaths,
               "templatePaths"
-            ),
+            );
+          },
           "templatePaths"
         )}
         <div className="setting-item">
@@ -463,13 +470,13 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
           </div>
           <div className="setting-item-control">
             <button
-              onClick={async () => {
+              onClick={() => { void (async () => {
                 const confirmed = await new Promise<boolean>(resolve => {
                   class RestoreTemplatesModal extends Modal {
                     onOpen() {
                       const { contentEl } = this;
                       contentEl.empty();
-                      contentEl.createEl("h2", { text: "Restore Default Templates" });
+                      contentEl.createEl("h2", { text: "Restore default templates" });
                       contentEl.createEl("p", {
                         text: "This will restore the following templates to their original plugin versions:",
                       });
@@ -514,7 +521,7 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
                     // Error is already handled in restoreTemplates method
                   }
                 }
-              }}
+              })(); }}
               style={{
                 padding: "6px 12px",
                 fontSize: "13px",
@@ -533,36 +540,39 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
           "Bypassed notes path",
           "Choose a folder for bypassed notes.",
           bypassedFilePath,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setBypassedFilePath,
               "bypassedFilePath"
-            ),
+            );
+          },
           "bypassedFilePath"
         )}
         {renderSettingItem(
           "Error notes path",
           "Choose a folder for error notes.",
           errorFilePath,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setErrorFilePath,
               "errorFilePath"
-            ),
+            );
+          },
           "errorFilePath"
         )}
         {renderSettingItem(
           "Recordings folder",
           "Choose a folder for meeting recordings.",
           recordingsFolderPath,
-          e =>
-            handleSettingChange(
+          e => {
+            void handleSettingChange(
               e.target.value,
               setRecordingsFolderPath,
               "recordingsFolderPath"
-            ),
+            );
+          },
           "recordingsFolderPath"
         )}
       </div>

@@ -28,7 +28,7 @@ export const AIMarkdown: React.FC<AIMarkdownProps> = ({ content, app }) => {
     // Pattern 1: "Title: Note Name" -> "Title: [[Note Name]]"
     processed = processed.replace(
       /Title:\s*([^\n]+?)(?:\n|$|\.|,|;)/g,
-      (match, title) => {
+      (match: string, title: string) => {
         const trimmedTitle = title.trim();
         // Remove trailing punctuation for matching
         const cleanTitle = trimmedTitle.replace(/[.,;:!?]+$/, "");
@@ -43,7 +43,7 @@ export const AIMarkdown: React.FC<AIMarkdownProps> = ({ content, app }) => {
     // Pattern 2: "I found a note related to 'Note Name'" or similar patterns
     processed = processed.replace(
       /(?:found|found a note|note related to|note titled|note called)[:\s]+['"]?([^'":\n]+?)['"]?(?:\s|$|\.|,|;)/gi,
-      (match, title) => {
+      (match: string, title: string) => {
         const trimmedTitle = title.trim();
         const cleanTitle = trimmedTitle.replace(/[.,;:!?]+$/, "");
         if (fileNames.has(cleanTitle) && cleanTitle.length > 2) {
@@ -89,7 +89,7 @@ export const AIMarkdown: React.FC<AIMarkdownProps> = ({ content, app }) => {
       linkpath = linkpath.replace(/\.(md|markdown)$/, "");
 
       try {
-        plugin.app.workspace.openLinkText(linkpath, "", true);
+        void plugin.app.workspace.openLinkText(linkpath, "", true);
       } catch (error) {
         console.error("Error opening link:", error);
       }

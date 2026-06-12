@@ -148,11 +148,11 @@ export function useEditorSelection(app: App): EditorSelectionResult {
     let rafId: number;
     const pollSelection = () => {
       updateContext();
-      rafId = requestAnimationFrame(pollSelection);
+      rafId = window.requestAnimationFrame(pollSelection);
     };
 
     // Start polling
-    rafId = requestAnimationFrame(pollSelection);
+    rafId = window.requestAnimationFrame(pollSelection);
 
     // Listen to editor changes (for document content)
     const editorChangeRef = app.workspace.on("editor-change", () => {

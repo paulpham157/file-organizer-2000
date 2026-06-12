@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import fs from "fs";
 import path from "path";
 import process from "process";
+import { createRequire } from "module";
 import builtins from "builtin-modules";
 import postcss from 'esbuild-postcss';
 import { normalizeCssHexInDirectory } from "./normalize-css-hex.mjs";
@@ -17,6 +18,20 @@ const isGithubAction = process.env.GITHUB_ACTIONS === "true";
 
 // Determine output directory based on environment
 const outdir = isGithubAction ? "dist" : "../..";
+
+// Force a single React 18 instance. The monorepo hoists react-dom 19 at the root while
+// the plugin uses react 18 — resolve both from the plugin package so versions match.
+const pluginDir = import.meta.dirname;
+const requireFromPlugin = createRequire(path.join(pluginDir, "package.json"));
+const reactDir = path.dirname(requireFromPlugin.resolve("react/package.json"));
+const reactDomDir = path.dirname(requireFromPlugin.resolve("react-dom/package.json"));
+const reactAliases = {
+	react: reactDir,
+	"react-dom": reactDomDir,
+	"react-dom/client": path.join(reactDomDir, "client.js"),
+	"react/jsx-runtime": path.join(reactDir, "jsx-runtime.js"),
+	"react/jsx-dev-runtime": path.join(reactDir, "jsx-dev-runtime.js"),
+};
 
 const cssPostProcessPlugin = {
 	name: "css-post-process",
@@ -68,6 +83,7 @@ const context = await esbuild.context({
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outdir: outdir,
+	alias: reactAliases,
 	plugins: [
 		postcss({
 			plugins: {

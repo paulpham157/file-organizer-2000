@@ -48,10 +48,10 @@ function TabContent({
         setActiveFile(file);
       }
     };
-    updateActiveFile();
+    void updateActiveFile();
 
     const handler = () => {
-      updateActiveFile();
+      void updateActiveFile();
     };
 
     plugin.app.workspace.on("file-open", handler);
@@ -213,7 +213,7 @@ function AssistantContent({
     };
 
     if (plugin.settings.API_KEY) {
-      fetchUsage();
+      void fetchUsage();
     }
   }, [plugin]);
 
@@ -233,14 +233,14 @@ function AssistantContent({
     };
 
     updateProcessingCount();
-    const interval = setInterval(updateProcessingCount, 500);
+    const interval = window.setInterval(updateProcessingCount, 500);
 
     // Listen to workspace events
     const handler = () => updateProcessingCount();
     plugin.app.workspace.on("file-organizer:processing-step", handler);
 
     return () => {
-      clearInterval(interval);
+      window.clearInterval(interval);
       plugin.app.workspace.off("file-organizer:processing-step", handler);
     };
   }, [plugin]);
@@ -373,25 +373,25 @@ export class AssistantViewWrapper extends ItemView {
     // Register commands
     this.plugin.addCommand({
       id: "open-organizer-tab",
-      name: "Open Organizer Tab",
+      name: "Open organizer tab",
       callback: () => this.activateTab("organizer"),
     });
 
     this.plugin.addCommand({
       id: "open-inbox-tab",
-      name: "Open Inbox Tab",
+      name: "Open inbox tab",
       callback: () => this.activateTab("inbox"),
     });
 
     this.plugin.addCommand({
       id: "open-chat-tab",
-      name: "Open Chat Tab",
+      name: "Open chat tab",
       callback: () => this.activateTab("chat"),
     });
 
     this.plugin.addCommand({
       id: "open-meetings-tab",
-      name: "Open Meetings Tab",
+      name: "Open meetings tab",
       callback: () => this.activateTab("meetings"),
     });
 
@@ -399,7 +399,7 @@ export class AssistantViewWrapper extends ItemView {
     if (this.plugin.settings.showSyncTab) {
       this.plugin.addCommand({
         id: "open-sync-tab",
-        name: "Open Sync Tab",
+        name: "Open sync tab",
         callback: () => this.activateTab("sync"),
       });
     }
@@ -407,7 +407,7 @@ export class AssistantViewWrapper extends ItemView {
 
   activateTab(tab: Tab) {
     // Ensure view is open
-    this.plugin.app.workspace.revealLeaf(this.leaf);
+    void this.plugin.app.workspace.revealLeaf(this.leaf);
 
     // Update tab
     this.activeTab = tab;
@@ -419,7 +419,7 @@ export class AssistantViewWrapper extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Note Companion";
+    return "Note companion";
   }
 
   getIcon(): string {

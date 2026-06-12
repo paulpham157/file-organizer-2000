@@ -1,18 +1,18 @@
 import React, { useRef, useState } from "react";
 import { App, TFile } from "obsidian";
 import { logger } from "../../../../services/logger";
+import { ToolHandlerProps, getToolArgs } from "./types";
 
-interface AddTextHandlerProps {
-  toolInvocation: any;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface AddTextArgs {
+  content: string;
+  path?: string;
 }
 
 export function AddTextHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: AddTextHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const [addSuccess, setAddSuccess] = useState<boolean | null>(null);
 
@@ -20,15 +20,16 @@ export function AddTextHandler({
     const handleAddText = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { content, path } = toolInvocation.args;
+        const { content, path } = getToolArgs<AddTextArgs>(toolInvocation.args);
         try {
           let targetFile: TFile;
           
           if (path) {
-            targetFile = app.vault.getAbstractFileByPath(path) as TFile;
-            if (!targetFile) {
+            const abstractFile = app.vault.getAbstractFileByPath(path);
+            if (!(abstractFile instanceof TFile)) {
               throw new Error(`File not found at path: ${path}`);
             }
+            targetFile = abstractFile;
           } else {
             // Get the active file
             targetFile = app.workspace.getActiveFile();
@@ -57,13 +58,13 @@ export function AddTextHandler({
           setAddSuccess(true);
         } catch (error) {
           logger.error("Error adding text to document:", error);
-          handleAddResult(`Error: ${error.message}`);
+          handleAddResult(`Error: ${error instanceof Error ? error.message : String(error)}`);
           setAddSuccess(false);
         }
       }
     };
 
-    handleAddText();
+    void handleAddText();
   }, [toolInvocation, handleAddResult, app]);
 
   if (addSuccess === null) {

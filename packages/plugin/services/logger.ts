@@ -8,7 +8,7 @@ interface LogEntry {
 /**
  * Safely stringify objects, handling circular references
  */
-function safeStringify(obj: any, maxDepth = 3): string {
+function safeStringify(obj: unknown, maxDepth = 3): string {
   const seen = new WeakSet<object>();
   return safeStringifyInternal(obj, seen, maxDepth, 0);
 }
@@ -16,7 +16,7 @@ function safeStringify(obj: any, maxDepth = 3): string {
 /**
  * Internal function to handle circular references by tracking seen objects
  */
-function safeStringifyInternal(obj: any, seen: WeakSet<object>, maxDepth: number, currentDepth: number): string {
+function safeStringifyInternal(obj: unknown, seen: WeakSet<object>, maxDepth: number, currentDepth: number): string {
   if (currentDepth > maxDepth) {
     return '[Max Depth Reached]';
   }
@@ -45,7 +45,7 @@ function safeStringifyInternal(obj: any, seen: WeakSet<object>, maxDepth: number
     try {
       // Try regular JSON.stringify first (fast path for non-circular objects)
       return JSON.stringify(obj);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If JSON.stringify fails, use custom handler
       try {
         // Handle arrays
@@ -65,13 +65,17 @@ function safeStringifyInternal(obj: any, seen: WeakSet<object>, maxDepth: number
         });
         const suffix = Object.keys(obj).length > 10 ? ` ... (${Object.keys(obj).length - 10} more keys)` : '';
         return `{${pairs.join(', ')}${suffix}}`;
-      } catch (innerError: any) {
+      } catch (innerError: unknown) {
         return `[Object: ${obj.constructor?.name || 'Object'}]`;
       }
     }
   }
 
-  return String(obj);
+  if (typeof obj === "bigint" || typeof obj === "symbol" || typeof obj === "function") {
+    return String(obj);
+  }
+
+  return JSON.stringify(obj);
 }
 
 class LoggerService {
@@ -99,25 +103,25 @@ class LoggerService {
     }
   }
 
-  info(...messages: any[]) {
+  info(...messages: unknown[]) {
     const message = messages.map(m => typeof m === 'string' ? m : safeStringify(m)).join(' ');
     this.addLog('info', message);
-    console.info(...messages);
+    console.debug(...messages);
   }
 
-  error(...messages: any[]) {
+  error(...messages: unknown[]) {
     const message = messages.map(m => typeof m === 'string' ? m : safeStringify(m)).join(' ');
     this.addLog('error', message);
     console.error(...messages);
   }
 
-  warn(...messages: any[]) {
+  warn(...messages: unknown[]) {
     const message = messages.map(m => typeof m === 'string' ? m : safeStringify(m)).join(' ');
     this.addLog('warn', message);
     console.warn(...messages);
   }
 
-  debug(...messages: any[]) {
+  debug(...messages: unknown[]) {
     const message = messages.map(m => typeof m === 'string' ? m : safeStringify(m)).join(' ');
     this.addLog('debug', message);
     console.debug(...messages);

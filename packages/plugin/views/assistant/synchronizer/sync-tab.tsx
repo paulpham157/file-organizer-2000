@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { SectionHeader } from "../section-header";
-import { makeApiRequest } from "../../../apiUtils";
-import { requestUrl, Notice, TFolder } from "obsidian";
+import { requestUrl, Notice, Modal } from "obsidian";
 import FileOrganizer from "../../../index";
 import { Button } from "../../../components/ui/button";
 import { StyledContainer } from "@/components/ui/utils";
@@ -20,9 +19,6 @@ import {
   Clock,
   DownloadCloud,
 } from "lucide-react";
-
-// Storage key for downloaded files
-const DOWNLOADED_FILES_KEY = "file-organizer-downloaded-files";
 
 interface RemoteFile {
   id: string;
@@ -77,24 +73,12 @@ export function SyncTab({
   const [previewCache, setPreviewCache] = useState<PreviewCache>({});
   const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({});
 
-  // Load downloaded files from local storage
   useEffect(() => {
-    const loadDownloadedFiles = () => {
-      try {
-        const savedFiles = localStorage.getItem(DOWNLOADED_FILES_KEY);
-        if (savedFiles) {
-          setDownloadedFiles(new Set(JSON.parse(savedFiles)));
-        }
-      } catch (err) {
-        console.error("Error loading downloaded files", err);
-      }
-    };
-
-    loadDownloadedFiles();
-  }, []);
+    setDownloadedFiles(new Set(plugin.settings.downloadedSyncFileIds ?? []));
+  }, [plugin]);
 
   useEffect(() => {
-    fetchFiles();
+    void fetchFiles();
   }, [page, plugin]);
 
   async function fetchFiles() {
@@ -141,7 +125,7 @@ export function SyncTab({
         for (const file of response.files) {
           if (file.status === "completed" &&
               (file.fileType.startsWith('image/') || file.fileType === 'application/pdf')) {
-            fetchPreview(file);
+            void fetchPreview(file);
           }
         }
         return;
@@ -231,34 +215,48 @@ export function SyncTab({
     });
   };
 
-  // Mark a file as downloaded
   const markFileAsDownloaded = (fileId: string) => {
     const newDownloadedFiles = new Set(downloadedFiles);
     newDownloadedFiles.add(fileId);
     setDownloadedFiles(newDownloadedFiles);
-
-    // Save to localStorage
-    try {
-      localStorage.setItem(
-        DOWNLOADED_FILES_KEY,
-        JSON.stringify([...newDownloadedFiles])
-      );
-    } catch (err) {
-      console.error("Error saving downloaded files", err);
-    }
+    plugin.settings.downloadedSyncFileIds = [...newDownloadedFiles];
+    void plugin.saveSettings();
   };
 
-  // Clear download history
   const clearDownloadHistory = () => {
-    if (
-      confirm(
-        "Are you sure you want to clear your download history? This won't delete any files from your vault, but will reset the 'synced' status for all files."
-      )
-    ) {
-      setDownloadedFiles(new Set());
-      localStorage.removeItem(DOWNLOADED_FILES_KEY);
-      new Notice("Download history cleared");
+    class ClearDownloadHistoryModal extends Modal {
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h2", { text: "Clear sync history" });
+        contentEl.createEl("p", {
+          text:
+            "Are you sure you want to clear your download history? This won't delete any files from your vault, but will reset the 'synced' status for all files.",
+        });
+        const buttonContainer = contentEl.createDiv({
+          attr: { style: "display: flex; gap: 10px; margin-top: 1em;" },
+        });
+        buttonContainer
+          .createEl("button", { text: "Cancel" })
+          .addEventListener("click", () => {
+            this.close();
+          });
+        buttonContainer
+          .createEl("button", {
+            text: "Clear history",
+            attr: { style: "background: var(--interactive-accent);" },
+          })
+          .addEventListener("click", () => {
+            setDownloadedFiles(new Set());
+            plugin.settings.downloadedSyncFileIds = [];
+            void plugin.saveSettings();
+            new Notice("Download history cleared");
+            this.close();
+          });
+      }
     }
+    const modal = new ClearDownloadHistoryModal(plugin.app);
+    modal.open();
   };
 
   // Download all undownloaded files
@@ -470,7 +468,7 @@ export function SyncTab({
         {/* Icon-only tools */}
         <div className={tw("flex items-center gap-2")}>
           <button
-            onClick={fetchFiles}
+            onClick={() => { void fetchFiles(); }}
             disabled={loading}
             className={tw(`p-1.5 text-[--text-muted] hover:text-[--text-normal] transition-colors ${loading ? 'cursor-wait' : ''}`)}
             title="Refresh file list"
@@ -479,7 +477,7 @@ export function SyncTab({
           </button>
 
           <button
-            onClick={downloadAllMissingFiles}
+            onClick={() => { void downloadAllMissingFiles(); }}
             disabled={loading || syncingAll || files.filter(f => f.status === 'completed' && !downloadedFiles.has(f.id)).length === 0}
             className={tw(`p-1.5 transition-colors ${
               files.filter(f => f.status === 'completed' && !downloadedFiles.has(f.id)).length > 0
@@ -543,7 +541,11 @@ export function SyncTab({
               {files.map(file => (
                 <div
                   key={file.id}
-                  onClick={() => file.status === 'completed' && !downloading[file.id] && downloadFile(file)}
+                  onClick={() => {
+                    if (file.status === "completed" && !downloading[file.id]) {
+                      void downloadFile(file);
+                    }
+                  }}
                   className={tw(`flex items-center gap-3 px-3 py-2 border-b border-[--background-modifier-border] transition-colors group ${
                     file.status === 'completed' && !downloading[file.id]
                       ? 'cursor-pointer hover:bg-[--background-modifier-hover]'
@@ -558,15 +560,17 @@ export function SyncTab({
                         alt={file.originalName}
                         className={tw("w-16 h-16 object-cover border border-[--background-modifier-border]")}
                         onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
+                          e.currentTarget.classList.add("hidden");
+                          const fallback = e.currentTarget.nextElementSibling;
+                          if (fallback) fallback.classList.remove("hidden");
                         }}
                       />
                     ) : null}
                     <div
-                      className={tw("flex items-center justify-center w-6 h-6")}
-                      style={{ display: file.fileType.startsWith('image/') ? 'none' : 'flex' }}
+                      className={tw(
+                        "flex items-center justify-center w-6 h-6",
+                        file.fileType.startsWith("image/") ? "hidden" : ""
+                      )}
                     >
                       {getFileIcon(file.fileType, tw("w-4 h-4 text-[--text-muted]"))}
                     </div>

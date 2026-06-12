@@ -4,6 +4,14 @@ import { Loader, Loader2, MicIcon, StopCircle } from "lucide-react";
 import { logger } from "../../../services/logger";
 import { usePlugin } from "../provider";
 import { cn } from "../../../lib/utils";
+import { obsidianFetch } from "../../../lib/obsidian-fetch";
+import {
+  readResponseJson,
+  getApiError,
+  type ApiErrorBody,
+} from "../../../lib/api-json";
+
+type TranscribeResponse = { text: string };
 
 interface AudioRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -65,7 +73,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
       setIsProcessing(true);
 
       await new Promise<void>((resolve, reject) => {
-        mediaRecorderRef.current!.onstop = async () => {
+        mediaRecorderRef.current.onstop = async () => {
           try {
             if (audioChunks.current.length === 0) {
               throw new Error("No audio data recorded");
@@ -94,7 +102,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
               reader.readAsDataURL(webmBlob);
             });
 
-            const response = await fetch(
+            const response = await obsidianFetch(
               `${plugin.getServerUrl()}/api/transcribe`,
               {
                 method: "POST",
@@ -107,16 +115,20 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
             );
 
             if (!response.ok) {
-              const error = await response.json();
-              throw new Error(error.error || "Transcription failed");
+              const errorData = await readResponseJson<ApiErrorBody>(response);
+              throw new Error(
+                getApiError(errorData) ?? "Transcription failed"
+              );
             }
 
-            const data = await response.json();
+            const data = await readResponseJson<TranscribeResponse>(response);
             onTranscriptionComplete(data.text);
             resolve();
           } catch (error) {
             logger.error("Error processing audio:", error);
-            reject(error);
+            reject(
+              error instanceof Error ? error : new Error(String(error))
+            );
           } finally {
             setIsProcessing(false);
           }
@@ -140,7 +152,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
   return (
     <div className="flex flex-col gap-4">
       <Button
-        onClick={isRecording ? stopRecording : startRecording}
+        onClick={() => { void (isRecording ? stopRecording() : startRecording()); }}
         className={cn(
           // box shadow none
           "bg-transparent opacity-50 cursor-pointer  ",

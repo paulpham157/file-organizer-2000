@@ -1,18 +1,18 @@
 import React, { useRef } from "react";
-import { App, TFile } from "obsidian";
-import { ToolInvocation } from "ai";
+import { TFile } from "obsidian";
+import { ToolHandlerProps } from "./types";
 
-interface HeadingsHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface HeadingsArgs {
+  filePaths: string[];
+  minLevel?: number;
+  maxLevel?: number;
 }
 
 export function HeadingsHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: HeadingsHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const MAX_HEADINGS_PER_FILE = 250;
 
@@ -71,27 +71,30 @@ export function HeadingsHandler({
     const handleGetHeadings = async () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { filePaths, minLevel, maxLevel } = toolInvocation.args;
+        const { filePaths, minLevel, maxLevel } =
+          toolInvocation.args as HeadingsArgs;
 
         try {
-          const results = filePaths.map((path: string) =>
-            getHeadings(path, minLevel || 1, maxLevel || 6)
+          const results = filePaths.map((path) =>
+            getHeadings(path, minLevel ?? 1, maxLevel ?? 6)
           );
           handleAddResult(JSON.stringify(results));
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           handleAddResult(
             JSON.stringify({
-              error: `Failed to get headings: ${error.message}`,
+              error: `Failed to get headings: ${errorMessage}`,
             })
           );
         }
       }
     };
 
-    handleGetHeadings();
+    void handleGetHeadings();
   }, [toolInvocation, handleAddResult, app]);
 
-  const { filePaths } = toolInvocation.args;
+  const { filePaths } = toolInvocation.args as HeadingsArgs;
   const isComplete = "result" in toolInvocation;
 
   return (

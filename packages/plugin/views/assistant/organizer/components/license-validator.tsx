@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ErrorBox } from "./error-box";
-import FileOrganizer from "../../..";
+import FileOrganizer from "../../../../index";
+import { openPluginSettings } from "../../../../lib/open-plugin-settings";
 
 interface LicenseValidatorProps {
   apiKey: string;
@@ -32,13 +33,13 @@ export const LicenseValidator: React.FC<LicenseValidatorProps> = ({
       } else {
         setLicenseError("Invalid license key");
       }
-    } catch (err) {
+    } catch {
       setLicenseError("Failed to validate license key");
     }
   }, [apiKey, onValidationComplete, plugin]);
 
   React.useEffect(() => {
-    validateLicense();
+    void validateLicense();
   }, [validateLicense]);
 
 
@@ -51,16 +52,14 @@ export const LicenseValidator: React.FC<LicenseValidatorProps> = ({
         actionButton={
           <div className="flex gap-2">
             <button
-              onClick={validateLicense}
+              onClick={() => { void validateLicense(); }}
               className="px-3 py-1.5  rounded hover:opacity-90 transition-opacity duration-200"
             >
               Retry
             </button>
             <button
               onClick={() => {
-                // Open Obsidian settings and navigate to plugin settings
-                plugin.app.setting.open();
-                plugin.app.setting.openTabById("fileorganizer2000");
+                openPluginSettings(plugin.app, "fileorganizer2000");
               }}
               className="px-3 py-1.5 bg-[--interactive-accent] text-[--text-on-accent] rounded hover:bg-[--interactive-accent-hover] transition-colors duration-200"
             >

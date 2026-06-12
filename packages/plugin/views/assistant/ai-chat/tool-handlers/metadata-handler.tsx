@@ -22,7 +22,7 @@ interface FileMetadata {
   created: number;
   modified: number;
   size: number;
-  frontmatter?: any;
+  frontmatter?: unknown;
   tags?: string[];
   links?: string[];
   embeds?: string[];
@@ -134,7 +134,7 @@ export function MetadataHandler({
       }
     };
 
-    execute();
+    void execute();
   }, [toolInvocation, handleAddResult, app]);
 
   const args = toolInvocation.args as MetadataArgs;

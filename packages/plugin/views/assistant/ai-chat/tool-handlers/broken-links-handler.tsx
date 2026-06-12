@@ -1,11 +1,11 @@
 import React, { useRef } from "react";
-import { App } from "obsidian";
-import { ToolInvocation } from "ai";
+import { ToolHandlerProps } from "./types";
 
-interface BrokenLinksHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface BrokenLinksArgs {
+  folder?: string;
+  filePaths?: string[];
+  groupBySource?: boolean;
+  limit?: number;
 }
 
 interface BySourceEntry {
@@ -22,7 +22,7 @@ export function BrokenLinksHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: BrokenLinksHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
 
   const findBrokenLinks = (
@@ -82,13 +82,10 @@ export function BrokenLinksHandler({
       };
     }
 
-    // Group by broken link target
     const targetMap = new Map<string, { sourcePath: string; count: number }[]>();
-    let totalEntries = 0;
 
     for (const [sourcePath, links] of filteredEntries) {
       for (const [link, count] of Object.entries(links)) {
-        totalEntries++;
         const existing = targetMap.get(link);
         if (existing) {
           existing.push({ sourcePath, count });
@@ -120,20 +117,23 @@ export function BrokenLinksHandler({
     const handleFindBrokenLinks = () => {
       if (!hasFetchedRef.current && !("result" in toolInvocation)) {
         hasFetchedRef.current = true;
-        const { folder, filePaths, groupBySource, limit } = toolInvocation.args;
+        const { folder, filePaths, groupBySource, limit } =
+          toolInvocation.args as BrokenLinksArgs;
 
         try {
           const results = findBrokenLinks(
-            folder || "",
-            filePaths || [],
+            folder ?? "",
+            filePaths ?? [],
             groupBySource ?? true,
-            limit || 100
+            limit ?? 100
           );
           handleAddResult(JSON.stringify(results));
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           handleAddResult(
             JSON.stringify({
-              error: `Failed to find broken links: ${error.message}`,
+              error: `Failed to find broken links: ${errorMessage}`,
             })
           );
         }
@@ -143,9 +143,10 @@ export function BrokenLinksHandler({
     handleFindBrokenLinks();
   }, [toolInvocation, handleAddResult, app]);
 
+  const args = toolInvocation.args as BrokenLinksArgs;
   const isComplete = "result" in toolInvocation;
-  const folder = toolInvocation.args?.folder;
-  const filePaths: string[] = toolInvocation.args?.filePaths || [];
+  const folder = args.folder;
+  const filePaths = args.filePaths ?? [];
 
   const scopeLabel = filePaths.length > 0
     ? `${filePaths.length} file(s)`

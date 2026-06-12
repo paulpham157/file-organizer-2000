@@ -3,6 +3,13 @@ import { Button } from "../assistant/ai-chat/button";
 import FileOrganizer from "../..";
 import { Notice } from "obsidian";
 import { validateApiKey } from "../../apiUtils";
+import { obsidianFetch } from "../../lib/obsidian-fetch";
+import { readResponseJson } from "../../lib/api-json";
+
+type TopUpCreditsResponse = {
+  url?: string;
+  licenseKey?: string;
+};
 
 type TopUpTier = "standard" | "large";
 
@@ -30,7 +37,7 @@ export function TopUpCredits({
 
     try {
       setLoadingTier(tier);
-      const response = await fetch(`${plugin.getServerUrl()}/api/top-up`, {
+      const response = await obsidianFetch(`${plugin.getServerUrl()}/api/top-up`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -39,11 +46,13 @@ export function TopUpCredits({
         body: JSON.stringify({ tier }),
       });
 
-      const data = await response.json();
+      const data = await readResponseJson<TopUpCreditsResponse>(response);
       if (data.url) {
         window.location.href = data.url;
       }
-      onLicenseKeyChange(data.licenseKey);
+      if (data.licenseKey) {
+        onLicenseKeyChange(data.licenseKey);
+      }
     } catch (error) {
       console.error("Top-up error:", error);
       new Notice("Failed to process top-up request", 5000);
@@ -55,7 +64,7 @@ export function TopUpCredits({
   return (
     <div className="space-y-2">
       <Button
-        onClick={() => handleTopUp("standard")}
+        onClick={() => { void handleTopUp("standard"); }}
         disabled={loadingTier !== null}
         className="w-full"
       >
@@ -64,7 +73,7 @@ export function TopUpCredits({
           : "Top up 5M credits ($15)"}
       </Button>
       <Button
-        onClick={() => handleTopUp("large")}
+        onClick={() => { void handleTopUp("large"); }}
         disabled={loadingTier !== null}
         className="w-full"
       >

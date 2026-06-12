@@ -1,18 +1,21 @@
 import React, { useRef, useState } from "react";
-import { App, TFile, Notice } from "obsidian";
-import { ToolInvocation } from "ai";
+import { TFile, Notice } from "obsidian";
+import { ToolHandlerProps, getToolArgs } from "./types";
 
-interface BulkFindReplaceHandlerProps {
-  toolInvocation: ToolInvocation;
-  handleAddResult: (result: string) => void;
-  app: App;
+interface BulkFindReplaceArgs {
+  filePaths: string[];
+  find: string;
+  replace: string;
+  useRegex?: boolean;
+  caseSensitive?: boolean;
+  message?: string;
 }
 
 export function BulkFindReplaceHandler({
   toolInvocation,
   handleAddResult,
   app,
-}: BulkFindReplaceHandlerProps) {
+}: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -31,7 +34,7 @@ export function BulkFindReplaceHandler({
           find,
           useRegex = false,
           caseSensitive = true,
-        } = toolInvocation.args;
+        } = getToolArgs<BulkFindReplaceArgs>(toolInvocation.args);
 
         const valid: TFile[] = [];
         const invalid: string[] = [];
@@ -42,7 +45,6 @@ export function BulkFindReplaceHandler({
           if (file instanceof TFile) {
             valid.push(file);
 
-            // Count matches
             try {
               const content = await app.vault.read(file);
               let matchCount = 0;
@@ -53,7 +55,9 @@ export function BulkFindReplaceHandler({
                 const matches = content.match(regex);
                 matchCount = matches ? matches.length : 0;
               } else {
-                const searchText = caseSensitive ? content : content.toLowerCase();
+                const searchText = caseSensitive
+                  ? content
+                  : content.toLowerCase();
                 const findText = caseSensitive ? find : find.toLowerCase();
                 let pos = 0;
                 while ((pos = searchText.indexOf(findText, pos)) !== -1) {
@@ -63,7 +67,7 @@ export function BulkFindReplaceHandler({
               }
 
               counts.push({ path: file.path, count: matchCount });
-            } catch (error) {
+            } catch {
               counts.push({ path: file.path, count: 0 });
             }
           } else {
@@ -77,7 +81,7 @@ export function BulkFindReplaceHandler({
       }
     };
 
-    validateAndPreview();
+    void validateAndPreview();
   }, [toolInvocation, app]);
 
   const handleConfirmReplace = async () => {
@@ -86,9 +90,8 @@ export function BulkFindReplaceHandler({
       replace,
       useRegex = false,
       caseSensitive = true,
-    } = toolInvocation.args;
+    } = getToolArgs<BulkFindReplaceArgs>(toolInvocation.args);
 
-    let replacedCount = 0;
     let filesModified = 0;
     let totalMatches = 0;
     const errors: string[] = [];
@@ -108,19 +111,16 @@ export function BulkFindReplaceHandler({
         } else {
           const searchText = caseSensitive ? content : content.toLowerCase();
           const findText = caseSensitive ? find : find.toLowerCase();
-          
-          // Count matches first
+
           let pos = 0;
           while ((pos = searchText.indexOf(findText, pos)) !== -1) {
             fileMatches++;
             pos += findText.length;
           }
 
-          // Perform replacement
           if (caseSensitive) {
             newContent = content.split(find).join(replace);
           } else {
-            // Case-insensitive replacement is complex, use regex
             const regex = new RegExp(
               find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
               "gi"
@@ -135,7 +135,9 @@ export function BulkFindReplaceHandler({
           totalMatches += fileMatches;
         }
       } catch (error) {
-        errors.push(`${file.path}: ${error.message}`);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        errors.push(`${file.path}: ${errorMessage}`);
       }
     }
 
@@ -171,7 +173,7 @@ export function BulkFindReplaceHandler({
     replace,
     message: reason,
     useRegex = false,
-  } = toolInvocation.args;
+  } = getToolArgs<BulkFindReplaceArgs>(toolInvocation.args);
   const isComplete = "result" in toolInvocation;
 
   const totalMatches = matchCounts.reduce((sum, m) => sum + m.count, 0);
@@ -229,7 +231,9 @@ export function BulkFindReplaceHandler({
           <div className="text-[--text-normal]">
             <strong>Find:</strong>{" "}
             <code className="px-1 bg-[--background-primary]">{find}</code>
-            {useRegex && <span className="text-[--text-faint] ml-1">(regex)</span>}
+            {useRegex && (
+              <span className="text-[--text-faint] ml-1">(regex)</span>
+            )}
           </div>
           <div className="text-[--text-normal]">
             <strong>Replace:</strong>{" "}
@@ -243,7 +247,8 @@ export function BulkFindReplaceHandler({
           Impact
         </div>
         <div className="text-[--text-normal] pl-2">
-          <strong>{totalMatches}</strong> match(es) in <strong>{filesWithMatches}</strong> file(s)
+          <strong>{totalMatches}</strong> match(es) in{" "}
+          <strong>{filesWithMatches}</strong> file(s)
         </div>
       </div>
 
@@ -256,7 +261,8 @@ export function BulkFindReplaceHandler({
           .slice(0, 5)
           .map((item) => (
             <div key={item.path} className="text-[--text-normal] pl-2">
-              • {item.path.split("/").pop()} ({item.count} match{item.count !== 1 ? "es" : ""})
+              • {item.path.split("/").pop()} ({item.count} match
+              {item.count !== 1 ? "es" : ""})
             </div>
           ))}
         {filesWithMatches > 5 && (
@@ -282,7 +288,7 @@ export function BulkFindReplaceHandler({
         <button
           onClick={() => {
             setIsConfirmed(true);
-            handleConfirmReplace();
+            void handleConfirmReplace();
           }}
           className="flex-1 px-3 py-1.5 text-xs bg-[--interactive-accent] hover:bg-[--interactive-accent-hover] text-white"
         >

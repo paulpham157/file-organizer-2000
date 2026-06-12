@@ -1,6 +1,7 @@
 import { Notice, RequestUrlResponse, requestUrl } from "obsidian";
 import { logMessage } from "./someUtils";
 import { logger } from "./services/logger";
+import { getApiError, readRequestUrlJson } from "./lib/api-json";
 
 /**
  * Validates an API key format before sending to server
@@ -47,17 +48,18 @@ export function validateApiKey(key: string | null | undefined): {
   return { isValid: true };
 }
 
-export async function makeApiRequest<T = any>(
+export async function makeApiRequest<T = unknown>(
   requestFn: () => Promise<RequestUrlResponse>
 ): Promise<T> {
   logMessage("Making API request", requestFn);
   const response: RequestUrlResponse = await requestFn();
   if (response.status >= 200 && response.status < 300) {
-    return response.json as T;
+    return readRequestUrlJson<T>(response);
   }
-  if (response.json.error) {
-    new Notice(`File Organizer error: ${response.json.error}`, 6000);
-    throw new Error(response.json.error);
+  const apiError = getApiError(response.json);
+  if (apiError) {
+    new Notice(`File Organizer error: ${apiError}`, 6000);
+    throw new Error(apiError);
   }
   throw new Error("Unknown error");
 }

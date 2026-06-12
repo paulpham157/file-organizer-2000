@@ -7,6 +7,10 @@ import { FolderSuggestion } from "../../../../index";
 import { logMessage } from "../../../../someUtils";
 import { ExistingFolderButton, NewFolderButton } from "../components/suggestion-buttons";
 import { logger } from "../../../../services/logger";
+import {
+  getErrorMessage,
+  isTokenLimitError,
+} from "../../../../lib/api-json";
 
 interface SimilarFolderBoxProps {
   plugin: FileOrganizer;
@@ -62,32 +66,29 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
       logger.error("Error fetching folders:", err);
 
       // Check if this is a token limit error
-      if (err && typeof err === 'object' && 'status' in err && (err as any).status === 429) {
-        const errorMessage = (err as any).message || "Token limit exceeded. Please upgrade your plan for more tokens.";
+      if (isTokenLimitError(err)) {
+        const errorMessage =
+          err.message ||
+          "Token limit exceeded. Please upgrade your plan for more tokens.";
         setError(new Error(errorMessage));
         // Notify parent component to show upgrade button
         onTokenLimitError?.(errorMessage);
         return;
       }
 
-      const errorMessage =
-        typeof err === "object" && err !== null
-          ? err.error?.message || err.error || err.message || "Unknown error"
-          : String(err);
-
-      setError(new Error(errorMessage));
+      setError(new Error(getErrorMessage(err)));
     } finally {
       setLoading(false);
     }
   }, [content, file, plugin, onTokenLimitError]);
 
   React.useEffect(() => {
-    suggestFolders();
+    void suggestFolders();
   }, [suggestFolders, refreshKey]);
 
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
-    suggestFolders();
+    void suggestFolders();
   };
 
   const handleFolderClick = async (folder: string) => {
@@ -183,7 +184,7 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
             <ExistingFolderButton
               key={`existing-${index}`}
               folder={folder.folder}
-              onClick={handleFolderClick}
+              onClick={() => { void handleFolderClick(); }}
               score={folder.score}
               reason={folder.reason}
             />
@@ -192,7 +193,7 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
             <NewFolderButton
               key={`new-${index}`}
               folder={folder.folder}
-              onClick={handleFolderClick}
+              onClick={() => { void handleFolderClick(); }}
               score={folder.score}
               reason={folder.reason}
             />

@@ -43,7 +43,7 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
         linktext = href.replace(/^\[\[/, "").replace(/\]\]$/, "");
       }
 
-      plugin.app.workspace.openLinkText(
+      void plugin.app.workspace.openLinkText(
         linktext,
         activeFile?.path || "",
         e.ctrlKey || e.metaKey
@@ -74,11 +74,11 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
             leaf.view
           );
         } else {
-          await MarkdownRenderer.renderMarkdown(
+          await MarkdownRenderer.render(
+            plugin.app,
             content,
             tempContainer,
-            "",
-            plugin
+            activeFile?.path || ""
           );
         }
 
@@ -87,18 +87,22 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
         listItems.forEach((li) => {
           const children = Array.from(li.children);
           if (children.length === 1 && children[0].tagName === "P") {
-            li.innerHTML = children[0].innerHTML;
+            const paragraph = children[0];
+            while (paragraph.firstChild) {
+              li.appendChild(paragraph.firstChild);
+            }
+            paragraph.remove();
           }
         });
 
         setRenderedContent(tempContainer.innerHTML);
       } catch (e) {
         logger.error("Error rendering markdown:", e);
-        setRenderedContent(`<p>Error rendering content: ${e.message}</p>`);
+        setRenderedContent(`<p>Error rendering content: ${e instanceof Error ? e.message : String(e)}</p>`);
       }
     };
 
-    renderMarkdown();
+    void renderMarkdown();
   }, [content, plugin.app]);
 
   // File tracking

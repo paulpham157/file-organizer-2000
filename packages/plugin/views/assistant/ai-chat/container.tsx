@@ -99,7 +99,7 @@ const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
       await chatHistoryManager.waitForLoad();
 
       const sessions = chatHistoryManager.getAllSessions();
-      console.log(
+      console.debug(
         "[ChatTabs] Initial load - sessions from manager:",
         sessions.length
       );
@@ -114,7 +114,7 @@ const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
       } else {
         // Load most recent session
         const activeId = sessions[0].id;
-        console.log(
+        console.debug(
           "[ChatTabs] Setting active chat:",
           activeId,
           "from",
@@ -123,7 +123,7 @@ const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
         );
         setActiveChatId(activeId);
         const visible = getVisibleSessions(sessions, activeId);
-        console.log(
+        console.debug(
           "[ChatTabs] Initial visible sessions:",
           visible.length,
           "ids:",
@@ -133,14 +133,14 @@ const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
       }
     };
 
-    loadSessions();
+    void loadSessions();
   }, [chatHistoryManager, getVisibleSessions]);
 
   // Update visible sessions when active chat changes
   useEffect(() => {
     if (allSessions.length > 0) {
       const visible = getVisibleSessions(allSessions, activeChatId);
-      console.log("[ChatTabs] Updating visible sessions:", {
+      console.debug("[ChatTabs] Updating visible sessions:", {
         allSessionsCount: allSessions.length,
         activeChatId,
         visibleCount: visible.length,
@@ -149,7 +149,7 @@ const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
       setChatSessions(visible);
     } else if (activeChatId) {
       // If we have an active chat but no allSessions, refresh
-      console.log("[ChatTabs] Active chat but no allSessions, refreshing...");
+      console.debug("[ChatTabs] Active chat but no allSessions, refreshing...");
       const refreshed = chatHistoryManager.getAllSessions();
       setAllSessions(refreshed);
       setChatSessions(getVisibleSessions(refreshed, activeChatId));

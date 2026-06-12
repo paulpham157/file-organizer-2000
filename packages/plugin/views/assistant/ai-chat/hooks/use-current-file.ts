@@ -84,7 +84,7 @@ export function useCurrentFile({
   useEffect(() => {
     // Initial load - only if chat hasn't started
     if (!chatHasStarted) {
-      updateActiveFile();
+      void updateActiveFile();
     }
 
     // Register event handlers

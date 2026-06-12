@@ -61,7 +61,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
         onChange={value => {
           setUseLogs(value);
           plugin.settings.useLogs = value;
-          plugin.saveSettings();
+          void plugin.saveSettings();
         }}
       />
 
@@ -73,7 +73,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
           setDebugMode(value);
           logger.configure(value);
           plugin.settings.debugMode = value;
-          plugin.saveSettings();
+          void plugin.saveSettings();
         }}
       />
 
@@ -90,7 +90,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
           <input
             type="checkbox"
             checked={enableSelfHosting}
-            onChange={e => handleToggleChange(e.target.checked)}
+            onChange={e => { void handleToggleChange(e.target.checked); }}
           />
         </div>
       </div>
@@ -105,7 +105,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
               type="text"
               placeholder="Enter your Server URL"
               value={selfHostingURL}
-              onChange={e => handleURLChange(e.target.value)}
+              onChange={e => { void handleURLChange(e.target.value); }}
             />
           </div>
         </div>
@@ -124,7 +124,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
               {logger.getLogs().length > 0 && (
                 <>
                   <button
-                    onClick={async () => {
+                    onClick={() => { void (async () => {
                       const logs = logger.getLogs();
                       const logText = logs
                         .map(
@@ -146,7 +146,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
                         console.error("Failed to copy logs:", error);
                         new Notice("Failed to copy logs to clipboard", 3000);
                       }
-                    }}
+                    })(); }}
                     className="clickable-icon"
                     aria-label="Copy all logs"
                     title="Copy all logs to clipboard"
@@ -266,7 +266,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
               const value = parseInt(e.target.value);
               setContentCutoffChars(value);
               plugin.settings.contentCutoffChars = value;
-              plugin.saveSettings();
+              void plugin.saveSettings();
             }}
             className="w-24"
           />
@@ -293,7 +293,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
               const value = parseInt(e.target.value);
               setMaxFormattingTokens(value);
               plugin.settings.maxFormattingTokens = value;
-              plugin.saveSettings();
+              void plugin.saveSettings();
             }}
             className="w-24"
           />
@@ -317,7 +317,7 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
               const value = parseInt(e.target.value, 10);
               setPdfPageLimit(value);
               plugin.settings.pdfPageLimit = value;
-              plugin.saveSettings();
+              void plugin.saveSettings();
             }}
             className="w-24"
           />

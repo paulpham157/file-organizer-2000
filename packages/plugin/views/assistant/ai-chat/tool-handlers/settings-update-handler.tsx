@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePlugin } from '../../provider';
+import { ToolInvocation, getToolArgs } from './types';
 
 interface SettingUpdateProps {
   setting: string;
@@ -32,13 +33,13 @@ export function SettingsUpdateHandler({
   toolInvocation,
   handleAddResult,
 }: {
-  toolInvocation: any;
+  toolInvocation: ToolInvocation;
   handleAddResult: (result: string) => void;
 }) {
   const plugin = usePlugin();
   const [validatedSettings, setValidatedSettings] = React.useState<Set<string>>(new Set());
 
-  const settings = toolInvocation.args;
+  const settings = getToolArgs<Record<string, string>>(toolInvocation.args);
 
   const updateSetting = async (key: string, value: string) => {
     try {
@@ -63,8 +64,8 @@ export function SettingsUpdateHandler({
         <SettingUpdate
           key={key}
           setting={key}
-          value={value as string}
-          onValidate={() => updateSetting(key, value as string)}
+          value={value}
+          onValidate={() => { void updateSetting(key, value); }}
           isValidated={validatedSettings.has(key)}
         />
       ))}

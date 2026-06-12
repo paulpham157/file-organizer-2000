@@ -37,7 +37,10 @@ export function ExtractSelectionToNewNoteHandler({
           );
         } else {
           handleAddResult(
-            JSON.stringify({ success: false, error: result.error })
+            JSON.stringify({
+              success: false,
+              error: result.ok === false ? result.error : "Extraction failed",
+            })
           );
         }
       } catch (e) {
@@ -45,7 +48,7 @@ export function ExtractSelectionToNewNoteHandler({
         handleAddResult(JSON.stringify({ success: false, error: msg }));
       }
     };
-    run();
+    void run();
   }, [toolInvocation, handleAddResult, app]);
 
   return (
