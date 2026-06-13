@@ -10,6 +10,7 @@ const pluginDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "packa
 export default tseslint.config(
   globalIgnores([
     "node_modules",
+    ".pnpm-store",
     "packages/web/**",
     "packages/mobile/**",
     "packages/landing/**",
