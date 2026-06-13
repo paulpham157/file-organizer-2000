@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import fs from "fs";
 import path from "path";
 import process from "process";
+import { fileURLToPath } from "url";
 import { createRequire } from "module";
 import builtins from "builtin-modules";
 import postcss from 'esbuild-postcss';
@@ -21,7 +22,7 @@ const outdir = isGithubAction ? "dist" : "../..";
 
 // Force a single React 18 instance. The monorepo hoists react-dom 19 at the root while
 // the plugin uses react 18 — resolve both from the plugin package so versions match.
-const pluginDir = import.meta.dirname;
+const pluginDir = path.dirname(fileURLToPath(import.meta.url));
 const requireFromPlugin = createRequire(path.join(pluginDir, "package.json"));
 const reactDir = path.dirname(requireFromPlugin.resolve("react/package.json"));
 const reactDomDir = path.dirname(requireFromPlugin.resolve("react-dom/package.json"));
