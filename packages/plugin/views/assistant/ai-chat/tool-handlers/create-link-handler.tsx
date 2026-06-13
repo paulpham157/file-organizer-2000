@@ -125,7 +125,6 @@ export function CreateLinkHandler({
     void execute();
   }, [toolInvocation, handleAddResult, app]);
 
-  const args = toolInvocation.args as CreateLinkArgs;
   const isComplete = "result" in toolInvocation;
   let statusText = "Adding link...";
   if (isComplete && typeof toolInvocation.result === "string") {

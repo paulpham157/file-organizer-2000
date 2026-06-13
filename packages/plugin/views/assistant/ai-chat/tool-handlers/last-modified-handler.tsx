@@ -1,5 +1,4 @@
 import React, { useRef } from "react";
-import { App } from "obsidian";
 import { parseJsonString } from "../../../../lib/api-json";
 import { logger } from "../../../../services/logger";
 import { addFileReference, useContextItems } from "../use-context-items";
@@ -28,7 +27,6 @@ export function LastModifiedHandler({
 }: ToolHandlerProps) {
   const hasFetchedRef = useRef(false);
   const clearAll = useContextItems(state => state.clearAll);
-  const files = useContextItems(state => state.files);
 
   const getLastModifiedFiles = async (count: number): Promise<FileResult[]> => {
     const MAX_FILES = 20;
@@ -106,9 +104,6 @@ export function LastModifiedHandler({
     void handleLastModifiedSearch();
   }, [toolInvocation, handleAddResult, app, clearAll]);
 
-  // Use the files object directly from context instead of items
-  const fileCount = Object.keys(files).length;
-  
   // Get the actual result to show proper count
   const result = ("result" in toolInvocation)
     ? parseJsonString<{ count?: number }>(toolInvocation.result as string)

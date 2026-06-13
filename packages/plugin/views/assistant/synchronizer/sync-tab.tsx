@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { SectionHeader } from "../section-header";
 import { requestUrl, Notice, Modal } from "obsidian";
 import FileOrganizer from "../../../index";
 import { Button } from "../../../components/ui/button";
@@ -15,7 +14,6 @@ import {
   Cloud,
   Check,
   AlertCircle,
-  RotateCw,
   Clock,
   DownloadCloud,
 } from "lucide-react";
@@ -71,7 +69,6 @@ export function SyncTab({
   );
   const [syncingAll, setSyncingAll] = useState(false);
   const [previewCache, setPreviewCache] = useState<PreviewCache>({});
-  const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setDownloadedFiles(new Set(plugin.settings.downloadedSyncFileIds ?? []));
@@ -169,8 +166,6 @@ export function SyncTab({
     }
 
     // Set loading state
-    setLoadingPreviews(prev => ({ ...prev, [file.id]: true }));
-
     try {
       // Fetch the binary file
       const response = await requestUrl({
@@ -200,8 +195,6 @@ export function SyncTab({
       }));
     } catch (err) {
       console.error(`Error fetching preview for file ${file.id}:`, err);
-    } finally {
-      setLoadingPreviews(prev => ({ ...prev, [file.id]: false }));
     }
   };
 
@@ -351,7 +344,6 @@ export function SyncTab({
           );
 
           // Create a markdown file that references the image
-          const fileExtension = sanitizedFilename.split(".").pop();
           const baseName = sanitizedFilename.split(".").slice(0, -1).join(".");
           const markdownContent = `# ${baseName}\n\n![[${dateFolder}/${sanitizedFilename}]]\n\n${
             file.textContent || ""
@@ -414,44 +406,6 @@ export function SyncTab({
     } else {
       return <FileText className={className} />;
     }
-  }
-
-  function getStatusBadge(status: string) {
-    // Base styles for status badges with consistent sizing and rounded corners
-    let className =
-      "px-3 py-1 text-xs font-medium rounded-full flex items-center gap-1.5 transition-colors duration-200";
-    let icon = null;
-
-    switch (status) {
-      case "completed":
-        className +=
-          " bg-[--text-success] text-[--text-on-accent] border border-[--background-modifier-border]";
-        icon = <Check className="w-3 h-3" />;
-        break;
-      case "processing":
-        className += " bg-[--interactive-accent] text-[--text-on-accent] border border-[--background-modifier-border]";
-        icon = <RotateCw className="w-3 h-3 animate-spin" />;
-        break;
-      case "pending":
-        className += " bg-[--text-warning] text-[--text-on-accent] border border-[--background-modifier-border]";
-        icon = <Clock className="w-3 h-3" />;
-        break;
-      case "error":
-        className += " bg-[--text-error] text-[--text-on-accent] border border-[--background-modifier-border]";
-        icon = <AlertCircle className="w-3 h-3" />;
-        break;
-      default:
-        className += " bg-[--background-secondary] text-[--text-muted] border border-[--background-modifier-border]";
-        icon = <Cloud className="w-3 h-3" />;
-    }
-
-    // Return a badge with icon and text
-    return (
-      <span className={className}>
-        {icon}
-        <span>{status}</span>
-      </span>
-    );
   }
 
   return (

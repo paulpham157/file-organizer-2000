@@ -42,7 +42,6 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   const [classificationStatus, setClassificationStatus] = React.useState<
     "loading" | "success" | "error"
   >("loading");
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const [isFileTooLarge, setIsFileTooLarge] = React.useState<boolean>(false);
 
@@ -132,9 +131,9 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    activeDocument.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      activeDocument.removeEventListener("mousedown", handleClickOutside);
     };
   }, [content, file, plugin, refreshKey]);
 

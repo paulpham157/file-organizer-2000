@@ -81,7 +81,7 @@ export function FrontmatterHandler({
             try {
               const parsed = parseJsonString<Record<string, unknown>>(args.updatesJson);
               updates = Object.keys(parsed).length > 0 ? parsed : undefined;
-            } catch (e) {
+            } catch {
               // Invalid JSON, skip updates
               updates = undefined;
             }

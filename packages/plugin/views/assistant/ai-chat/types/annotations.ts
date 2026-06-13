@@ -1,5 +1,3 @@
-import type { Message } from 'ai';
-
 export interface SearchResult {
   segment: {
     text: string;

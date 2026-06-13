@@ -1,6 +1,5 @@
 import * as React from "react";
 import { motion } from "framer-motion";
-import { tw } from "@/lib/utils";
 
 // Confidence Badge Component
 const ConfidenceBadge: React.FC<{ score: number }> = ({ score }) => {

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { App, TFile } from "obsidian";
+import { TFile } from "obsidian";
 import { logger } from "../../../../services/logger";
 import { ToolHandlerProps, getToolArgs } from "./types";
 

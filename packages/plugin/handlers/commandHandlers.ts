@@ -1,7 +1,6 @@
 import { WorkspaceLeaf } from "obsidian";
 import FileOrganizer from "../index";
 import { ORGANIZER_VIEW_TYPE, AssistantViewWrapper } from "../views/assistant/view";
-import { App } from "obsidian";
 
 export function initializeOrganizer(plugin: FileOrganizer) {
   plugin.registerView(

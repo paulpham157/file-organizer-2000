@@ -8,9 +8,9 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { useChat } from "@ai-sdk/react";
-import { moment, Notice, MarkdownView } from "obsidian";
+import { Notice, MarkdownView } from "obsidian";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, AlertCircle, Send, Square, Bot, Download } from "lucide-react";
+import { RefreshCw, Send, Square, Bot, Download } from "lucide-react";
 import { StyledContainer } from "@/components/ui/utils";
 import { Editor } from "@tiptap/react";
 
@@ -41,21 +41,14 @@ import {
   normalizeMessagesForRequest,
   toToolInvocation,
 } from "./types/chat-api";
-import { SubmitButton } from "./submit-button";
 import {
   getUniqueReferences,
   useContextItems,
-  clearEphemeralContext,
 } from "./use-context-items";
 import { ContextItems } from "./components/context-items";
 import { useCurrentFile } from "./hooks/use-current-file";
 import { SearchAnnotationHandler } from "./tool-handlers/search-annotation-handler";
-import {
-  isSearchResultsAnnotation,
-  SearchResultsAnnotation,
-} from "./types/annotations";
-import { ExamplePrompts } from "./components/example-prompts";
-import { AttachmentHandler } from "./components/attachment-handler";
+import { isSearchResultsAnnotation } from "./types/annotations";
 import { LocalAttachment } from "./types/attachments";
 import {
   useEditorSelection,
@@ -164,7 +157,6 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
   // Track editor selection for contextual understanding
   // Uses frozen context to preserve selection even when chat input gets focus
   const {
-    current: currentEditorContext,
     frozen: frozenEditorContext,
     clearFrozen,
   } = useEditorSelection(app);
@@ -1408,8 +1400,8 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       const inMenu = exportDropdownRef.current?.contains(target);
       if (!inTrigger && !inMenu) setExportMenuOpen(false);
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    activeDocument.addEventListener("click", handleClickOutside);
+    return () => activeDocument.removeEventListener("click", handleClickOutside);
   }, [exportMenuOpen]);
 
   const handleExportSaveAsNote = useCallback(() => {
@@ -1427,13 +1419,6 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       : null;
     void copyChatToClipboard(messages, sessionTitle);
   }, [activeChatId, chatHistoryManager, messages]);
-
-  const handleAttachmentsChange = useCallback(
-    (newAttachments: LocalAttachment[]) => {
-      setAttachments(newAttachments);
-    },
-    []
-  );
 
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -1549,12 +1534,6 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
   const handleTranscriptionComplete = (text: string) => {
     handleInputChange({
       target: { value: text },
-    } as React.ChangeEvent<HTMLInputElement>);
-  };
-
-  const handleExampleClick = (prompt: string) => {
-    handleInputChange({
-      target: { value: prompt },
     } as React.ChangeEvent<HTMLInputElement>);
   };
 
@@ -1881,10 +1860,10 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       }
     };
 
-    document.addEventListener("slashCommand", handleSlashCommand);
+    activeDocument.addEventListener("slashCommand", handleSlashCommand);
 
     return () => {
-      document.removeEventListener("slashCommand", handleSlashCommand);
+      activeDocument.removeEventListener("slashCommand", handleSlashCommand);
     };
   }, [
     input,
@@ -1969,7 +1948,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
                       Copy to clipboard
                     </button>
                   </div>,
-                  document.body
+                  activeDocument.body
                 )}
             </div>
             {/* Chat History Combobox - Always show if we have callbacks */}

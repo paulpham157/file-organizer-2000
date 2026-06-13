@@ -223,7 +223,7 @@ const Tiptap: React.FC<TiptapProps> = ({
   // Expose editor via ref
   useEffect(() => {
     if (editor && editorRef) {
-      (editorRef as React.MutableRefObject<Editor | null>).current = editor;
+      editorRef.current = editor;
     }
   }, [editor, editorRef]);
 

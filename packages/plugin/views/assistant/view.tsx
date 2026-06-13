@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, TFile } from "obsidian";
+import { ItemView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { AssistantView } from "./organizer/organizer";
@@ -7,7 +7,6 @@ import { InboxLogs } from "./inbox-logs";
 import { SectionHeader } from "./section-header";
 import { AppContext } from "./provider";
 import AIChatSidebar from "./ai-chat/container";
-import ReactMarkdown from "react-markdown";
 import { SyncTab } from "./synchronizer/sync-tab";
 import { MeetingsTab } from "./meetings";
 import { StyledContainer } from "../../components/ui/utils";
@@ -35,42 +34,6 @@ function TabContent({
   showSyncTab: boolean;
   onTokenLimitError?: (error: string) => void;
 }) {
-  const [activeFile, setActiveFile] = React.useState<TFile | null>(null);
-  const [noteContent, setNoteContent] = React.useState<string>("");
-  const [refreshKey, setRefreshKey] = React.useState<number>(0);
-
-  React.useEffect(() => {
-    const updateActiveFile = async () => {
-      const file = plugin.app.workspace.getActiveFile();
-      if (file) {
-        const content = await plugin.app.vault.read(file);
-        setNoteContent(content);
-        setActiveFile(file);
-      }
-    };
-    void updateActiveFile();
-
-    const handler = () => {
-      void updateActiveFile();
-    };
-
-    plugin.app.workspace.on("file-open", handler);
-    plugin.app.workspace.on("active-leaf-change", handler);
-
-    return () => {
-      plugin.app.workspace.off("file-open", handler);
-      plugin.app.workspace.off("active-leaf-change", handler);
-    };
-  }, [plugin.app.workspace, plugin.app.vault]);
-
-  function renderNoteContent(content: string) {
-    return (
-      <div className={tw("markdown-preview")}>
-        <ReactMarkdown>{content}</ReactMarkdown>
-      </div>
-    );
-  }
-
   return (
     <div className={tw("flex flex-col h-full w-full")}>
       <div
@@ -226,7 +189,7 @@ function AssistantContent({
         const activeCount =
           analytics.queueStats.processing + analytics.queueStats.queued;
         setProcessingCount(activeCount);
-      } catch (error) {
+      } catch {
         // Silently handle errors (Inbox might not be initialized)
         setProcessingCount(0);
       }

@@ -7,8 +7,6 @@ import React, {
 } from "react";
 import { ChatComponent } from "./chat";
 import FileOrganizer from "../../..";
-import { Card } from "./card";
-import { Button } from "./button";
 import { ChatTabs } from "./components/chat-tabs";
 import {
   ChatHistoryManager,

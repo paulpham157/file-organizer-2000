@@ -37,7 +37,7 @@ function getCurrentAction(record: FileRecord, app: App): string {
     if (!lastStep) return '';
 
     return getActionDisplayName(lastStep);
-  } catch (error) {
+  } catch {
     return '';
   }
 }
@@ -56,7 +56,6 @@ export function ProcessingStatusBar({ plugin }: { plugin: FileOrganizer }) {
     const interval = window.setInterval(() => {
       try {
         const inbox = Inbox.getInstance();
-        const analytics = inbox.getAnalytics();
         const queueStats = inbox.getQueueStats();
 
         // Find currently processing file
@@ -100,7 +99,7 @@ export function ProcessingStatusBar({ plugin }: { plugin: FileOrganizer }) {
         } else {
           setStatus(null);
         }
-      } catch (error) {
+      } catch {
         // Silently handle errors (Inbox might not be initialized)
         setStatus(null);
       }

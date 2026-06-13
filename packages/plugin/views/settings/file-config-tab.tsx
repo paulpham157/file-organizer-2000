@@ -517,7 +517,7 @@ export const FileConfigTab: React.FC<FileConfigTabProps> = ({ plugin }) => {
                 if (confirmed) {
                   try {
                     await plugin.restoreTemplates();
-                  } catch (error) {
+                  } catch {
                     // Error is already handled in restoreTemplates method
                   }
                 }

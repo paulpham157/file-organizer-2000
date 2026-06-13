@@ -45,7 +45,7 @@ function safeStringifyInternal(obj: unknown, seen: WeakSet<object>, maxDepth: nu
     try {
       // Try regular JSON.stringify first (fast path for non-circular objects)
       return JSON.stringify(obj);
-    } catch (error: unknown) {
+    } catch {
       // If JSON.stringify fails, use custom handler
       try {
         // Handle arrays
@@ -65,7 +65,7 @@ function safeStringifyInternal(obj: unknown, seen: WeakSet<object>, maxDepth: nu
         });
         const suffix = Object.keys(obj).length > 10 ? ` ... (${Object.keys(obj).length - 10} more keys)` : '';
         return `{${pairs.join(', ')}${suffix}}`;
-      } catch (innerError: unknown) {
+      } catch {
         return `[Object: ${obj.constructor?.name || 'Object'}]`;
       }
     }

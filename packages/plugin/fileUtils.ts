@@ -499,7 +499,7 @@ export async function restoreDefaultTemplates(
       const existing = app.vault.getAbstractFileByPath(path);
       if (existing && existing instanceof TFile) {
         // Delete existing file to overwrite
-        await app.vault.delete(existing);
+        await app.fileManager.trashFile(existing);
       }
       // Create with original content
       await app.vault.create(

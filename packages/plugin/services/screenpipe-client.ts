@@ -118,7 +118,7 @@ export class ScreenpipeClient {
 
       const data = await readResponseJson<{ data?: ScreenpipeResult[] }>(response);
       return data.data ?? [];
-    } catch (error) {
+    } catch {
       // Return empty array on error - handler will show appropriate message
       return [];
     }

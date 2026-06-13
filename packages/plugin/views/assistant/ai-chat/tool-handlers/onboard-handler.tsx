@@ -71,7 +71,6 @@ export function OnboardHandler({
   handleAddResult,
 }: ToolHandlerProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isValidated, setIsValidated] = useState(false);
   const { toggleLightweightMode } = useContextItems();
   const plugin = usePlugin();
 
@@ -144,8 +143,6 @@ export function OnboardHandler({
     try {
       const { path = "/", maxDepth = 3 } = toolInvocation.args;
       const structure = await analyzeFolderStructure(path, 0, maxDepth);
-
-      setIsValidated(true);
 
       const fullStats = aggregateVaultScanStats(structure);
       const { capped, truncated } = capOnboardStructure(structure, 0);

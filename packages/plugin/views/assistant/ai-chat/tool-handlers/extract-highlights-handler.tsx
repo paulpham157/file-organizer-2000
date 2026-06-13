@@ -1,21 +1,9 @@
 import React, { useRef } from "react";
-import { App, TFile, MarkdownView } from "obsidian";
+import { TFile, MarkdownView } from "obsidian";
 import { ToolHandlerProps } from "./types";
 import { resolveFile } from "./resolve-file";
 
 const DEFAULT_MAX_CHARS = 30_000;
-
-interface ExtractHighlightsSuccess {
-  scope: string;
-  filePath?: string;
-  filePaths?: string[];
-  content: string | Array<{ path: string; content: string }>;
-}
-
-interface ExtractHighlightsError {
-  error: string;
-  hint?: string;
-}
 
 export function ExtractHighlightsHandler({
   toolInvocation,

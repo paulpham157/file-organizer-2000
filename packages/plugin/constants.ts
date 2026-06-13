@@ -44,7 +44,7 @@ export const VALID_EXTENSIONS = [
 export const isValidExtension = (extension: string): boolean => {
   const isSupported = VALID_EXTENSIONS.includes(extension);
   if (!isSupported) {
-    new Notice("Sorry, Note Companion does not support this file type.");
+    new Notice("Sorry, note companion does not support this file type.");
   }
   return isSupported;
 };

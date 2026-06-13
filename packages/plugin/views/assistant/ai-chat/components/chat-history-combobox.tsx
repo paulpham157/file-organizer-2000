@@ -104,8 +104,8 @@ export function ChatHistoryCombobox({
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    activeDocument.addEventListener("keydown", handleKeyDown);
+    return () => activeDocument.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, selectedIndex, filteredSessions, onSelectChat]);
 
   // Close when clicking outside
@@ -122,8 +122,8 @@ export function ChatHistoryCombobox({
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    activeDocument.addEventListener("mousedown", handleClickOutside);
+    return () => activeDocument.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   // Focus input when opened

@@ -33,7 +33,7 @@ export function ContextLimitIndicator({
           await init(imports => WebAssembly.instantiate(wasmBinary, imports));
           setTiktokenInitialized(true);
         }
-      } catch (e) {
+      } catch {
         setError("Failed to initialize token counter");
       }
     }

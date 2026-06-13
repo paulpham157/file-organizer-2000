@@ -1,5 +1,4 @@
 import React, { useRef } from "react";
-import { TFile } from "obsidian";
 import { getAllTags } from "obsidian";
 import { ToolHandlerProps } from "./types";
 import { resolveFile } from "./resolve-file";

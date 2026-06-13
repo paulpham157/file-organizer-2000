@@ -63,7 +63,7 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
 
       try {
         const leaf = plugin.app.workspace.getMostRecentLeaf();
-        const tempContainer = document.createElement("div");
+        const tempContainer = activeDocument.createElement("div");
 
         if (leaf?.view instanceof MarkdownView) {
           await MarkdownRenderer.render(

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Button } from "./button";
-import { Loader, Loader2, MicIcon, StopCircle } from "lucide-react";
+import { Loader2, MicIcon, StopCircle } from "lucide-react";
 import { logger } from "../../../services/logger";
 import { usePlugin } from "../provider";
 import { cn } from "../../../lib/utils";
@@ -26,7 +26,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [recordings, setRecordings] = useState<
     Array<{ url: string; timestamp: string }>
   >([]);
@@ -85,7 +84,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
             if (debug) {
               const url = URL.createObjectURL(webmBlob);
-              setAudioUrl(url);
               setRecordings(prev => [
                 ...prev,
                 {

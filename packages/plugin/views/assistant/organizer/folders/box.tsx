@@ -30,7 +30,6 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
   const [suggestions, setSuggestions] = React.useState<FolderSuggestion[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<Error | null>(null);
-  const [retryCount, setRetryCount] = React.useState(0);
 
   const suggestFolders = React.useCallback(async () => {
     if (!file) return;
@@ -87,7 +86,6 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
   }, [suggestFolders, refreshKey]);
 
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
     void suggestFolders();
   };
 

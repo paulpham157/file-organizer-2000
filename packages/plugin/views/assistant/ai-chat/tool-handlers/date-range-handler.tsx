@@ -1,5 +1,4 @@
 import React, { useRef } from "react";
-import { moment } from "obsidian";
 import { logger } from "../../../../services/logger";
 import { addFileReference, useContextItems } from "../use-context-items";
 import { ToolHandlerProps } from "./types";

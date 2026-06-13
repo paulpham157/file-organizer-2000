@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { App, MarkdownView, EditorPosition, EditorSelection } from "obsidian";
 import { syncFrozenEditorSelectionForTools } from "../../../services/editor-selection-store";
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { TFile } from "obsidian";
 import { Button } from "../ai-chat/button";
-import { FileText, Trash2, ExternalLink, RefreshCw, AlertCircle, Search } from "lucide-react";
+import { Trash2, ExternalLink, RefreshCw, Search } from "lucide-react";
 import FileOrganizer from "../../../index";
 import { tw } from "../../../lib/utils";
 import { Notice } from "obsidian";
@@ -102,7 +102,7 @@ export const RecentMeetings: React.FC<RecentMeetingsProps> = ({ plugin }) => {
     try {
       const file = plugin.app.vault.getAbstractFileByPath(filePath);
       if (file && file instanceof TFile) {
-        await plugin.app.vault.delete(file);
+        await plugin.app.fileManager.trashFile(file);
       }
       await metadataManager.removeRecording(filePath);
       await loadRecordings();

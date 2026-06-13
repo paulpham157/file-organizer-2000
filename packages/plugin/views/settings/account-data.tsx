@@ -31,7 +31,6 @@ export const AccountData: React.FC<AccountDataProps> = ({
   plugin,
   onLicenseKeyChange,
 }) => {
-  const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -49,7 +48,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
         const response = await obsidianFetch(`${plugin.getServerUrl()}/api/health`);
         const data = await readResponseJson<HealthResponse>(response);
         setIsDevMode(data.environment === "development");
-      } catch (error) {
+      } catch {
         setIsDevMode(false);
       }
     };
@@ -142,7 +141,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
       } else {
         setError(getApiError(data) ?? "Failed to add tokens");
       }
-    } catch (error) {
+    } catch {
       setError("An error occurred while adding tokens");
     } finally {
       setIsLoading(false);
@@ -185,7 +184,7 @@ export const AccountData: React.FC<AccountDataProps> = ({
       } else {
         setError(getApiError(data) ?? "Failed to add minutes");
       }
-    } catch (error) {
+    } catch {
       setError("An error occurred while adding minutes");
     } finally {
       setIsLoading(false);

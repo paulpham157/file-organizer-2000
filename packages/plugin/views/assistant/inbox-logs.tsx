@@ -1,8 +1,6 @@
 import * as React from "react";
 import {
   FileRecord,
-  LogEntry,
-  Action,
   FileStatus,
 } from "../../inbox/services/record-manager";
 import {
@@ -21,7 +19,6 @@ import {
 import { usePlugin } from "./provider";
 import { Inbox } from "../../inbox";
 import {
-  VALID_MEDIA_EXTENSIONS,
   VALID_AUDIO_EXTENSIONS,
   VALID_IMAGE_EXTENSIONS,
 } from "../../constants";
@@ -29,95 +26,6 @@ import { TFile, Notice } from "obsidian";
 import { ProcessingTimeline } from "./organizer/components/processing-timeline";
 import { UndoButton } from "./organizer/components/undo-button";
 import { RecentIssuesPanel } from "./inbox-logs/recent-issues-panel";
-
-// Enhanced log entry display component
-const LogEntryDisplay: React.FC<{ entry: LogEntry; step: Action }> = ({
-  entry,
-  step,
-}) => {
-  const getDisplayText = (step: Action) => {
-    switch (step) {
-      case Action.CLEANUP:
-        return "Cleaning up file";
-      case Action.RENAME:
-        return "Renaming file";
-      case Action.EXTRACT:
-        return "Extracting text";
-      case Action.MOVING_ATTACHMENT:
-        return "Moving attachments";
-      case Action.CLASSIFY:
-        return "Classifying";
-      case Action.TAGGING:
-        return "Recommending tags";
-      case Action.APPLYING_TAGS:
-        return "Applying tags";
-      case Action.RECOMMEND_NAME:
-        return "Recommending name";
-      case Action.APPLYING_NAME:
-        return "Applying name";
-      case Action.FORMATTING:
-        return "Formatting";
-      case Action.MOVING:
-        return "Moving file";
-      case Action.COMPLETED:
-        return "Completed";
-      default:
-        return step;
-    }
-  };
-
-  const isErrorStep = step.toString().startsWith("ERROR_");
-  const hasError = entry.error || isErrorStep;
-
-  return (
-    <div className="flex items-center gap-2 py-1.5">
-      {/* Status indicator */}
-      <div
-        className={`w-2 h-2 rounded-full ${
-          hasError
-            ? "bg-[--text-error]"
-            : entry.skipped
-            ? "bg-[--text-muted]"
-            : entry.completed
-            ? "bg-[--text-success]"
-            : "bg-[--text-accent] animate-pulse"
-        }`}
-      />
-
-      {/* Timestamp */}
-      <span className="text-[--text-muted] w-20 text-xs">
-        {window.moment(entry.timestamp).format("HH:mm:ss")}
-      </span>
-
-      {/* Step name */}
-      <span
-        className={`text-sm ${
-          hasError
-            ? "text-[--text-error]"
-            : entry.skipped
-            ? "text-[--text-muted] line-through"
-            : "text-[--text-muted]"
-        }`}
-      >
-        {getDisplayText(step)}
-        {entry.skipped && " (skipped)"}
-      </span>
-
-      {/* Error display */}
-      {entry.error && (
-        <div
-          className="flex items-center gap-1 text-[--text-error] text-sm ml-auto"
-          title={`Error: ${entry.error.message}${
-            entry.error.stack ? "\n\n" + entry.error.stack : ""
-          }`}
-        >
-          <AlertCircle className="w-4 h-4" />
-          <span className="truncate max-w-[200px]">{entry.error.message}</span>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // Add this helper component for the filename display
 const FileNameDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
@@ -138,18 +46,6 @@ const FileNameDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
       </span>
       <span className="text-[--text-muted]">→</span>
       <span className="text-[--text-accent]">{record.newName}</span>
-    </div>
-  );
-};
-
-// Add this helper component for the path display
-const PathDisplay: React.FC<{ record: FileRecord }> = ({ record }) => {
-  if (!record.newPath) return null;
-
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-[--text-muted]">→</span>
-      <span className="text-[--text-accent]">{record.newPath}</span>
     </div>
   );
 };
@@ -394,7 +290,7 @@ function getQueuePosition(record: FileRecord): { position: number; total: number
       return total > 1 ? { position, total } : null;
     }
     return null;
-  } catch (error) {
+  } catch {
     // Silently handle errors (Inbox might not be initialized)
     return null;
   }

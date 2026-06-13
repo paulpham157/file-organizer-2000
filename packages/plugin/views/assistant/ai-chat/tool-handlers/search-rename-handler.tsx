@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FC } from "react";
+import React, { useState, useEffect } from "react";
 import { TFile } from "obsidian";
 import { ToolHandlerProps } from "./types";
 import { usePlugin } from "../../provider";

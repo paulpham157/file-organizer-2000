@@ -200,7 +200,7 @@ const suggestion = {
                 bubbles: true,
                 cancelable: true,
               });
-              document.dispatchEvent(event);
+              activeDocument.dispatchEvent(event);
               console.debug("Dispatched format command event:", item.templateName);
             }, 0);
             return true;
@@ -215,7 +215,7 @@ const suggestion = {
                 bubbles: true,
                 cancelable: true,
               });
-              document.dispatchEvent(event);
+              activeDocument.dispatchEvent(event);
               console.debug("Dispatched slashCommand event:", item.action);
             }, 0);
           }
@@ -233,7 +233,7 @@ const suggestion = {
 
         popup = tippy("body", {
           getReferenceClientRect: props.clientRect,
-          appendTo: () => document.body,
+          appendTo: () => activeDocument.body,
           content: reactRenderer.element,
           showOnCreate: true,
           interactive: true,

@@ -76,7 +76,7 @@ export const AtomicNotes: React.FC<DocumentChunksProps> = ({ plugin, activeFile,
 
   // Use effect to render markdown after component updates
   React.useEffect(() => {
-    const containers = document.querySelectorAll('.chunk-markdown-content');
+    const containers = activeDocument.querySelectorAll('.chunk-markdown-content');
     containers.forEach((container) => {
       const content = container.getAttribute('data-content');
       if (content) {

@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Notice } from "obsidian";
 import FileOrganizer from "../../index";
-import { logger } from "../../services/logger";
-import { UsageStats } from "../../components/usage-stats";
-import { TopUpCredits } from "../../views/settings/top-up-credits";
 import { AccountData } from "./account-data";
 import { validateApiKey } from "../../apiUtils";
 import { FREE_TIER_TOKEN_LIMIT } from "../../constants";
