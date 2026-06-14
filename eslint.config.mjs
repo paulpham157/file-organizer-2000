@@ -32,6 +32,7 @@ export default tseslint.config(
     "**/tailwind.config.js",
     "**/jest.config.*",
     "packages/plugin/**/*.test.ts",
+    "packages/plugin/**/__mocks__/**",
   ]),
   {
     files: pluginFiles,

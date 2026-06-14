@@ -1,6 +1,9 @@
 {
   "name": "file-organizer-2000-monorepo",
   "private": true,
+  "workspaces": [
+    "packages/plugin"
+  ],
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^22.13.10",
@@ -17,7 +20,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "lint": "eslint packages/plugin",
+    "lint": "eslint .",
+    "lint:plugin": "eslint packages/plugin",
     "lint:monorepo": "turbo lint",
     "test": "turbo test",
     "clean": "git clean -xdf node_modules",

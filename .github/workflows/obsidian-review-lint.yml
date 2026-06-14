@@ -1,0 +1,29 @@
+name: Obsidian review lint
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  npm-eslint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: npm
+
+      - name: Install with npm (Obsidian scanner compatibility)
+        run: npm ci
+
+      - name: Lint like Obsidian community review
+        run: npm run lint
+
+      - name: Build plugin with npm workspace deps
+        working-directory: packages/plugin
+        run: node esbuild.config.mjs production
