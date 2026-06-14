@@ -4,35 +4,28 @@ import tseslint from "typescript-eslint";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import globals from "globals";
 import { globalIgnores } from "eslint/config";
+import {
+  obsidianScannerIgnores,
+  repoReleaseIgnores,
+} from "./eslint/scanner-ignores.mjs";
 
+const obsidianScan = process.env.OBSIDIAN_SCAN === "1";
 const pluginDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "packages/plugin");
 const pluginFiles = ["packages/plugin/**/*.{ts,tsx}"];
 
+/** Excluded for fast dev lint only; not excluded when OBSIDIAN_SCAN=1. */
+const devMonorepoIgnores = [
+  "packages/web/**",
+  "packages/mobile/**",
+  "packages/landing/**",
+  "packages/release-notes/**",
+];
+
 export default tseslint.config(
   globalIgnores([
-    "node_modules",
-    ".pnpm-store",
-    "packages/web/**",
-    "packages/mobile/**",
-    "packages/landing/**",
-    "packages/release-notes/**",
-    "dist",
-    "release-artifacts",
-    "main.js",
-    "styles.css",
-    "main.css",
-    "data.json",
-    "checksums.txt",
-    "versions.json",
-    "test-release.js",
-    "scripts/**",
-    "**/*.mjs",
-    "**/release.js",
-    "**/postcss.config.js",
-    "**/tailwind.config.js",
-    "**/jest.config.*",
-    "packages/plugin/**/*.test.ts",
-    "packages/plugin/**/__mocks__/**",
+    ...obsidianScannerIgnores,
+    ...repoReleaseIgnores,
+    ...(obsidianScan ? [] : devMonorepoIgnores),
   ]),
   {
     files: pluginFiles,
@@ -42,7 +35,7 @@ export default tseslint.config(
       },
       parserOptions: {
         projectService: {
-          allowDefaultProject: ["eslint.config.mjs", "manifest.json"],
+          allowDefaultProject: ["eslint.config.mjs"],
         },
         tsconfigRootDir: pluginDir,
         extraFileExtensions: [".json"],

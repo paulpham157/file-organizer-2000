@@ -22,7 +22,7 @@ jobs:
         run: npm ci
 
       - name: Lint like Obsidian community review
-        run: npm run lint
+        run: npm run lint:obsidian-scan
 
       - name: Build plugin with npm workspace deps
         working-directory: packages/plugin

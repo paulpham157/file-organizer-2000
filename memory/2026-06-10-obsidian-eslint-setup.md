@@ -18,8 +18,12 @@ ObsidianReviewBot reported: "The source code review encountered a fatal error…
 ## Local usage
 ```bash
 pnpm install   # from repo root
-pnpm lint      # runs Obsidian-compatible scan
+pnpm lint              # dev: plugin-focused, excludes other monorepo packages
+pnpm lint:obsidian-scan # bot-like: scanner ignore list, packages/plugin only
+npm run lint:obsidian-scan  # same, via npm (matches CI)
 ```
+
+Scanner ignore patterns live in `eslint/scanner-ignores.mjs` (from Obsidian team, 2026-06). The review bot uses its own copy of that list and does not read this repo's eslint config. `lint:obsidian-scan` is the closest local approximation for plugin TS.
 
 If you see `ERR_PNPM_BAD_PM_VERSION`, either upgrade pnpm (`npm i -g pnpm@10.8.1`) or rely on `.npmrc` `package-manager-strict=false`. You can also run eslint directly: `./node_modules/.bin/eslint packages/plugin`.
 
