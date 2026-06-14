@@ -43,10 +43,14 @@ async function normalizeBody(
     const chunks: Uint8Array[] = [];
     const encoder = new TextEncoder();
 
-    for (const [key, value] of body.entries()) {
+    const entries: [string, FormDataEntryValue][] = [];
+    body.forEach((value, key) => {
+      entries.push([key, value]);
+    });
+
+    for (const [key, value] of entries) {
       if (value instanceof Blob) {
-        const fileName =
-          value instanceof File ? value.name : "blob";
+        const fileName = value instanceof File ? value.name : "blob";
         const partHeader =
           `--${boundary}\r\n` +
           `Content-Disposition: form-data; name="${key}"; filename="${fileName}"\r\n` +
