@@ -39,5 +39,8 @@ module.exports = {
   corePlugins: {
     container: false,
     preflight: false,
+    displayContents: false,
   },
+  // Tailwind's content scanner matches `.contents` inside TS (e.g. `section?.contents`).
+  blocklist: ["contents"],
 }

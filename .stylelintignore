@@ -1,0 +1,8 @@
+# Not part of the Obsidian plugin release artifact
+packages/web/**
+packages/landing/**
+packages/mobile/**
+packages/release-notes/**
+
+node_modules/**
+.pnpm-store/**
