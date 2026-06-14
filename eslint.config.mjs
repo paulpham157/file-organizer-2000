@@ -6,6 +6,7 @@ import globals from "globals";
 import { globalIgnores } from "eslint/config";
 
 const pluginDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "packages/plugin");
+const pluginFiles = ["packages/plugin/**/*.{ts,tsx}"];
 
 export default tseslint.config(
   globalIgnores([
@@ -23,6 +24,8 @@ export default tseslint.config(
     "data.json",
     "checksums.txt",
     "versions.json",
+    "test-release.js",
+    "scripts/**",
     "**/*.mjs",
     "**/release.js",
     "**/postcss.config.js",
@@ -31,7 +34,7 @@ export default tseslint.config(
     "packages/plugin/**/*.test.ts",
   ]),
   {
-    files: ["packages/plugin/**/*.{ts,tsx}"],
+    files: pluginFiles,
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -45,7 +48,9 @@ export default tseslint.config(
       },
     },
   },
-  ...obsidianmd.configs.recommended,
+  ...obsidianmd.configs.recommended.map((config) =>
+    config.files ? config : { ...config, files: pluginFiles },
+  ),
   {
     files: ["package.json"],
     rules: {
