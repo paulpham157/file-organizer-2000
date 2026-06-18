@@ -18,7 +18,7 @@
   "version": "1.0.0",
   "packageManager": "pnpm@10.8.1",
   "scripts": {
-    "build": "pnpm --dir packages/plugin run build",
+    "build": "node packages/plugin/esbuild.config.mjs production",
     "build:all": "turbo build",
     "dev": "turbo dev",
     "lint": "eslint .",

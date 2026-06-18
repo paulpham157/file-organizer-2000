@@ -17,12 +17,13 @@ if you want to view the source, please visit the github repository of this plugi
 const prod = process.argv[2] === "production";
 const isGithubAction = process.env.GITHUB_ACTIONS === "true";
 
-// Determine output directory based on environment
-const outdir = isGithubAction ? "dist" : "../..";
-
-// Force a single React 18 instance. The monorepo hoists react-dom 19 at the root while
-// the plugin uses react 18 — resolve both from the plugin package so versions match.
 const pluginDir = path.dirname(fileURLToPath(import.meta.url));
+process.chdir(pluginDir);
+
+// Determine output directory based on environment (absolute paths — build may run from repo root)
+const outdir = isGithubAction
+  ? path.join(pluginDir, "dist")
+  : path.join(pluginDir, "../..");
 const requireFromPlugin = createRequire(path.join(pluginDir, "package.json"));
 const reactDir = path.dirname(requireFromPlugin.resolve("react/package.json"));
 const reactDomDir = path.dirname(requireFromPlugin.resolve("react-dom/package.json"));
@@ -56,8 +57,8 @@ const context = await esbuild.context({
 		js: banner,
 	},
 	entryPoints: {
-		main: "index.ts",
-		styles: "styles.css",
+		main: path.join(pluginDir, "index.ts"),
+		styles: path.join(pluginDir, "styles.css"),
 	},
 	bundle: true,
 	external: [
@@ -107,7 +108,7 @@ const context = await esbuild.context({
 		'.ts': 'ts',
 		'.wasm': 'binary',
 	},
-	tsconfig: "tsconfig.json",
+	tsconfig: path.join(pluginDir, "tsconfig.json"),
 });
 
 if (prod) {
