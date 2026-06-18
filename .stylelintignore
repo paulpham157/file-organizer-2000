@@ -6,3 +6,6 @@ packages/release-notes/**
 
 node_modules/**
 .pnpm-store/**
+
+# Tailwind source; shipped bundle is main.css at repo root (PostCSS output has no @tailwind)
+packages/plugin/styles.css
