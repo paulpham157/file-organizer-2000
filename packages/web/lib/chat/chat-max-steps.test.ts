@@ -7,6 +7,46 @@ import {
   getMaxStepsForUserTier,
   parseRequestedMaxSteps,
 } from './chat-max-steps';
+import {
+  isChatDeepSearchEnabled,
+  isChatWebSearchEnabled,
+} from './chat-web-search';
+
+describe('isChatWebSearchEnabled', () => {
+  const webSearchKey = 'CHAT_WEB_SEARCH';
+  const deepSearchKey = 'CHAT_DEEP_SEARCH';
+
+  afterEach(() => {
+    delete process.env[webSearchKey];
+    delete process.env[deepSearchKey];
+  });
+
+  it('defaults to true when unset', () => {
+    expect(isChatWebSearchEnabled()).toBe(true);
+  });
+
+  it('returns false when CHAT_WEB_SEARCH=false', () => {
+    process.env[webSearchKey] = 'false';
+    expect(isChatWebSearchEnabled()).toBe(false);
+  });
+});
+
+describe('isChatDeepSearchEnabled', () => {
+  const deepSearchKey = 'CHAT_DEEP_SEARCH';
+
+  afterEach(() => {
+    delete process.env[deepSearchKey];
+  });
+
+  it('defaults to false when unset', () => {
+    expect(isChatDeepSearchEnabled()).toBe(false);
+  });
+
+  it('returns true when CHAT_DEEP_SEARCH=true', () => {
+    process.env[deepSearchKey] = 'true';
+    expect(isChatDeepSearchEnabled()).toBe(true);
+  });
+});
 
 describe('getMaxStepsForUserTier', () => {
   it('returns free cap for null, empty, or free', () => {

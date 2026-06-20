@@ -86,10 +86,14 @@ MISTRAL_API_KEY=...your_key_here...
 DEEPSEEK_API_KEY=...your_key_here...
 
 # Optional: AI Model Configuration (for self-hosting with custom providers)
-# If not set, defaults to OpenAI with gpt-4o-mini (backward compatible)
+# If not set, defaults to OpenAI with gpt-4.1-mini (backward compatible)
 MODEL_PROVIDER=openai  # Options: openai, anthropic, google, groq, mistral, deepseek
-MODEL_NAME=gpt-4o-mini  # Model name for the selected provider
-RESPONSES_MODEL_NAME=gpt-4o-mini  # Optional: Model for Responses API (OpenAI only, defaults to MODEL_NAME)
+MODEL_NAME=gpt-4.1-mini  # Model name for the selected provider
+RESPONSES_MODEL_NAME=gpt-4.1-mini  # Optional: Model for Responses API (OpenAI only, defaults to MODEL_NAME)
+
+# Optional: Chat web search (Responses API + web_search_preview)
+# CHAT_WEB_SEARCH=false  # Default on; set to false to disable
+# CHAT_DEEP_SEARCH=true  # Default off; set to true for medium search context
 
 # Optional: Server configuration
 PORT=3000  # Default is 3000 for production (3010 is used in development mode with `pnpm dev`)

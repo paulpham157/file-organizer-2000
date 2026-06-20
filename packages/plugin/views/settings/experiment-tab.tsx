@@ -18,12 +18,6 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
   const [enableTitleSuggestions, setEnableTitleSuggestions] = useState(
     plugin.settings.enableTitleSuggestions
   );
-  const [enableSearchGrounding, setEnableSearchGrounding] = useState(
-    plugin.settings.enableSearchGrounding
-  );
-  const [enableDeepSearch, setEnableDeepSearch] = useState(
-    plugin.settings.enableDeepSearch
-  );
   const [showSyncTab, setShowSyncTab] = useState(
     plugin.settings.showSyncTab
   );
@@ -132,59 +126,6 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                   );
                 }}
               />
-              <ToggleSetting
-                name="Web Search for AI Responses"
-                description={
-                  <div className="space-y-2">
-                    <p>Enable web search capabilities to enhance AI responses with up-to-date information.</p>
-                    <div className="mt-2 p-3 bg-[--background-secondary] rounded text-sm space-y-1">
-                      <p className="text-[--text-accent]">
-                        🌎 Powered by OpenAI's web search feature
-                      </p>
-                      <p className="text-[--text-muted]">
-                        Automatically includes citations for information from the web
-                      </p>
-                    </div>
-                  </div>
-                }
-                value={enableSearchGrounding}
-                onChange={value => {
-                  void handleToggleChange(
-                    value,
-                    setEnableSearchGrounding,
-                    "enableSearchGrounding"
-                  );
-                }}
-              />
-
-              {enableSearchGrounding && (
-                <div className="ml-4 border-l-2 border-[--text-accent] pl-4">
-                  <ToggleSetting
-                    name="Deep Search Context"
-                    description={
-                      <div className="space-y-2">
-                        <p>Use a larger search context size for more comprehensive web results.</p>
-                        <div className="mt-2 p-3 bg-[--background-secondary] rounded text-sm space-y-1">
-                          <p className="text-[--text-warning]">
-                            ⚠️ Uses more tokens
-                          </p>
-                          <p className="text-[--text-muted]">
-                            Provides more detailed information from web sources but consumes additional tokens
-                          </p>
-                        </div>
-                      </div>
-                    }
-                    value={enableDeepSearch}
-                    onChange={value => {
-                      void handleToggleChange(
-                        value,
-                        setEnableDeepSearch,
-                        "enableDeepSearch"
-                      );
-                    }}
-                  />
-                </div>
-              )}
 
               <div className="setting-item p-4 bg-[--background-primary] rounded-lg border border-[--background-modifier-border] space-y-2">
                 <div className="font-medium text-[--text-normal]">

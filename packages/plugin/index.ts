@@ -205,12 +205,6 @@ export default class FileOrganizer extends Plugin {
       | Partial<FileOrganizerSettings>
       | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
-
-    // Migration: Fix old gpt-4.1-mini model name to gpt-4o-mini
-    if (this.settings.selectedModel === ("gpt-4.1-mini" as unknown)) {
-      this.settings.selectedModel = "gpt-4o-mini";
-      await this.saveSettings();
-    }
   }
 
   async checkCatalystAccess(): Promise<boolean> {

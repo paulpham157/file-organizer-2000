@@ -33,8 +33,6 @@ export class FileOrganizerSettings {
 
   useFolderEmbeddings = false;
   useVaultTitles = true;
-  enableSearchGrounding = false;
-  enableDeepSearch = false;
   showLocalLLMInChat = false;
   customFolderInstructions = "";
   selectedModel: "gpt-4o-mini" | "llama3.2" = "gpt-4o-mini";

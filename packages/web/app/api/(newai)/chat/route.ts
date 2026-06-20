@@ -30,6 +30,10 @@ import {
   limitMessagesToLastUserTurns,
   summarizeConversationWindow,
 } from '@/lib/chat/conversation-window';
+import {
+  isChatDeepSearchEnabled,
+  isChatWebSearchEnabled,
+} from '@/lib/chat/chat-web-search';
 import { buildChatToolsForMode } from './tools';
 
 export const maxDuration = 300; // Allow for complex multi-step tool calls and long conversations
@@ -72,10 +76,29 @@ export async function POST(req: NextRequest) {
           newUnifiedContext,
           currentDatetime,
           unifiedContext: oldUnifiedContext,
-          enableSearchGrounding = false,
-          deepSearch = false,
+          enableSearchGrounding: enableSearchGroundingClient,
+          deepSearch: deepSearchClient,
           requestedMaxSteps: requestedMaxStepsRaw,
         } = await req.json();
+
+        const shouldUseSearch = isChatWebSearchEnabled();
+        const deepSearch = isChatDeepSearchEnabled();
+
+        if (
+          shouldUseSearch &&
+          (enableSearchGroundingClient === false || deepSearchClient === false)
+        ) {
+          console.debug(
+            '[Chat API] Ignoring client search flags; server CHAT_WEB_SEARCH default is on',
+            { enableSearchGroundingClient, deepSearchClient }
+          );
+        }
+
+        console.log('[Chat API] Web search config', {
+          shouldUseSearch,
+          deepSearch,
+          chatWebSearchEnv: process.env.CHAT_WEB_SEARCH ?? '(unset, default on)',
+        });
 
         const userTier = await fetchUserTierForChat(userId);
         const tierMaxSteps = getMaxStepsForUserTier(userTier);
@@ -516,8 +539,7 @@ export async function POST(req: NextRequest) {
 
         dataStream.writeData('initialized call');
 
-        // Use search-enabled models when requested or when deep search is enabled
-        const shouldUseSearch = enableSearchGrounding || deepSearch;
+        // Search path controlled by CHAT_WEB_SEARCH env (default on); client flags ignored
 
         // Debug: Log tool invocations in messages
         const toolInvocations = messagesToProcess.filter((m) => m.role === 'tool');
@@ -769,12 +791,15 @@ export async function POST(req: NextRequest) {
             contextSize,
           });
 
-          const searchChatPromptHints = computeChatPromptHints({
-            contextItems: parsedContextItemsForHints,
-            contextParseFailed: contextJsonParseFailed,
-            contextString: searchContextString,
-            messages: messagesToProcess,
-          });
+          const searchChatPromptHints = {
+            ...computeChatPromptHints({
+              contextItems: parsedContextItemsForHints,
+              contextParseFailed: contextJsonParseFailed,
+              contextString: searchContextString,
+              messages: messagesToProcess,
+            }),
+            includeTemporalGuidance: true,
+          };
 
           const result = await streamText({
             model: getResponsesModel() as any,

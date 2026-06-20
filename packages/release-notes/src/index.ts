@@ -323,7 +323,7 @@ async function tryAnthropic(
   const model = anthropic('claude-3-5-sonnet-20241022');
 
   const { object } = await generateObject({
-    model,
+    model: model as any, // Type cast for AI SDK v2 compatibility
     schema: releaseNotesSchema,
     prompt: `${RELEASE_NOTES_PROMPT}\n\n${diff.slice(0, 100000)}`,
   });

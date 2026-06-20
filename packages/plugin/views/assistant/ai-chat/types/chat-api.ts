@@ -7,8 +7,6 @@ export interface ChatRequestBody {
   currentDatetime: string;
   newUnifiedContext: string;
   model: string;
-  enableSearchGrounding: boolean;
-  deepSearch: boolean;
   requestedMaxSteps?: number;
 }
 

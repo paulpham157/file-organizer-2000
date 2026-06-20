@@ -182,8 +182,35 @@ jest.mock('@ai-sdk/openai', () => ({
 }));
 
 describe('Chat API Route', () => {
+  const webSearchEnvKey = 'CHAT_WEB_SEARCH';
+
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env[webSearchEnvKey];
+  });
+
+  afterEach(() => {
+    delete process.env[webSearchEnvKey];
+  });
+
+  it('uses search path by default (CHAT_WEB_SEARCH unset)', async () => {
+    const mockRequest = new NextRequest('http://localhost:3000/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Hello' }],
+      }),
+      headers: {
+        'x-user-id': 'test-user',
+      },
+    });
+
+    await POST(mockRequest);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(streamText).toHaveBeenCalled();
+    const streamOptions = (streamText as jest.Mock).mock.calls[0][0];
+    expect(streamOptions.tools?.web_search_preview).toBeDefined();
+    expect(streamOptions.system).toContain('### Time, facts, and web search');
   });
 
   it('should include citation metadata in response', async () => {
@@ -194,7 +221,6 @@ describe('Chat API Route', () => {
           { role: 'user', content: "What's the latest news about AI?" },
         ],
         model: 'gpt-4o-search-preview',
-        enableSearchGrounding: true,
       }),
       headers: {
         'x-user-id': 'test-user',
@@ -242,6 +268,8 @@ describe('Chat API Route', () => {
   });
 
   it('should extract YouTube transcript from tool message and add to context', async () => {
+    process.env[webSearchEnvKey] = 'false';
+
     const mockRequest = new NextRequest('http://localhost:3000/api/chat', {
       method: 'POST',
       body: JSON.stringify({
@@ -266,8 +294,6 @@ describe('Chat API Route', () => {
             ],
           },
         ],
-        // Don't enable search mode so it goes to the non-search path that processes tool messages
-        enableSearchGrounding: false,
       }),
       headers: {
         'x-user-id': 'test-user',
@@ -298,6 +324,8 @@ describe('Chat API Route', () => {
   });
 
   it('should extract toolCallId and toolName from tool message array content', async () => {
+    process.env[webSearchEnvKey] = 'false';
+
     const mockRequest = new NextRequest('http://localhost:3000/api/chat', {
       method: 'POST',
       body: JSON.stringify({
@@ -317,8 +345,6 @@ describe('Chat API Route', () => {
             ],
           },
         ],
-        // Don't enable search mode so it goes to the non-search path that processes tool messages
-        enableSearchGrounding: false,
       }),
       headers: {
         'x-user-id': 'test-user',
@@ -344,6 +370,8 @@ describe('Chat API Route', () => {
   });
 
   it('should not duplicate hoisted YouTube block when transcript is already in client context', async () => {
+    process.env[webSearchEnvKey] = 'false';
+
     const unifiedContext = {
       files: {},
       youtubeVideos: {
@@ -382,7 +410,6 @@ describe('Chat API Route', () => {
           },
         ],
         newUnifiedContext: JSON.stringify(unifiedContext),
-        enableSearchGrounding: false,
       }),
       headers: {
         'x-user-id': 'test-user',

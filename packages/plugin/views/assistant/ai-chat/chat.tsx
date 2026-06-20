@@ -67,6 +67,9 @@ import {
 } from "./export-chat-as-markdown";
 import { tw } from "../../../lib/utils";
 
+const getCurrentDatetime = () =>
+  window.moment().format("YYYY-MM-DDTHH:mm:ssZ");
+
 interface ChatComponentProps {
   plugin: FileOrganizer;
   apiKey: string;
@@ -115,8 +118,6 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
   interface ReloadBody {
     currentDatetime: string;
     model: string;
-    enableSearchGrounding: boolean;
-    deepSearch: boolean;
     newUnifiedContext: string;
     /** Sent only when settings preference is not "auto"; server clamps to tier. */
     requestedMaxSteps?: number;
@@ -246,35 +247,19 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     [contextString, editorContextString]
   );
 
-  // Calculate datetime ONCE per component mount, not on every render
-  const currentDatetime = React.useMemo(
-    () => window.moment().format("YYYY-MM-DDTHH:mm:ssZ"),
-    [] // Empty deps = only calculate once
-  );
-
   // MEMOIZE chatBody to prevent infinite loop from RAF updates
   const chatBody = React.useMemo(
     () => ({
-      currentDatetime,
       newUnifiedContext: fullContext,
       model: plugin.settings.selectedModel,
-      enableSearchGrounding:
-        plugin.settings.enableSearchGrounding ||
-        selectedModel === "gpt-4o-search-preview" ||
-        selectedModel === "gpt-4o-mini-search-preview",
-      deepSearch: plugin.settings.enableDeepSearch,
       ...(plugin.settings.chatMaxStepsPreference !== "auto"
         ? { requestedMaxSteps: plugin.settings.chatMaxStepsPreference }
         : {}),
     }),
     [
-      currentDatetime,
       fullContext,
       plugin.settings.selectedModel,
-      plugin.settings.enableSearchGrounding,
-      plugin.settings.enableDeepSearch,
       plugin.settings.chatMaxStepsPreference,
-      selectedModel,
     ]
   );
 
@@ -494,14 +479,9 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
 
       const requestBody: ChatRequestBody = {
         messages: normalizedMessages,
-        currentDatetime,
+        currentDatetime: getCurrentDatetime(),
         newUnifiedContext: contextToSend,
         model: plugin.settings.selectedModel,
-        enableSearchGrounding:
-          plugin.settings.enableSearchGrounding ||
-          selectedModel === "gpt-4o-search-preview" ||
-          selectedModel === "gpt-4o-mini-search-preview",
-        deepSearch: plugin.settings.enableDeepSearch,
       };
       if (plugin.settings.chatMaxStepsPreference !== "auto") {
         requestBody.requestedMaxSteps = plugin.settings.chatMaxStepsPreference;
@@ -1661,15 +1641,9 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
       }
 
       // Stage the exact body we want reload to use
-      const currentDatetime = window.moment().format("YYYY-MM-DDTHH:mm:ssZ");
       forcedReloadBodyRef.current = {
-        currentDatetime,
+        currentDatetime: getCurrentDatetime(),
         model: plugin.settings.selectedModel,
-        enableSearchGrounding:
-          plugin.settings.enableSearchGrounding ||
-          selectedModel === "gpt-4o-search-preview" ||
-          selectedModel === "gpt-4o-mini-search-preview",
-        deepSearch: plugin.settings.enableDeepSearch,
         newUnifiedContext: snapshot, // ✅ the important part
         ...(plugin.settings.chatMaxStepsPreference !== "auto"
           ? { requestedMaxSteps: plugin.settings.chatMaxStepsPreference }
@@ -2137,7 +2111,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
                 unifiedContext={contextString}
                 maxContextSize={maxContextSize}
               />
-              {/* Removed SearchToggle - search grounding now auto-triggered by tools */}
+              {/* Web search is enabled server-side by default */}
             </div>
             <ModelSelector
               selectedModel={selectedModel}

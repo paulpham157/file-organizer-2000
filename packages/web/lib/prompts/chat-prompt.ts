@@ -11,6 +11,7 @@ export type ChatPromptHints = {
   includeFormatTemplate: boolean;
   includeRename: boolean;
   includeMerge: boolean;
+  includeTemporalGuidance?: boolean;
 };
 
 export const CHAT_PROMPT_HINTS_FULL: ChatPromptHints = {
@@ -189,12 +190,19 @@ On "rename this/current note": infer the new basename from latest H1, frontmatte
 const MODULE_MERGE = `### Merging notes
 **Intelligent merge** (dedupe, one coherent note): user phrases like merge intelligently, combine attached files, merge those N files — use \`getFileMetadata\` (with content) then merge in your head, then \`createNewFiles\` or \`appendContentToFile\`. **Simple concat in order:** \`mergeFiles\`. Attached \`files\`: copy each \`path\` exactly from context (wrong folder = broken merge). Prefer getFileMetadata + createNewFiles when @ files need content-aware merge. Name the merged note as an Obsidian link.`;
 
+const MODULE_TEMPORAL = `### Time, facts, and web search
+Treat "Current date and time" above as authoritative for "today", "this week", and relative dates.
+When the user asks a factual question (who, when, where, how many, scores, dates, current events) and attached notes do not fully answer it, use web search before saying information is missing or unknown. Combine note context with search results when both apply; cite web sources when you use them.
+For facts about events after your training cutoff, use web search rather than refusing or guessing.
+For vault-only tasks (summarize attached notes, rename, merge, tag, reorganize), use attached context and Obsidian tools — do not search the web unless the user asks about external/current information.`;
+
 export function buildChatSystemPrompt(
   contextString: string,
   currentDatetime: string,
   hints: ChatPromptHints = CHAT_PROMPT_HINTS_FULL
 ): string {
   const parts: string[] = [buildCore(contextString, currentDatetime)];
+  if (hints.includeTemporalGuidance) parts.push(MODULE_TEMPORAL);
   if (hints.includeYoutube) parts.push(MODULE_YOUTUBE);
   if (hints.includeWebFetch) parts.push(MODULE_WEB_FETCH);
   if (hints.includeTags) parts.push(MODULE_TAGS);

@@ -24,7 +24,13 @@ Available Bedrock Models:
 
 ### Models
 
-- `MODEL_NAME`: The model to use for generating file names. Defaults to `"gpt-4.1-mini"` if not set.
+- `MODEL_NAME`: Default AI model for cloud endpoints. Defaults to `"gpt-4.1-mini"` if not set.
+- `RESPONSES_MODEL_NAME`: Model for OpenAI Responses API (chat web search). Defaults to `MODEL_NAME`.
+
+### Chat web search
+
+- `CHAT_WEB_SEARCH`: Web search in chat is **on by default**. Set to `"false"` to disable (non-OpenAI self-hosters, cost control).
+- `CHAT_DEEP_SEARCH`: Set to `"true"` for medium search context size (default off).
 
 ### API Keys
 This is necessary when deploying with vercel, but not required if you run it locally.
