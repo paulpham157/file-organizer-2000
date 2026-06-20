@@ -11,6 +11,11 @@ import {
   getErrorMessage,
   isTokenLimitError,
 } from "../../../../lib/api-json";
+import { useOrganizerFetch } from "../../../../lib/use-debounced-fetch";
+import {
+  buildSuggestionCacheKey,
+  getCachedFolderSuggestions,
+} from "../../../../lib/suggestion-cache";
 
 interface SimilarFolderBoxProps {
   plugin: FileOrganizer;
@@ -29,68 +34,132 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
 }) => {
   const [suggestions, setSuggestions] = React.useState<FolderSuggestion[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
+  const [initialLoadComplete, setInitialLoadComplete] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
+  const requestIdRef = React.useRef(0);
+  const suggestionsCountRef = React.useRef(0);
+  suggestionsCountRef.current = suggestions.length;
 
-  const suggestFolders = React.useCallback(async () => {
-    if (!file) return;
-    setSuggestions([]);
-    setLoading(true);
-    setError(null);
-    // cut content length to only first 50k/4 chars
-    const truncatedContent = content.slice(0, 50000);
-    try {
-      const folderSuggestions = await plugin.recommendFolders(
-        truncatedContent,
-        file.path
-      );
-
-      // Safety check: ensure folderSuggestions is an array
-      if (!Array.isArray(folderSuggestions)) {
-        logger.error("Error fetching folders: API returned non-array response", folderSuggestions);
-        setError(new Error("Invalid response from server"));
-        return;
-      }
-
-      // Get all valid folders
+  const applyFolderSuggestions = React.useCallback(
+    (folderSuggestions: FolderSuggestion[]) => {
       const validFolders = plugin.getAllUserFolders();
-
-      // Filter suggestions to only include existing folders or new folders
       const filteredSuggestions = folderSuggestions.filter(
         suggestion =>
           suggestion.isNewFolder || validFolders.includes(suggestion.folder)
       );
-
       setSuggestions(filteredSuggestions);
-    } catch (err) {
-      logger.error("Error fetching folders:", err);
+    },
+    [plugin]
+  );
 
-      // Check if this is a token limit error
-      if (isTokenLimitError(err)) {
-        const errorMessage =
-          err.message ||
-          "Token limit exceeded. Please upgrade your plan for more tokens.";
-        setError(new Error(errorMessage));
-        // Notify parent component to show upgrade button
-        onTokenLimitError?.(errorMessage);
+  const resetForNewFileContext = React.useCallback(() => {
+    requestIdRef.current++;
+    setError(null);
+
+    if (!file || !content) {
+      setSuggestions([]);
+      setLoading(false);
+      setInitialLoadComplete(false);
+      return;
+    }
+
+    setSuggestions([]);
+    setLoading(true);
+    setInitialLoadComplete(false);
+
+    const cacheKey = buildSuggestionCacheKey(
+      file.path,
+      content,
+      plugin.settings.contentCutoffChars
+    );
+    const cached = getCachedFolderSuggestions(cacheKey);
+    if (cached) {
+      applyFolderSuggestions(cached);
+      setLoading(false);
+      setInitialLoadComplete(true);
+    }
+  }, [
+    applyFolderSuggestions,
+    content,
+    file,
+    plugin.settings.contentCutoffChars,
+  ]);
+
+  const suggestFolders = React.useCallback(
+    async (forceRefresh = false, signal?: AbortSignal) => {
+      if (!file || !content) {
         return;
       }
 
-      setError(new Error(getErrorMessage(err)));
-    } finally {
-      setLoading(false);
-    }
-  }, [content, file, plugin, onTokenLimitError]);
+      const requestId = ++requestIdRef.current;
+      if (suggestionsCountRef.current === 0) {
+        setLoading(true);
+      }
+      setError(null);
 
-  React.useEffect(() => {
-    void suggestFolders();
-  }, [suggestFolders, refreshKey]);
+      try {
+        const folderSuggestions = await plugin.recommendFolders(
+          content,
+          file.path,
+          forceRefresh ? { forceRefresh: true, signal } : { signal }
+        );
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        if (!Array.isArray(folderSuggestions)) {
+          logger.error(
+            "Error fetching folders: API returned non-array response",
+            folderSuggestions
+          );
+          setError(new Error("Invalid response from server"));
+          return;
+        }
+
+        applyFolderSuggestions(folderSuggestions);
+      } catch (err) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        logger.error("Error fetching folders:", err);
+
+        if (isTokenLimitError(err)) {
+          const errorMessage =
+            err.message ||
+            "Token limit exceeded. Please upgrade your plan for more tokens.";
+          setError(new Error(errorMessage));
+          onTokenLimitError?.(errorMessage);
+          return;
+        }
+
+        setError(new Error(getErrorMessage(err)));
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+          setInitialLoadComplete(true);
+        }
+      }
+    },
+    [applyFolderSuggestions, content, file, onTokenLimitError, plugin]
+  );
+
+  useOrganizerFetch(
+    signal => suggestFolders(false, signal),
+    file?.path,
+    content,
+    refreshKey,
+    resetForNewFileContext
+  );
 
   const handleRetry = () => {
-    void suggestFolders();
+    void suggestFolders(true);
   };
 
   const handleFolderClick = async (folder: string) => {
-    // if same folder, do nothing
     logMessage({ newFolder: folder, currentFolder: file?.parent?.path });
     if (folder === file?.parent?.path) return;
     if (!file) return;
@@ -110,11 +179,11 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
       setLoading(false);
     }
   };
+
   const filteredSuggestions = suggestions.filter(
     s => s.folder !== file?.parent?.path
   );
 
-  // Derive existing and new folders from suggestions
   const existingFolders = filteredSuggestions.filter(s => !s.isNewFolder);
   const newFolders = filteredSuggestions.filter(s => s.isNewFolder);
 
@@ -156,7 +225,7 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
   );
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && suggestions.length === 0 && !error) {
       return <SkeletonLoader count={4} width="100px" height="30px" rows={1} />;
     }
 
@@ -164,7 +233,11 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
       return renderError();
     }
 
-    if (existingFolders.length === 0 && newFolders.length === 0) {
+    if (
+      initialLoadComplete &&
+      existingFolders.length === 0 &&
+      newFolders.length === 0
+    ) {
       return (
         <div className="text-[--text-muted] p-2">No suitable folders found</div>
       );
@@ -182,7 +255,7 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
             <ExistingFolderButton
               key={`existing-${index}`}
               folder={folder.folder}
-              onClick={() => { void handleFolderClick(); }}
+              onClick={() => { void handleFolderClick(folder.folder); }}
               score={folder.score}
               reason={folder.reason}
             />
@@ -191,7 +264,7 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
             <NewFolderButton
               key={`new-${index}`}
               folder={folder.folder}
-              onClick={() => { void handleFolderClick(); }}
+              onClick={() => { void handleFolderClick(folder.folder); }}
               score={folder.score}
               reason={folder.reason}
             />

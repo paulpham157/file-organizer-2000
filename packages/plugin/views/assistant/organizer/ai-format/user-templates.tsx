@@ -12,6 +12,10 @@ import {
   isTokenLimitError,
   getTokenLimitErrorMessage,
 } from "../../../../lib/token-limit-error";
+import {
+  ORGANIZER_SECONDARY_DELAY_MS,
+  useOrganizerFetch,
+} from "../../../../lib/use-debounced-fetch";
 
 interface UserTemplatesProps {
   plugin: FileOrganizer;
@@ -44,6 +48,15 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   >("loading");
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const [isFileTooLarge, setIsFileTooLarge] = React.useState<boolean>(false);
+  const requestIdRef = React.useRef(0);
+
+  React.useEffect(() => {
+    if (content && file) {
+      setContentLoadStatus("success");
+    } else {
+      setContentLoadStatus("error");
+    }
+  }, [content, file]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -68,33 +81,38 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
     };
   }, [content]);
 
-  React.useEffect(() => {
-    const fetchClassificationAndTemplates = async () => {
+  const resetForNewFileContext = React.useCallback(() => {
+    requestIdRef.current++;
+    setSelectedTemplateName(null);
+    setClassificationStatus("loading");
+  }, []);
+
+  const fetchClassification = React.useCallback(
+    async (signal: AbortSignal) => {
       if (!content || !file) {
-        setContentLoadStatus("error");
-        logger.error("No content or file available");
+        setClassificationStatus("error");
         return;
       }
 
-      setContentLoadStatus("loading");
+      const requestId = ++requestIdRef.current;
       setClassificationStatus("loading");
 
       try {
-        const fileContent = await plugin.app.vault.read(file);
-        if (typeof fileContent !== "string") {
-          throw new Error("File content is not a string");
-        }
-        logMessage(fileContent, "fileContent");
-        setContentLoadStatus("success");
-
         const fetchedTemplateNames = await plugin.getTemplateNames();
+        if (signal.aborted || requestId !== requestIdRef.current) {
+          return;
+        }
         setTemplateNames(fetchedTemplateNames);
         logMessage(fetchedTemplateNames, "fetchedTemplateNames");
 
         const classifiedAs = await plugin.classifyContentV2(
-          fileContent,
-          fetchedTemplateNames
+          content,
+          fetchedTemplateNames,
+          { signal }
         );
+        if (signal.aborted || requestId !== requestIdRef.current) {
+          return;
+        }
         logMessage(classifiedAs, "classifiedAs");
 
         const selectedClassification = fetchedTemplateNames.find(
@@ -110,18 +128,35 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
         }
         setClassificationStatus("success");
       } catch (error) {
-        logger.error("Error in fetchClassificationAndTemplates:", error);
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        logger.error("Error in fetchClassification:", error);
 
-        // Check if this is a token limit error
         if (isTokenLimitError(error)) {
           onTokenLimitError?.(getTokenLimitErrorMessage(error));
         }
 
         setClassificationStatus("error");
       }
-    };
-    void fetchClassificationAndTemplates();
+    },
+    [content, file, onTokenLimitError, plugin]
+  );
 
+  useOrganizerFetch(
+    fetchClassification,
+    file?.path,
+    content,
+    refreshKey,
+    resetForNewFileContext,
+    600,
+    ORGANIZER_SECONDARY_DELAY_MS
+  );
+
+  React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -135,7 +170,7 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
     return () => {
       activeDocument.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [content, file, plugin, refreshKey]);
+  }, []);
 
   const getDisplayText = () => {
     if (selectedTemplateName) {

@@ -34,7 +34,7 @@ type DebouncedFn = {
 };
 
 function createDebouncedFn(fn: () => void, delayMs: number): DebouncedFn {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let timeoutId: number | null = null;
 
   const debounced = () => {
     if (timeoutId !== null) {
@@ -203,6 +203,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
   }, [updateActiveFile, plugin]);
 
   const refreshContext = React.useCallback(() => {
+    plugin.clearOrganizerSuggestionCaches();
     setRefreshKey(prevKey => prevKey + 1);
     setError(null);
 
@@ -216,7 +217,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
     window.setTimeout(() => {
       void updateActiveFile();
     }, 50); // Small delay to ensure state is cleared before updating
-  }, [updateActiveFile]);
+  }, [plugin, updateActiveFile]);
 
   const renderSection = React.useCallback(
     (component: React.ReactNode, errorMessage: string) => {

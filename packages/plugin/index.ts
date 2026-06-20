@@ -22,7 +22,6 @@ import {
   Modal,
   TFolder,
   TFile,
-  moment,
   normalizePath,
   loadPdfJs,
   arrayBufferToBase64,
@@ -75,6 +74,18 @@ import {
   type ApiErrorBody,
 } from "./lib/api-json";
 import { addTextSelectionContext } from "./views/assistant/ai-chat/use-context-items";
+import {
+  buildSuggestionCacheKey,
+  clearSuggestionCaches,
+  getCachedFolderSuggestions,
+  getCachedTagSuggestions,
+  setCachedFolderSuggestions,
+  setCachedTagSuggestions,
+} from "./lib/suggestion-cache";
+import {
+  capTagsForAI,
+  prioritizeFoldersForAI,
+} from "./lib/organizer-limits";
 import { ProcessingStatusBar } from "./components/processing-status-bar";
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
@@ -184,6 +195,10 @@ export default class FileOrganizer extends Plugin {
   settings: FileOrganizerSettings;
   private statusBarItem: HTMLElement | null = null;
   private statusBarRoot: Root | null = null;
+  private vaultTagsCache: string[] | null = null;
+  private vaultTagsCacheListenerRegistered = false;
+  private userFoldersCache: string[] | null = null;
+  private userFoldersCacheListenerRegistered = false;
 
   async loadSettings() {
     const loaded = (await this.loadData()) as
@@ -939,7 +954,8 @@ export default class FileOrganizer extends Plugin {
 
   async classifyContentV2(
     content: string,
-    classifications: string[]
+    classifications: string[],
+    options?: { signal?: AbortSignal }
   ): Promise<string> {
     const cutoff = this.settings.contentCutoffChars;
     const trimmedContent = content.slice(0, cutoff);
@@ -998,6 +1014,7 @@ export default class FileOrganizer extends Plugin {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.settings.API_KEY}`,
       },
+      signal: options?.signal,
       body: JSON.stringify({
         content: trimmedContent,
         templateNames: classifications,
@@ -1164,16 +1181,21 @@ export default class FileOrganizer extends Plugin {
   }
   // this is a list of all the folders that file organizer to use for organization
   getAllUserFolders(): string[] {
+    if (this.userFoldersCache) {
+      return this.userFoldersCache;
+    }
+
     const allFolders = this.app.vault.getAllFolders();
     const allFoldersPaths = allFolders.map(folder => folder.path);
     const ignoredFolders = this.getAllIgnoredFolders();
 
     // If ignoreFolders includes "*", return empty array as all folders are ignored
     if (this.settings.ignoreFolders.includes("*")) {
-      return [];
+      this.userFoldersCache = [];
+      return this.userFoldersCache;
     }
 
-    return allFoldersPaths.filter(folder => {
+    this.userFoldersCache = allFoldersPaths.filter(folder => {
       // Check if the folder is not in the ignored folders list
       return (
         !ignoredFolders.includes(folder) &&
@@ -1182,6 +1204,18 @@ export default class FileOrganizer extends Plugin {
         )
       );
     });
+
+    if (!this.userFoldersCacheListenerRegistered) {
+      this.userFoldersCacheListenerRegistered = true;
+      const invalidateUserFoldersCache = () => {
+        this.userFoldersCache = null;
+      };
+      this.registerEvent(this.app.vault.on("create", invalidateUserFoldersCache));
+      this.registerEvent(this.app.vault.on("delete", invalidateUserFoldersCache));
+      this.registerEvent(this.app.vault.on("rename", invalidateUserFoldersCache));
+    }
+
+    return this.userFoldersCache;
   }
 
   async compressImage(fileContent: Buffer): Promise<Buffer> {
@@ -1284,33 +1318,71 @@ export default class FileOrganizer extends Plugin {
   }
 
   async getAllVaultTags(): Promise<string[]> {
-    // Fetch all tags from the vault
-    const tags = (
-      this.app.metadataCache as { getTags: () => TagCounts }
-    ).getTags();
+    if (this.vaultTagsCache) {
+      return this.vaultTagsCache;
+    }
+
+    const tagCounts: TagCounts = {};
+    for (const file of this.app.vault.getMarkdownFiles()) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (!cache?.tags) {
+        continue;
+      }
+      for (const tagRef of cache.tags) {
+        tagCounts[tagRef.tag] = (tagCounts[tagRef.tag] ?? 0) + 1;
+      }
+    }
 
     // If no tags are found, return an empty array
-    if (Object.keys(tags).length === 0) {
+    if (Object.keys(tagCounts).length === 0) {
       logMessage("No tags found");
       return [];
     }
 
     // Sort tags by their occurrence count in descending order
-    const sortedTags = Object.entries(tags).sort((a, b) => b[1] - a[1]);
+    const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
 
-    // Return the list of sorted tags
-    return sortedTags.map(tag => tag[0]);
+    const tagList = sortedTags.map(tag => tag[0]);
+    this.vaultTagsCache = tagList;
+
+    if (!this.vaultTagsCacheListenerRegistered) {
+      this.vaultTagsCacheListenerRegistered = true;
+      this.registerEvent(
+        this.app.metadataCache.on("changed", () => {
+          this.vaultTagsCache = null;
+        })
+      );
+    }
+
+    return tagList;
+  }
+
+  clearOrganizerSuggestionCaches(): void {
+    clearSuggestionCaches();
+    this.vaultTagsCache = null;
+    this.userFoldersCache = null;
   }
 
   async recommendTags(
     content: string,
     filePath: string,
-    existingTags: string[]
+    existingTags: string[],
+    options?: { forceRefresh?: boolean; signal?: AbortSignal }
   ): Promise<
     Array<{ score: number; tag: string; reason: string; isNew: boolean }>
   > {
     const cutoff = this.settings.contentCutoffChars;
+    const cacheKey = buildSuggestionCacheKey(filePath, content, cutoff);
+
+    if (!options?.forceRefresh) {
+      const cached = getCachedTagSuggestions(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const trimmedContent = content.slice(0, cutoff);
+    const tagsForAI = capTagsForAI(existingTags);
 
     // Check if local LLM should be used (same logic as chat component)
     const isCloudModel = this.settings.selectedModel === "gpt-4o-mini";
@@ -1339,7 +1411,7 @@ export default class FileOrganizer extends Plugin {
             ),
           }),
           system: `You are a precise tag generator. Analyze content and suggest ${count} relevant tags.
-              ${existingTags.length ? `Consider existing tags: ${existingTags.join(", ")}` : "Create new tags if needed."}
+              ${tagsForAI.length ? `Consider existing tags: ${tagsForAI.join(", ")}` : "Create new tags if needed."}
               ${this.settings.customTagInstructions ? `Follow these custom instructions: ${this.settings.customTagInstructions}` : ""}
 
               Guidelines:
@@ -1374,6 +1446,7 @@ export default class FileOrganizer extends Plugin {
             reason: tag.reason || "Relevant to content theme",
           }));
 
+        setCachedTagSuggestions(cacheKey, sortedTags);
         return sortedTags;
       } catch (error) {
         logger.error("Error recommending tags with local LLM:", error);
@@ -1394,10 +1467,11 @@ export default class FileOrganizer extends Plugin {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.settings.API_KEY}`,
       },
+      signal: options?.signal,
       body: JSON.stringify({
         content: trimmedContent,
         fileName: filePath,
-        existingTags,
+        existingTags: tagsForAI,
         customInstructions: this.settings.customTagInstructions,
       }),
     });
@@ -1428,18 +1502,32 @@ export default class FileOrganizer extends Plugin {
 
     const { tags: suggestedTags } =
       await readResponseJson<TagsResponse>(response);
+    setCachedTagSuggestions(cacheKey, suggestedTags);
     return suggestedTags;
   }
 
   async recommendFolders(
     content: string,
-    fileName: string
+    fileName: string,
+    options?: { forceRefresh?: boolean; signal?: AbortSignal }
   ): Promise<FolderSuggestion[]> {
     const customInstructions = this.settings.customFolderInstructions;
     const cutoff = this.settings.contentCutoffChars;
+    const cacheKey = buildSuggestionCacheKey(fileName, content, cutoff);
+
+    if (!options?.forceRefresh) {
+      const cached = getCachedFolderSuggestions(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const trimmedContent = content.slice(0, cutoff);
 
-    const folders = this.getAllUserFolders();
+    const folders = prioritizeFoldersForAI(
+      this.getAllUserFolders(),
+      fileName
+    );
 
     // Check if local LLM should be used (same logic as chat component)
     const isCloudModel = this.settings.selectedModel === "gpt-4o-mini";
@@ -1488,6 +1576,7 @@ export default class FileOrganizer extends Plugin {
             reason: folder.reason ?? "",
           }));
 
+        setCachedFolderSuggestions(cacheKey, sortedFolders);
         return sortedFolders;
       } catch (error) {
         logger.error("Error recommending folders with local LLM:", error);
@@ -1508,6 +1597,7 @@ export default class FileOrganizer extends Plugin {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.settings.API_KEY}`,
       },
+      signal: options?.signal,
       body: JSON.stringify({
         content: trimmedContent,
         fileName: fileName,
@@ -1549,6 +1639,7 @@ export default class FileOrganizer extends Plugin {
       return [];
     }
 
+    setCachedFolderSuggestions(cacheKey, suggestedFolders);
     return suggestedFolders;
   }
 
@@ -2028,9 +2119,7 @@ export default class FileOrganizer extends Plugin {
   }
 
   async generateUniqueBackupFileName(originalFile: TFile): Promise<string> {
-    const timestamp = (
-      moment() as { format: (pattern: string) => string }
-    ).format("YYYYMMDD_HHmmss");
+    const timestamp = window.moment().format("YYYYMMDD_HHmmss");
     const baseFileName = `${originalFile.basename}_backup_${timestamp}`;
     let fileName = `${baseFileName}.${originalFile.extension}`;
     let counter = 1;
@@ -2116,7 +2205,8 @@ export default class FileOrganizer extends Plugin {
 
   async recommendName(
     content: string,
-    fileName: string
+    fileName: string,
+    options?: { signal?: AbortSignal }
   ): Promise<TitleSuggestion[]> {
     // cutoff
     const cutoff = this.settings.contentCutoffChars;
@@ -2129,6 +2219,7 @@ export default class FileOrganizer extends Plugin {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.settings.API_KEY}`,
       },
+      signal: options?.signal,
       body: JSON.stringify({
         content: trimmedContent,
         fileName: fileName,

@@ -13,7 +13,12 @@ import {
   isTokenLimitError,
   getTokenLimitErrorMessage,
 } from "../../../lib/token-limit-error";
-// Rename the button components for tags
+import { useOrganizerFetch } from "../../../lib/use-debounced-fetch";
+import {
+  buildSuggestionCacheKey,
+  getCachedTagSuggestions,
+} from "../../../lib/suggestion-cache";
+
 const ExistingTagButton = ExistingFolderButton;
 const NewTagButton = NewFolderButton;
 
@@ -40,52 +45,143 @@ export const SimilarTags: React.FC<SimilarTagsProps> = ({
   >([]);
   const [loading, setLoading] = React.useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = React.useState(false);
+  const requestIdRef = React.useRef(0);
+  const tagCountsRef = React.useRef({ existing: 0, new: 0 });
+  tagCountsRef.current = {
+    existing: existingTags.length,
+    new: newTags.length,
+  };
 
-  React.useEffect(() => {
-    const fetchTags = async () => {
-      if (!file || !content) return;
-      setLoading(true);
+  const applyTagSuggestions = React.useCallback(
+    (
+      suggestedTags: Array<{
+        score: number;
+        tag: string;
+        reason: string;
+        isNew: boolean;
+      }>
+    ) => {
+      const existingTagsResult = suggestedTags
+        .filter(tag => !tag.isNew)
+        .map(tag => ({ tag: tag.tag, score: tag.score, reason: tag.reason }));
+      const newTagsResult = suggestedTags
+        .filter(tag => tag.isNew)
+        .map(tag => ({ tag: tag.tag, score: tag.score, reason: tag.reason }));
+
+      setExistingTags(existingTagsResult);
+      setNewTags(newTagsResult);
+    },
+    []
+  );
+
+  const resetForNewFileContext = React.useCallback(() => {
+    requestIdRef.current++;
+
+    if (!file || !content) {
       setExistingTags([]);
       setNewTags([]);
+      setLoading(false);
+      setInitialLoadComplete(false);
+      return;
+    }
 
-      try {
-        const vaultTags = await plugin.getAllVaultTags();
-        const suggestedTags = await plugin.recommendTags(
-          content,
-          file.basename,
-          vaultTags
-        );
+    setExistingTags([]);
+    setNewTags([]);
+    setLoading(true);
+    setInitialLoadComplete(false);
 
-        const existingTagsResult = suggestedTags
-          .filter(tag => !tag.isNew)
-          .map(tag => ({ tag: tag.tag, score: tag.score, reason: tag.reason }));
-        const newTagsResult = suggestedTags
-          .filter(tag => tag.isNew)
-          .map(tag => ({ tag: tag.tag, score: tag.score, reason: tag.reason }));
+    const cacheKey = buildSuggestionCacheKey(
+      file.path,
+      content,
+      plugin.settings.contentCutoffChars
+    );
+    const cached = getCachedTagSuggestions(cacheKey);
+    if (cached) {
+      applyTagSuggestions(cached);
+      setLoading(false);
+      setInitialLoadComplete(true);
+    }
+  }, [applyTagSuggestions, content, file, plugin.settings.contentCutoffChars]);
 
-        setExistingTags(existingTagsResult || []);
-        setNewTags(newTagsResult || []);
-      } catch (error) {
-        logger.error("Error in tag fetching process:", error);
+  const fetchTags = React.useCallback(async (signal: AbortSignal) => {
+    if (!file || !content) {
+      return;
+    }
 
-        // Check if this is a token limit error
-        if (isTokenLimitError(error)) {
-          onTokenLimitError?.(getTokenLimitErrorMessage(error));
-        }
-      } finally {
+    const requestId = ++requestIdRef.current;
+    const cacheKey = buildSuggestionCacheKey(
+      file.path,
+      content,
+      plugin.settings.contentCutoffChars
+    );
+    const cached = getCachedTagSuggestions(cacheKey);
+    if (cached) {
+      if (requestId === requestIdRef.current) {
+        applyTagSuggestions(cached);
         setLoading(false);
         setInitialLoadComplete(true);
       }
-    };
-    void fetchTags();
-  }, [file, content, refreshKey, plugin, onTokenLimitError]);
+      return;
+    }
+
+    const hadSuggestions =
+      tagCountsRef.current.existing > 0 || tagCountsRef.current.new > 0;
+    if (!hadSuggestions) {
+      setLoading(true);
+    }
+
+    try {
+      const vaultTags = await plugin.getAllVaultTags();
+      if (signal.aborted || requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const suggestedTags = await plugin.recommendTags(
+        content,
+        file.path,
+        vaultTags,
+        { signal }
+      );
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      applyTagSuggestions(suggestedTags);
+    } catch (error) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      logger.error("Error in tag fetching process:", error);
+
+      if (isTokenLimitError(error)) {
+        onTokenLimitError?.(getTokenLimitErrorMessage(error));
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setInitialLoadComplete(true);
+      }
+    }
+  }, [applyTagSuggestions, content, file, onTokenLimitError, plugin]);
+
+  useOrganizerFetch(
+    fetchTags,
+    file?.path,
+    content,
+    refreshKey,
+    resetForNewFileContext
+  );
 
   const handleTagClick = (tag: string) => {
     void plugin.appendTag(file, tag);
   };
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && existingTags.length === 0 && newTags.length === 0) {
       return <SkeletonLoader count={4} width="60px" height="24px" rows={1} />;
     }
     if (
