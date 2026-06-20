@@ -8,6 +8,11 @@ const ONBOARD_MAX_FILES_ROOT = 200;
 const ONBOARD_MAX_FILES_NESTED = 100;
 const ONBOARD_MAX_SUBFOLDERS_PER_NODE = 40;
 
+interface AnalyzeVaultStructureArgs {
+  path?: string;
+  maxDepth?: number;
+}
+
 interface OnboardNode {
   path: string;
   depth: number;
@@ -141,7 +146,8 @@ export function OnboardHandler({
     setIsAnalyzing(true);
     toggleLightweightMode();
     try {
-      const { path = "/", maxDepth = 3 } = toolInvocation.args;
+      const { path = "/", maxDepth = 3 } =
+        toolInvocation.args as AnalyzeVaultStructureArgs;
       const structure = await analyzeFolderStructure(path, 0, maxDepth);
 
       const fullStats = aggregateVaultScanStats(structure);

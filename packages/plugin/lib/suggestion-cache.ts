@@ -24,7 +24,7 @@ function touchCacheEntry<V>(cache: Map<string, V>, key: string, value: V): void 
   cache.set(key, value);
 
   while (cache.size > MAX_CACHE_ENTRIES) {
-    const oldestKey = cache.keys().next().value;
+    const oldestKey = cache.keys().next().value as string | undefined;
     if (oldestKey === undefined) {
       break;
     }

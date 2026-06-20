@@ -36,7 +36,6 @@ export function useDebouncedFetch(
       window.clearTimeout(timeoutId);
       requestIdRef.current++;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- caller controls deps
   }, deps);
 
   return { isFetching };
