@@ -41,76 +41,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Use Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
+          node-version: "20.x"
+          cache: npm
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
+      - name: Install pnpm (release-notes compile only)
+        uses: pnpm/action-setup@v4
         with:
           version: 10.8.1
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
+      - name: Compile release-notes generator
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          pnpm install --filter @file-organizer/release-notes --frozen-lockfile
+          pnpm --filter @file-organizer/release-notes build
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Install dependencies (Obsidian community review path)
+        run: npm ci
 
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Update versions and generate artifacts
+      - name: Bump version and generate release notes
         id: release_prep
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # Build all packages including release-notes
-          echo "Building packages..."
-          pnpm --filter  "@file-organizer/release-notes" build
-          
-          # Create a temporary file for the release data
           echo "Preparing release data..."
           node -e "
-            const { updateVersions, generateReleaseArtifacts, prepareReleaseArtifacts, generateReleaseNotes } = require('./packages/release-notes/dist');
+            const { updateVersions, generateReleaseNotes } = require('./packages/release-notes/dist');
             
             async function run() {
               try {
                 const repoRoot = process.cwd();
                 
-                // Step 1: Update versions
                 console.log('Updating versions...');
                 const versionInfo = await updateVersions('${{ github.event.inputs.increment }}', repoRoot);
                 console.log('Version info:', JSON.stringify(versionInfo));
                 
-                // Step 2: Build plugin
-                console.log('Building plugin...');
-                await generateReleaseArtifacts(versionInfo.previous, {
-                  repoRoot,
-                  openAIApiKey: process.env.OPENAI_API_KEY,
-                  anthropicApiKey: process.env.ANTHROPIC_API_KEY
-                });
-                
-                // Step 3: Generate release notes (with fallback support)
                 console.log('Generating release notes...');
                 const notes = await generateReleaseNotes(versionInfo.previous, {
                   repoRoot,
@@ -119,12 +96,6 @@ jobs:
                   anthropicApiKey: process.env.ANTHROPIC_API_KEY
                 });
                 
-                // Step 4: Prepare artifacts
-                console.log('Preparing artifacts...');
-                const artifacts = await prepareReleaseArtifacts(versionInfo.new);
-                console.log('Generated artifacts:', artifacts);
-                
-                // Write the complete release data to a file
                 const releaseData = { versionInfo, notes };
                 require('fs').writeFileSync('release-data.json', JSON.stringify(releaseData, null, 2));
                 console.log('Release data written to release-data.json');
@@ -138,6 +109,22 @@ jobs:
               console.error('Fatal error:', error);
               process.exit(1);
             });
+          "
+
+      - name: Build plugin (Obsidian community review path)
+        run: npm run build
+
+      - name: Prepare release artifacts
+        run: |
+          node -e "
+            const { prepareReleaseArtifacts } = require('./packages/release-notes/dist');
+            const releaseData = require('./release-data.json');
+            prepareReleaseArtifacts(releaseData.versionInfo.new)
+              .then(artifacts => console.log('Generated artifacts:', artifacts))
+              .catch(error => {
+                console.error('Error preparing release artifacts:', error);
+                process.exit(1);
+              });
           "
 
       - name: Save release data

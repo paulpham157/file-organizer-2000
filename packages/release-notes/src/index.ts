@@ -434,12 +434,19 @@ export async function prepareReleaseArtifacts(
   return artifacts;
 }
 
+export async function buildPluginForRelease(repoRoot: string): Promise<void> {
+  execSync('npm run build', {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  });
+}
+
 export async function generateReleaseArtifacts(
   version: string,
   options: GenerateOptions
 ): Promise<void> {
   await Promise.all([
-    execSync('pnpm --filter "./packages/plugin" build'),
+    buildPluginForRelease(options.repoRoot),
     generateReleaseNotes(version, options),
     fs.mkdir('release-artifacts', { recursive: true }),
   ]);

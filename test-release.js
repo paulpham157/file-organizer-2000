@@ -32,7 +32,7 @@ async function run() {
     
     // Step 2: Build plugin
     console.log('\n🏗️  Building plugin...');
-    execSync('pnpm --filter "./packages/plugin" build', { stdio: 'inherit' });
+    execSync('npm run build', { stdio: 'inherit' });
     
     // Step 3: Generate release notes
     console.log('\n📝 Generating release notes...');
