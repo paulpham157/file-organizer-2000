@@ -192,7 +192,7 @@ const MODULE_MERGE = `### Merging notes
 
 const MODULE_TEMPORAL = `### Time, facts, and web search
 Treat "Current date and time" above as authoritative for "today", "this week", and relative dates.
-When the user asks a factual question (who, when, where, how many, scores, dates, current events) and attached notes do not fully answer it, use web search before saying information is missing or unknown. Combine note context with search results when both apply; cite web sources when you use them.
+When the user asks a factual question (who, when, where, how many, scores, dates, current events) and attached notes do not fully answer it, use web search before saying information is missing or unknown. Invoke web search before writing your answer — do not give a provisional reply and revise it afterward. Combine note context with search results when both apply; cite web sources when you use them.
 For facts about events after your training cutoff, use web search rather than refusing or guessing.
 For vault-only tasks (summarize attached notes, rename, merge, tag, reorganize), use attached context and Obsidian tools — do not search the web unless the user asks about external/current information.`;
 

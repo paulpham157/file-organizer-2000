@@ -39,6 +39,7 @@ import {
   extractToolInvocationsFromMessage,
   getMessageToolSummary,
   normalizeMessagesForRequest,
+  shouldDeferAssistantContent,
   toToolInvocation,
 } from "./types/chat-api";
 import {
@@ -1008,7 +1009,19 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
   // 2. Tools are executing (before results appear)
   // 3. Tools are complete but AI hasn't started streaming yet
   const showLoadingIndicator =
-    status === "submitted" || (hasToolActivity && status !== "streaming");
+    status === "submitted" ||
+    (hasToolActivity && status !== "streaming") ||
+    (isGenerating &&
+      messages.length > 0 &&
+      messages[messages.length - 1]?.role === "assistant" &&
+      shouldDeferAssistantContent({
+        message: messages[messages.length - 1],
+        toolInvocations: extractToolInvocationsFromMessage(
+          messages[messages.length - 1]
+        ),
+        isLastMessage: true,
+        isGenerating,
+      }));
 
   // Helper to normalize message with timestamp
   const normalizeMessage = (
@@ -1945,8 +1958,15 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12"></div>
           ) : (
-            messages.map(message => {
+            messages.map((message, messageIndex) => {
               const toolInvocations = extractToolInvocationsFromMessage(message);
+              const isLastMessage = messageIndex === messages.length - 1;
+              const deferContent = shouldDeferAssistantContent({
+                message,
+                toolInvocations,
+                isLastMessage,
+                isGenerating,
+              });
 
               if (toolInvocations.length > 0) {
                 console.debug("[Chat] Tool invocations for message:", message.id,
@@ -1985,13 +2005,15 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
                     return null;
                   })}
                   {/* Finally render the message content (summary) so it appears below tool invocations */}
-                  <MessageRenderer
-                    message={
-                      messagesWithTimestamps.find(m => m.id === message.id) ||
-                      normalizeMessage(message)
-                    }
-                    onMessageRefresh={handleMessageRefresh}
-                  />
+                  {!deferContent && (
+                    <MessageRenderer
+                      message={
+                        messagesWithTimestamps.find(m => m.id === message.id) ||
+                        normalizeMessage(message)
+                      }
+                      onMessageRefresh={handleMessageRefresh}
+                    />
+                  )}
                 </React.Fragment>
               );
             })

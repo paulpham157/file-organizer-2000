@@ -191,6 +191,34 @@ export function extractToolInvocationsFromMessage(
   );
 }
 
+/** Hide in-progress assistant text until the stream finishes (avoids draft-then-revise flash). */
+export function shouldDeferAssistantContent(params: {
+  message: Message;
+  toolInvocations: ResolvedToolInvocation[];
+  isLastMessage: boolean;
+  isGenerating: boolean;
+}): boolean {
+  const { message, toolInvocations, isLastMessage, isGenerating } = params;
+  if (message.role !== "assistant" || !isLastMessage || !isGenerating) {
+    return false;
+  }
+
+  if (toolInvocations.length > 0) {
+    const hasCompletedTools = toolInvocations.some(
+      tool => tool.result != null || tool.state === "result"
+    );
+    if (hasCompletedTools) return true;
+
+    const hasPendingTools = toolInvocations.some(
+      tool => tool.result == null && tool.state !== "result"
+    );
+    if (hasPendingTools && message.content.length > 0) return true;
+  }
+
+  // Web search runs server-side without client tool parts — wait for the final answer.
+  return true;
+}
+
 export function toToolInvocation(
   invocation: ResolvedToolInvocation
 ): ToolInvocation {

@@ -258,7 +258,11 @@ export async function classifyDocument(
   const response = await generateObject({
     model: model as any, // Type cast for AI SDK v2 compatibility
     schema: z.object({
-      documentType: z.string().optional(),
+      documentType: z
+        .string()
+        .describe(
+          "Name of the matching template type, or an empty string if none match"
+        ),
     }),
     system:
       "Only answer with the name of the document type if it matches one of the template types. Otherwise, answer with an empty string.",

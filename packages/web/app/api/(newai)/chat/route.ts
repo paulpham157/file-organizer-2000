@@ -34,6 +34,7 @@ import {
   isChatDeepSearchEnabled,
   isChatWebSearchEnabled,
 } from '@/lib/chat/chat-web-search';
+import { getChatResponsesProviderOptions } from '@/lib/chat/chat-openai-options';
 import { buildChatToolsForMode } from './tools';
 
 export const maxDuration = 300; // Allow for complex multi-step tool calls and long conversations
@@ -803,6 +804,7 @@ export async function POST(req: NextRequest) {
 
           const result = await streamText({
             model: getResponsesModel() as any,
+            providerOptions: getChatResponsesProviderOptions(),
             system: buildChatSystemPrompt(
               searchContextString,
               currentDatetime,

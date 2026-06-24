@@ -24,13 +24,17 @@ Available Bedrock Models:
 
 ### Models
 
-- `MODEL_NAME`: Default AI model for cloud endpoints. Defaults to `"gpt-4.1-mini"` if not set.
-- `RESPONSES_MODEL_NAME`: Model for OpenAI Responses API (chat web search). Defaults to `MODEL_NAME`.
+- `MODEL_PROVIDER`: AI provider for server endpoints. Defaults to `"openai"`.
+- `MODEL_NAME`: Default model for organizer, classify, tag, extract, etc. Defaults to `"gpt-4.1-mini"`.
+- `RESPONSES_MODEL_NAME`: Model for OpenAI Responses API (chat + web search only). Defaults to `MODEL_NAME`.
+
+**Cost split (OpenAI, per 1M tokens):** `gpt-4.1-mini` ($0.40 / $1.60) is the cheapest all-in-one default. For a quality/cost split, use `MODEL_NAME=gpt-5.4-nano` ($0.20 / $1.25) for bulk work and `RESPONSES_MODEL_NAME=gpt-5.4-mini` ($0.75 / $4.50) for chat — expect ~1.5–3× chat cost vs 4.1-mini once reasoning tokens are included.
 
 ### Chat web search
 
-- `CHAT_WEB_SEARCH`: Web search in chat is **on by default**. Set to `"false"` to disable (non-OpenAI self-hosters, cost control).
+- `CHAT_WEB_SEARCH`: Web search in chat is **on by default** (OpenAI only). Set to `"false"` to disable (non-OpenAI self-hosters, cost control).
 - `CHAT_DEEP_SEARCH`: Set to `"true"` for medium search context size (default off).
+- Web search billing: ~$10 per 1,000 search calls (independent of model); search content tokens are free.
 
 ### API Keys
 This is necessary when deploying with vercel, but not required if you run it locally.
