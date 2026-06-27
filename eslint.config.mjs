@@ -42,9 +42,18 @@ export default tseslint.config(
       },
     },
   },
-  ...obsidianmd.configs.recommended.map((config) =>
-    config.files ? config : { ...config, files: pluginFiles },
-  ),
+  ...obsidianmd.configs.recommended.map((config) => {
+    const isPackageJsonConfig =
+      Array.isArray(config.files) &&
+      config.files.length === 1 &&
+      config.files[0] === "package.json";
+
+    if (isPackageJsonConfig) {
+      return config;
+    }
+
+    return { ...config, files: pluginFiles };
+  }),
   {
     files: ["package.json"],
     rules: {
