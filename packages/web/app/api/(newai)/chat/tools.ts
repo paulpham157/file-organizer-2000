@@ -393,11 +393,11 @@ export const chatTools = {
 
   searchScreenpipe: {
     description:
-      'Screen/audio activity via Screenpipe (OCR + transcripts). Listen/meetings/audio: content_type audio or all; vague query: one broad call, limit 30–40, window_name \"\" for all Chrome tabs. "today": start_time = today 00:00 UTC, end_time = now—never empty for today; filter results to that calendar day. Meetings: prefer audio + optional all; reply only meeting-like rows. app_name = real macOS app (Google Chrome for websites); window_name = site (YouTube) or \"\" . Dual desktop+browser: e.g. GitHub Desktop + Chrome/GitHub. Group same app+window. YouTube site: Chrome + window YouTube—not app_name YouTube.',
+      'Screen/audio activity via Screenpipe (OCR + transcripts). Listen/meetings/audio: content_type audio or all; vague query: one broad call, limit 30–40, window_name "" for all Chrome tabs. "today": start_time = today 00:00 UTC, end_time = now—never empty for today; filter results to that calendar day. Meetings: prefer audio + optional all; reply only meeting-like rows. app_name = real macOS app (Google Chrome for websites); window_name = site (YouTube) or "" . Dual desktop+browser: e.g. GitHub Desktop + Chrome/GitHub. Group same app+window. YouTube site: Chrome + window YouTube—not app_name YouTube.',
     parameters: z.object({
       q: z
         .string()
-        .describe('Keywords; \"\" for broad/recent'),
+        .describe('Keywords; "" for broad/recent'),
       content_type: z
         .enum(['all', 'ocr', 'audio'])
         .describe(
@@ -411,7 +411,7 @@ export const chatTools = {
       start_time: z
         .string()
         .describe(
-          'ISO UTC start; today queries need midnight UTC—not \"\"'
+          'ISO UTC start; today queries need midnight UTC—not ""'
         ),
       end_time: z
         .string()
@@ -419,12 +419,12 @@ export const chatTools = {
       app_name: z
         .string()
         .describe(
-          'e.g. Google Chrome, Slack, zoom.us; \"\" if any'
+          'e.g. Google Chrome, Slack, zoom.us; "" if any'
         ),
       window_name: z
         .string()
         .describe(
-          'Window filter e.g. YouTube; \"\" for all Chrome tabs'
+          'Window filter e.g. YouTube; "" for all Chrome tabs'
         ),
     }),
   },
