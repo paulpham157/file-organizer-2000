@@ -6,17 +6,33 @@ const config: Config.InitialOptions = {
 
   // Use TypeScript for Jest
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: '<rootDir>/tsconfig.test.json',
+      },
+    ],
   },
 
   // Mock environment variables
   setupFiles: ['<rootDir>/jest.env.setup.js'],
 
-  // Module name mapper for Next.js imports and other aliases
+  // Explicit mocks first; unresolved @/ paths fall through to real modules
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/__mocks__/@/$1',
+    '^@/drizzle/schema$': '<rootDir>/__mocks__/@/drizzle/schema.ts',
+    '^@/lib/audio/split-audio$': '<rootDir>/__mocks__/@/lib/audio/split-audio.ts',
+    '^@/lib/chat/chat-max-steps$': '<rootDir>/__mocks__/@/lib/chat/chat-max-steps.ts',
+    '^@/lib/chat/conversation-window$': '<rootDir>/__mocks__/@/lib/chat/conversation-window.ts',
+    '^@/lib/chat/youtube-tool-dedup$': '<rootDir>/__mocks__/@/lib/chat/youtube-tool-dedup.ts',
+    '^@/lib/handleAuthorization$': '<rootDir>/__mocks__/@/lib/handleAuthorization.ts',
+    '^@/lib/incrementAndLogTokenUsage$': '<rootDir>/__mocks__/@/lib/incrementAndLogTokenUsage.ts',
+    '^@/lib/models$': '<rootDir>/__mocks__/@/lib/models.ts',
+    '^@/lib/posthog$': '<rootDir>/__mocks__/@/lib/posthog.ts',
+    '^@/lib/prompts/chat-prompt$': '<rootDir>/__mocks__/@/lib/prompts/chat-prompt.ts',
+    '^@/srm.config$': '<rootDir>/__mocks__/@/srm.config.ts',
+    '^@/(.*)$': '<rootDir>/$1',
     '^next/server$': '<rootDir>/__mocks__/next/server.ts',
-    '^@unkey/api$': '<rootDir>/__mocks__/@unkey/api.ts'
+    '^@unkey/api$': '<rootDir>/__mocks__/@unkey/api.ts',
   },
 
   // Module file extensions for importing

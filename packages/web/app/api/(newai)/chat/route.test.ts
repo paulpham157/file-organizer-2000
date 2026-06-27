@@ -6,7 +6,7 @@ import { POST } from './route';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 jest.mock('ai', () => {
   return {
-    streamText: jest.fn().mockImplementation(async (options: any) => {
+    streamText: jest.fn().mockImplementation((options: any) => {
       const mockResult = {
         mergeIntoDataStream: jest.fn(async (dataStream: any) => {
           // Simulate streaming some data
@@ -210,7 +210,69 @@ describe('Chat API Route', () => {
     expect(streamText).toHaveBeenCalled();
     const streamOptions = (streamText as jest.Mock).mock.calls[0][0];
     expect(streamOptions.tools?.web_search_preview).toBeDefined();
-    expect(streamOptions.system).toContain('### Time, facts, and web search');
+  });
+
+  it('uses non-search path when enableChatWebSearch is false', async () => {
+    const mockRequest = new NextRequest('http://localhost:3000/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Hello' }],
+        enableChatWebSearch: false,
+      }),
+      headers: {
+        'x-user-id': 'test-user',
+      },
+    });
+
+    await POST(mockRequest);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(streamText).toHaveBeenCalled();
+    const streamOptions = (streamText as jest.Mock).mock.calls[0][0];
+    expect(streamOptions.tools?.web_search_preview).toBeUndefined();
+  });
+
+  it('uses non-search path when CHAT_WEB_SEARCH=false even if client enables search', async () => {
+    process.env[webSearchEnvKey] = 'false';
+
+    const mockRequest = new NextRequest('http://localhost:3000/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Hello' }],
+        enableChatWebSearch: true,
+      }),
+      headers: {
+        'x-user-id': 'test-user',
+      },
+    });
+
+    await POST(mockRequest);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(streamText).toHaveBeenCalled();
+    const streamOptions = (streamText as jest.Mock).mock.calls[0][0];
+    expect(streamOptions.tools?.web_search_preview).toBeUndefined();
+  });
+
+  it('uses non-search path when CHAT_WEB_SEARCH=false', async () => {
+    process.env[webSearchEnvKey] = 'false';
+
+    const mockRequest = new NextRequest('http://localhost:3000/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Hello' }],
+      }),
+      headers: {
+        'x-user-id': 'test-user',
+      },
+    });
+
+    await POST(mockRequest);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(streamText).toHaveBeenCalled();
+    const streamOptions = (streamText as jest.Mock).mock.calls[0][0];
+    expect(streamOptions.tools?.web_search_preview).toBeUndefined();
   });
 
   it('should include citation metadata in response', async () => {

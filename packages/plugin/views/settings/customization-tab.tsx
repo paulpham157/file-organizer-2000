@@ -6,6 +6,12 @@ interface CustomizationTabProps {
 }
 
 export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) => {
+  const [enableAttachmentProcessing, setEnableAttachmentProcessing] = useState(plugin.settings.enableAttachmentProcessing);
+  const [enableImageDescription, setEnableImageDescription] = useState(plugin.settings.enableImageDescription);
+  const [enableAudioTranscription, setEnableAudioTranscription] = useState(plugin.settings.enableAudioTranscription);
+  const [enablePdfTextExtraction, setEnablePdfTextExtraction] = useState(plugin.settings.enablePdfTextExtraction);
+  const [enableYouTubeTranscriptFetching, setEnableYouTubeTranscriptFetching] = useState(plugin.settings.enableYouTubeTranscriptFetching);
+  const [enableFolderRecommendation, setEnableFolderRecommendation] = useState(plugin.settings.enableFolderRecommendation);
   const [enableFileRenaming, setEnableFileRenaming] = useState(plugin.settings.enableFileRenaming);
   const [renameInstructions, setRenameInstructions] = useState(plugin.settings.renameInstructions);
   const [useSimilarTags, setUseSimilarTags] = useState(plugin.settings.useSimilarTags);
@@ -48,6 +54,46 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
           </div>
         </div>
         <div className="space-y-4">
+          <ToggleSetting
+            name="Process Attachments Through Inbox"
+            description="When disabled, images, audio, and PDF files are moved to the bypassed folder and are not processed."
+            value={enableAttachmentProcessing}
+            onChange={(value) => { void handleToggleChange(value, setEnableAttachmentProcessing, 'enableAttachmentProcessing'); }}
+          />
+          {enableAttachmentProcessing && (
+            <div className="ml-4 pl-4 border-l border-[--background-modifier-border] space-y-4">
+              <ToggleSetting
+                name="Generate AI Description for Images"
+                description="When disabled, images are still organized with an embed link but no AI description is generated."
+                value={enableImageDescription}
+                onChange={(value) => { void handleToggleChange(value, setEnableImageDescription, 'enableImageDescription'); }}
+              />
+              <ToggleSetting
+                name="Automatically Transcribe Audio Files"
+                description="When disabled, audio files are still organized with an embed link but are not transcribed."
+                value={enableAudioTranscription}
+                onChange={(value) => { void handleToggleChange(value, setEnableAudioTranscription, 'enableAudioTranscription'); }}
+              />
+              <ToggleSetting
+                name="Extract Text from PDF Files"
+                description="When disabled, PDFs are still organized with an embed link but text is not extracted locally."
+                value={enablePdfTextExtraction}
+                onChange={(value) => { void handleToggleChange(value, setEnablePdfTextExtraction, 'enablePdfTextExtraction'); }}
+              />
+            </div>
+          )}
+          <ToggleSetting
+            name="Automatically Fetch YouTube Video Transcripts"
+            description="When disabled, YouTube URLs in documents are left unchanged during inbox processing."
+            value={enableYouTubeTranscriptFetching}
+            onChange={(value) => { void handleToggleChange(value, setEnableYouTubeTranscriptFetching, 'enableYouTubeTranscriptFetching'); }}
+          />
+          <ToggleSetting
+            name="Automatically Move Files to Recommended Folders"
+            description="When disabled, files stay in place after inbox processing instead of being moved to a recommended folder."
+            value={enableFolderRecommendation}
+            onChange={(value) => { void handleToggleChange(value, setEnableFolderRecommendation, 'enableFolderRecommendation'); }}
+          />
           <ToggleSetting
             name="Inbox Auto-Renaming"
             description="Automatically rename new files when they are processed through the inbox."

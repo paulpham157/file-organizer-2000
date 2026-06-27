@@ -26,6 +26,9 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
   const [pdfPageLimit, setPdfPageLimit] = useState(
     plugin.settings.pdfPageLimit
   );
+  const [enableBackupCreation, setEnableBackupCreation] = useState(
+    plugin.settings.enableBackupCreation
+  );
 
   // Sync state with plugin settings when they change
   useEffect(() => {
@@ -54,6 +57,17 @@ export const AdvancedTab: React.FC<AdvancedTabProps> = ({ plugin }) => {
 
   return (
     <div className="p-4 space-y-4">
+      <ToggleSetting
+        name="Create Backup Before Formatting"
+        description="When enabled, a backup copy is created before AI formatting. Applies to inbox, template, and chat formatting."
+        value={enableBackupCreation}
+        onChange={value => {
+          setEnableBackupCreation(value);
+          plugin.settings.enableBackupCreation = value;
+          void plugin.saveSettings();
+        }}
+      />
+
       <ToggleSetting
         name="Note Companion File Logs"
         description="Allows you to keep track of the changes made by file Organizer."

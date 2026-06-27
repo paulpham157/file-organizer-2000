@@ -534,26 +534,34 @@ export default class FileOrganizer extends Plugin {
     try {
       new Notice("Formatting content...", 3000);
 
-      // Backup the file before formatting and get the backup file
-      const backupFile = await this.backupTheFileAndAddReferenceToCurrentFile(
-        file
-      );
-
       let formattedContent = "";
       const updateCallback = (partialContent: string) => {
-        // Clean up tags before saving
         formattedContent = this.cleanupTagsInContent(partialContent);
         void this.app.vault.modify(file, formattedContent);
       };
-      await this.formatStream(
-        content,
-        formattingInstruction,
-        this.getServerUrl(),
-        this.settings.API_KEY,
-        updateCallback
-      );
-      void this.appendBackupLinkToCurrentFile(file, backupFile);
-      await this.appendFormattedLinkToBackupFile(backupFile, file);
+
+      if (this.settings.enableBackupCreation) {
+        const backupFile = await this.backupTheFileAndAddReferenceToCurrentFile(
+          file
+        );
+        await this.formatStream(
+          content,
+          formattingInstruction,
+          this.getServerUrl(),
+          this.settings.API_KEY,
+          updateCallback
+        );
+        void this.appendBackupLinkToCurrentFile(file, backupFile);
+        await this.appendFormattedLinkToBackupFile(backupFile, file);
+      } else {
+        await this.formatStream(
+          content,
+          formattingInstruction,
+          this.getServerUrl(),
+          this.settings.API_KEY,
+          updateCallback
+        );
+      }
 
       new Notice("Content formatted successfully", 3000);
     } catch (error) {
@@ -610,18 +618,11 @@ export default class FileOrganizer extends Plugin {
     try {
       new Notice("Formatting content line by line...", 3000);
 
-      // Backup the file before formatting
-      const backupFile = await this.backupTheFileAndAddReferenceToCurrentFile(
-        file
-      );
-
-      // Prepare streaming
       let formattedContent = "";
       let lastLineCount = 0;
 
       const updateCallback = (chunk: string) => {
         if (chunkMode === "line") {
-          // Split chunk into lines and only append new lines
           const lines = chunk.split("\n");
           const newLines = lines.slice(lastLineCount);
           if (newLines.length > 0) {
@@ -630,23 +631,34 @@ export default class FileOrganizer extends Plugin {
             void this.app.vault.modify(file, formattedContent);
           }
         } else {
-          // For partial mode, just append the new chunk
           formattedContent = chunk;
           void this.app.vault.modify(file, formattedContent);
         }
       };
 
-      await this.formatStream(
-        content,
-        formattingInstruction,
-        this.getServerUrl(),
-        this.getApiKey(),
-        updateCallback
-      );
+      if (this.settings.enableBackupCreation) {
+        const backupFile = await this.backupTheFileAndAddReferenceToCurrentFile(
+          file
+        );
+        await this.formatStream(
+          content,
+          formattingInstruction,
+          this.getServerUrl(),
+          this.getApiKey(),
+          updateCallback
+        );
+        await this.appendBackupLinkToCurrentFile(file, backupFile);
+        await this.appendFormattedLinkToBackupFile(backupFile, file);
+      } else {
+        await this.formatStream(
+          content,
+          formattingInstruction,
+          this.getServerUrl(),
+          this.getApiKey(),
+          updateCallback
+        );
+      }
 
-      // Insert reference to backup
-      await this.appendBackupLinkToCurrentFile(file, backupFile);
-      await this.appendFormattedLinkToBackupFile(backupFile, file);
       new Notice("Line-by-line update done!", 3000);
     } catch (error) {
       logger.error("Error formatting content line by line:", error);

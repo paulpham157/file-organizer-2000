@@ -20,6 +20,14 @@ export class FileOrganizerSettings {
   enableDocumentClassification = false;
   // not working atm
   enableFileRenaming = true;
+  enableAttachmentProcessing = true;
+  enableImageDescription = true;
+  enableAudioTranscription = true;
+  enablePdfTextExtraction = true;
+  enableYouTubeTranscriptFetching = true;
+  enableFolderRecommendation = true;
+  enableBackupCreation = true;
+  enableChatWebSearch = true;
 
   renameInstructions =
     "If document has a human readable name, use it. Otherwise, create a concise, descriptive name for the document based on its key content. Prioritize clarity and searchability, using specific terms that will make the document easy to find later. Avoid generic words and focus on unique, identifying elements.";

@@ -32,6 +32,9 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
   const [usageData, setUsageData] = useState<UsageData | null>(null);
   const [isLoadingUsage, setIsLoadingUsage] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [enableChatWebSearch, setEnableChatWebSearch] = useState(
+    plugin.settings.enableChatWebSearch
+  );
 
   // Check key status on mount if we have a key
   useEffect(() => {
@@ -229,6 +232,32 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             )}
             {getStatusIndicator()}
           </div>
+        </div>
+      </div>
+
+      <div className="bg-[--background-primary-alt] p-4 rounded-lg">
+        <h3 className="text-lg font-medium mb-2 mt-0">Chat</h3>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <div className="font-medium text-[--text-normal]">
+              Allow AI to Search the Internet for Answers
+            </div>
+            <div className="text-sm text-[--text-muted]">
+              When disabled, chat responses use your vault content and provided
+              context only — no general web search.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={enableChatWebSearch}
+            onChange={(e) => {
+              const value = e.target.checked;
+              setEnableChatWebSearch(value);
+              plugin.settings.enableChatWebSearch = value;
+              void plugin.saveSettings();
+            }}
+            className="form-checkbox text-[--interactive-accent]"
+          />
         </div>
       </div>
 

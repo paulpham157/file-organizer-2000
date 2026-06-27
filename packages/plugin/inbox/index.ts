@@ -20,6 +20,7 @@ import {
   isValidExtension,
   VALID_MEDIA_EXTENSIONS,
   VALID_AUDIO_EXTENSIONS,
+  VALID_IMAGE_EXTENSIONS,
 } from "../constants";
 import {
   safeCreate,
@@ -366,14 +367,12 @@ export class Inbox {
       );
 
       // Only process YouTube if content contains a YouTube URL
-      if (await shouldProcessYouTube(context)) {
-        await executeStep(
-          context,
-          fetchYouTubeTranscriptStep,
-          Action.FETCH_YOUTUBE,
-          Action.ERROR_FETCH_YOUTUBE
-        );
-      }
+      await executeStep(
+        context,
+        fetchYouTubeTranscriptStep,
+        Action.FETCH_YOUTUBE,
+        Action.ERROR_FETCH_YOUTUBE
+      );
 
       await executeStep(
         context,
@@ -464,14 +463,49 @@ async function getContainerFileStep(
 async function hasValidFileStep(
   context: ProcessingContext
 ): Promise<ProcessingContext> {
-  // check if file is valid
   logger.info("Has valid file step");
-  // check if file is supported if not bypass
-  if (!isValidExtension(context.inboxFile?.extension)) {
+  const extension = context.inboxFile?.extension;
+
+  if (
+    !context.plugin.settings.enableAttachmentProcessing &&
+    extension &&
+    VALID_MEDIA_EXTENSIONS.includes(extension)
+  ) {
+    await handleBypass(context, "Attachment processing disabled");
+    throw new Error("Attachment processing disabled");
+  }
+
+  if (!isValidExtension(extension)) {
     await handleBypass(context, "Unsupported file type");
     throw new Error("Unsupported file type");
   }
   return context;
+}
+
+function isMediaExtractionSkipped(context: ProcessingContext): boolean {
+  const extension = context.inboxFile?.extension;
+  if (!extension || !VALID_MEDIA_EXTENSIONS.includes(extension)) {
+    return false;
+  }
+
+  const settings = context.plugin.settings;
+  if (VALID_IMAGE_EXTENSIONS.includes(extension)) {
+    return !settings.enableImageDescription;
+  }
+  if (VALID_AUDIO_EXTENSIONS.includes(extension)) {
+    return !settings.enableAudioTranscription;
+  }
+  if (extension === "pdf") {
+    return !settings.enablePdfTextExtraction;
+  }
+  return false;
+}
+
+function buildMediaEmbedContent(context: ProcessingContext): string {
+  if (!context.attachmentFile) {
+    return "";
+  }
+  return `![[${context.attachmentFile.path}]]`;
 }
 
 async function recommendNameStep(
@@ -597,11 +631,18 @@ async function getContentStep(
   context: ProcessingContext
 ): Promise<ProcessingContext> {
   const fileToRead = context.inboxFile;
-  const content = await context.plugin.getTextFromFile(fileToRead);
+  let content: string;
 
-  // For audio files, prepend the audio file link and title at the top
+  if (isMediaExtractionSkipped(context)) {
+    content = buildMediaEmbedContent(context);
+  } else {
+    content = await context.plugin.getTextFromFile(fileToRead);
+  }
+
+  // For audio files with transcription, prepend the audio file link and title at the top
   let finalContent = content;
   if (
+    !isMediaExtractionSkipped(context) &&
     VALID_AUDIO_EXTENSIONS.includes(context.inboxFile?.extension) &&
     context.attachmentFile &&
     context.containerFile
@@ -617,8 +658,6 @@ async function getContentStep(
     await context.plugin.app.vault.modify(context.containerFile, finalContent);
   }
 
-  // Explicitly log the completion of content extraction
-  // This will be used to track audio transcription and image processing
   context.recordManager.completeAction(context.hash, Action.EXTRACT_DONE);
 
   return context;
@@ -684,27 +723,29 @@ async function cleanupStep(
   context: ProcessingContext
 ): Promise<ProcessingContext> {
   try {
-    // Early return if no content
-    if (!context.content) {
+    const extractionSkipped = isMediaExtractionSkipped(context);
+
+    if (!context.content && !extractionSkipped) {
       await handleBypass(context, "No content available");
+    }
+
+    if (!context.content && extractionSkipped) {
+      context.content = buildMediaEmbedContent(context);
     }
 
     if (!context.content) {
       throw new Error("Content is required for cleanup step");
     }
 
-    // Use the sanitizeContent utility which properly preserves frontmatter
     const sanitizedContent = await sanitizeContent(context.content);
 
-    // Bypass if content is too short (excluding frontmatter)
     const contentWithoutFrontmatter = sanitizedContent
       .replace(/^---\n[\s\S]*?\n---\n/, "")
       .trim();
-    if (contentWithoutFrontmatter.length < 5) {
+    if (!extractionSkipped && contentWithoutFrontmatter.length < 5) {
       await handleBypass(context, "Content too short (less than 5 characters)");
     }
 
-    // Set the sanitized content back
     context.content = sanitizedContent;
     return context;
   } catch (error) {
@@ -848,18 +889,19 @@ async function appendAttachmentStep(
   context: ProcessingContext
 ): Promise<ProcessingContext> {
   if (context.attachmentFile && context.containerFile) {
+    if (isMediaExtractionSkipped(context)) {
+      return context;
+    }
+
     // Skip audio files - they're already added at the top in getContentStep
     if (VALID_AUDIO_EXTENSIONS.includes(context.attachmentFile.extension)) {
       return context;
     }
 
-    // For other media types (images), append at the end as before
-    // Use Obsidian's link generation for guaranteed recognition:
     const link = context.plugin.app.fileManager.generateMarkdownLink(
       context.attachmentFile,
       context.containerFile.parent?.path ?? ""
     );
-    // Add '!' prefix to embed the audio file instead of just linking
     await context.plugin.app.vault.append(context.containerFile, `\n\n${link}`);
   }
   return context;
@@ -978,6 +1020,10 @@ function shouldSkipAction(context: ProcessingContext, action: Action): boolean {
       return !context.plugin.settings.enableFileRenaming;
     case Action.TAGGING:
       return !context.plugin.settings.useSimilarTags;
+    case Action.MOVING:
+      return !context.plugin.settings.enableFolderRecommendation;
+    case Action.FETCH_YOUTUBE:
+      return !context.plugin.settings.enableYouTubeTranscriptFetching;
     default:
       return false;
   }
@@ -1157,14 +1203,4 @@ async function executeStep(
     });
     throw error;
   }
-}
-
-// Add this function to check if content contains a YouTube URL
-async function shouldProcessYouTube(
-  context: ProcessingContext
-): Promise<boolean> {
-  if (!context.content) return false;
-
-  const videoId = extractYouTubeVideoId(context.content);
-  return !!videoId;
 }

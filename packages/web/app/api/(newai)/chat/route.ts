@@ -77,27 +77,18 @@ export async function POST(req: NextRequest) {
           newUnifiedContext,
           currentDatetime,
           unifiedContext: oldUnifiedContext,
-          enableSearchGrounding: enableSearchGroundingClient,
-          deepSearch: deepSearchClient,
+          enableChatWebSearch,
           requestedMaxSteps: requestedMaxStepsRaw,
         } = await req.json();
 
-        const shouldUseSearch = isChatWebSearchEnabled();
+        const shouldUseSearch =
+          isChatWebSearchEnabled() && enableChatWebSearch !== false;
         const deepSearch = isChatDeepSearchEnabled();
-
-        if (
-          shouldUseSearch &&
-          (enableSearchGroundingClient === false || deepSearchClient === false)
-        ) {
-          console.debug(
-            '[Chat API] Ignoring client search flags; server CHAT_WEB_SEARCH default is on',
-            { enableSearchGroundingClient, deepSearchClient }
-          );
-        }
 
         console.log('[Chat API] Web search config', {
           shouldUseSearch,
           deepSearch,
+          enableChatWebSearch,
           chatWebSearchEnv: process.env.CHAT_WEB_SEARCH ?? '(unset, default on)',
         });
 

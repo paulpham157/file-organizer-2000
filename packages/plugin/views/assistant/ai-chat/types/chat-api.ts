@@ -8,6 +8,7 @@ export interface ChatRequestBody {
   newUnifiedContext: string;
   model: string;
   requestedMaxSteps?: number;
+  enableChatWebSearch?: boolean;
 }
 
 export interface LocalChatFetchBody {

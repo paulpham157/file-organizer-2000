@@ -253,6 +253,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     () => ({
       newUnifiedContext: fullContext,
       model: plugin.settings.selectedModel,
+      enableChatWebSearch: plugin.settings.enableChatWebSearch,
       ...(plugin.settings.chatMaxStepsPreference !== "auto"
         ? { requestedMaxSteps: plugin.settings.chatMaxStepsPreference }
         : {}),
@@ -260,6 +261,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     [
       fullContext,
       plugin.settings.selectedModel,
+      plugin.settings.enableChatWebSearch,
       plugin.settings.chatMaxStepsPreference,
     ]
   );
@@ -483,6 +485,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         currentDatetime: getCurrentDatetime(),
         newUnifiedContext: contextToSend,
         model: plugin.settings.selectedModel,
+        enableChatWebSearch: plugin.settings.enableChatWebSearch,
       };
       if (plugin.settings.chatMaxStepsPreference !== "auto") {
         requestBody.requestedMaxSteps = plugin.settings.chatMaxStepsPreference;
@@ -1658,6 +1661,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         currentDatetime: getCurrentDatetime(),
         model: plugin.settings.selectedModel,
         newUnifiedContext: snapshot, // ✅ the important part
+        enableChatWebSearch: plugin.settings.enableChatWebSearch,
         ...(plugin.settings.chatMaxStepsPreference !== "auto"
           ? { requestedMaxSteps: plugin.settings.chatMaxStepsPreference }
           : {}),
