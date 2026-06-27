@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type FileOrganizer from '../../index';
+import type { InboxNotificationLevel } from '../../inbox/notification-level';
 
 interface CustomizationTabProps {
   plugin: InstanceType<typeof FileOrganizer>;
@@ -21,6 +22,9 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
   const [enableDocumentClassification, setEnableDocumentClassification] = useState(plugin.settings.enableDocumentClassification);
   const [imageInstructions, setImageInstructions] = useState(plugin.settings.imageInstructions);
   const [customTagInstructions, setCustomTagInstructions] = useState(plugin.settings.customTagInstructions);
+  const [inboxNotificationLevel, setInboxNotificationLevel] = useState<InboxNotificationLevel>(
+    plugin.settings.inboxNotificationLevel
+  );
 
   // force set user embeddings to false
   useEffect(() => {
@@ -121,6 +125,28 @@ export const CustomizationTab: React.FC<CustomizationTabProps> = ({ plugin }) =>
             value={useSimilarTags}
             onChange={(value) => { void handleToggleChange(value, setUseSimilarTags, 'useSimilarTags'); }}
           />
+          <div className="setting-item p-4 bg-[--background-secondary] rounded-lg border border-[--background-modifier-border] space-y-2">
+            <div className="font-medium text-[--text-normal]">Inbox Notification Level</div>
+            <p className="text-sm text-[--text-muted]">
+              Control how verbose toast notifications are while files are processed through the inbox.
+            </p>
+            <select
+              className="w-full max-w-xs px-2 py-1.5 bg-[--background-primary] border border-[--background-modifier-border] rounded text-[--text-normal]"
+              value={inboxNotificationLevel}
+              onChange={(e) => { void (async (e) => {
+                const value = e.target.value as InboxNotificationLevel;
+                setInboxNotificationLevel(value);
+                plugin.settings.inboxNotificationLevel = value;
+                await plugin.saveSettings();
+              })(e); }}
+            >
+              <option value="silent">Silent — no notifications</option>
+              <option value="error">Errors only — processing failures</option>
+              <option value="warning">Warnings — errors and bypassed files (default)</option>
+              <option value="info">Info — warnings plus completion summary per file</option>
+              <option value="debug">Debug — all notifications including step-by-step progress</option>
+            </select>
+          </div>
         </div>
       </section>
 

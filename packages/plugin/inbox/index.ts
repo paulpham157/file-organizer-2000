@@ -28,6 +28,7 @@ import {
   safeMove,
 } from "../fileUtils";
 import { getErrorMessage, getErrorStack } from "../lib/api-json";
+import { shouldShowInboxNotification } from "./notification-level";
 import { sanitizeContent } from "../fileUtils";
 import {
   extractYouTubeVideoId,
@@ -238,10 +239,17 @@ export class Inbox {
       onComplete: () => {},
       onError: (error: Error, file: TFile) => {
         logger.error("Queue processing error:", error);
-        new Notice(
-          `Note Companion: Processing failed for ${file.basename}. ${error.message}`,
-          6000
-        );
+        if (
+          shouldShowInboxNotification(
+            this.plugin.settings.inboxNotificationLevel,
+            "error"
+          )
+        ) {
+          new Notice(
+            `Note Companion: Processing failed for ${file.basename}. ${error.message}`,
+            6000
+          );
+        }
       },
     });
   }
@@ -766,7 +774,12 @@ async function handleBypass(
     const fileName = context.inboxFile.basename;
     const bypassedFolderPath = context.plugin.settings.bypassedFilePath;
 
-    if (context.plugin.settings.enableProcessingNotifications) {
+    if (
+      shouldShowInboxNotification(
+        context.plugin.settings.inboxNotificationLevel,
+        "warning"
+      )
+    ) {
       new Notice(
         `⚠️ Bypassed: ${fileName}\nReason: ${reason}\nLocation: ${bypassedFolderPath}`,
         5000
@@ -911,6 +924,22 @@ async function completeProcessing(
   context: ProcessingContext
 ): Promise<ProcessingContext> {
   context.recordManager.setStatus(context.hash, "completed");
+
+  if (
+    shouldShowInboxNotification(
+      context.plugin.settings.inboxNotificationLevel,
+      "info"
+    )
+  ) {
+    const fileName =
+      context.containerFile?.basename || context.inboxFile.basename;
+    const record = context.recordManager.getRecord(context.hash);
+    const stepsCompleted = record
+      ? Object.values(record.logs).filter((entry) => entry.completed).length
+      : 0;
+    new Notice(`✅ ${fileName}: Done (${stepsCompleted} steps)`, 3000);
+  }
+
   return context;
 }
 
@@ -967,7 +996,13 @@ async function handleError(
   }
 
   // Show user notification
-  if (context.plugin.settings.enableProcessingNotifications && errorAction) {
+  if (
+    shouldShowInboxNotification(
+      context.plugin.settings.inboxNotificationLevel,
+      "error"
+    ) &&
+    errorAction
+  ) {
     const formattedMessage = formatErrorMessage(errorAction, errorMessage);
     new Notice(
       `❌ Error: ${fileName}\n${errorType}: ${formattedMessage}\nLocation: ${destinationFolder}`,
@@ -1113,29 +1148,26 @@ async function executeStep(
     // Log the start of the action
     context.recordManager.addAction(context.hash, action);
 
-    // Show toast notification for processing steps (only for key actions)
-    const shouldNotify = context.plugin.settings.enableProcessingNotifications;
-    if (
-      shouldNotify &&
-      [
-        Action.EXTRACT,
-        Action.CLASSIFY,
-        Action.MOVING,
-        Action.RENAME,
-        Action.TAGGING,
-        Action.FORMATTING,
-      ].includes(action)
-    ) {
+    // Progress updates for key actions (workspace event always; toast at debug only)
+    const notifLevel = context.plugin.settings.inboxNotificationLevel;
+    const isKeyProgressAction = [
+      Action.EXTRACT,
+      Action.CLASSIFY,
+      Action.MOVING,
+      Action.RENAME,
+      Action.TAGGING,
+      Action.FORMATTING,
+    ].includes(action);
+
+    if (isKeyProgressAction) {
       const fileName =
         context.containerFile?.basename || context.inboxFile.basename;
       const actionName = getActionDisplayName(action);
 
-      // Calculate queue position and progress
       const allRecords = context.recordManager.getAllRecords();
       const processingFiles = allRecords.filter((r) => r.status === "processing");
       const queuedFiles = allRecords.filter((r) => r.status === "queued");
 
-      // Calculate queue position for current file
       const currentFileIndex = processingFiles.findIndex(
         (r) => r.id === context.hash
       );
@@ -1145,18 +1177,18 @@ async function executeStep(
           : queuedFiles.length + processingFiles.length + 1;
       const totalInQueue = queuedFiles.length + processingFiles.length;
 
-      // Calculate progress percentage
       const record = context.recordManager.getRecord(context.hash);
       const progress = record ? calculateProgress(record) : 0;
 
-      // Enhanced notification with queue position and progress
-      const queueInfo =
-        totalInQueue > 1 ? ` (${queuePosition}/${totalInQueue})` : "";
-      const progressInfo = progress > 0 ? ` - ${progress}%` : "";
-      new Notice(
-        `📄 ${fileName}: ${actionName}${queueInfo}${progressInfo}`,
-        3000
-      );
+      if (shouldShowInboxNotification(notifLevel, "debug")) {
+        const queueInfo =
+          totalInQueue > 1 ? ` (${queuePosition}/${totalInQueue})` : "";
+        const progressInfo = progress > 0 ? ` - ${progress}%` : "";
+        new Notice(
+          `📄 ${fileName}: ${actionName}${queueInfo}${progressInfo}`,
+          3000
+        );
+      }
 
       context.plugin.app.workspace.trigger("file-organizer:processing-step", {
         fileName,

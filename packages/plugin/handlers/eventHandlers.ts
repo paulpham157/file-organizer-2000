@@ -1,6 +1,7 @@
 import { Notice, TFile } from "obsidian";
 import FileOrganizer from "..";
 import { Inbox } from "../inbox";
+import { shouldShowInboxNotification } from "../inbox/notification-level";
 import { VALID_MEDIA_EXTENSIONS } from "../constants";
 
 function isInInboxFolder(filePath: string, pathToWatch: string): boolean {
@@ -18,7 +19,14 @@ export function registerEventHandlers(plugin: FileOrganizer) {
       await new Promise(resolve => window.setTimeout(resolve, 1000));
       if (!isInInboxFolder(file.path, pathToWatch)) return;
       if (file instanceof TFile) {
-        new Notice("Inbox is looking at new file: " + file.basename);
+        if (
+          shouldShowInboxNotification(
+            plugin.settings.inboxNotificationLevel,
+            "debug"
+          )
+        ) {
+          new Notice("Inbox is looking at new file: " + file.basename);
+        }
         Inbox.getInstance().enqueueFiles([file]);
       }
     })
@@ -29,7 +37,14 @@ export function registerEventHandlers(plugin: FileOrganizer) {
       await new Promise(resolve => window.setTimeout(resolve, 1000));
       if (!isInInboxFolder(file.path, pathToWatch)) return;
       if (file instanceof TFile) {
-        new Notice("Inbox is looking at new file: " + file.basename);
+        if (
+          shouldShowInboxNotification(
+            plugin.settings.inboxNotificationLevel,
+            "debug"
+          )
+        ) {
+          new Notice("Inbox is looking at new file: " + file.basename);
+        }
         Inbox.getInstance().enqueueFiles([file]);
       }
     })

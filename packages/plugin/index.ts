@@ -65,6 +65,7 @@ import {
   VALID_MEDIA_EXTENSIONS,
 } from "./constants";
 import { initializeInboxQueue, Inbox } from "./inbox";
+import { migrateInboxNotificationLevel } from "./inbox/notification-level";
 import { logger } from "./services/logger";
 import { layoutPdfTextItems } from "./lib/pdf-text-layout";
 import { obsidianFetch } from "./lib/obsidian-fetch";
@@ -205,6 +206,13 @@ export default class FileOrganizer extends Plugin {
       | Partial<FileOrganizerSettings>
       | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
+
+    const migratedLevel = migrateInboxNotificationLevel(
+      loaded as Record<string, unknown> | null
+    );
+    if (migratedLevel) {
+      this.settings.inboxNotificationLevel = migratedLevel;
+    }
   }
 
   async checkCatalystAccess(): Promise<boolean> {

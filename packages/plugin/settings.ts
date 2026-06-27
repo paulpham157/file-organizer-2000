@@ -1,3 +1,5 @@
+import type { InboxNotificationLevel } from "./inbox/notification-level";
+
 export class FileOrganizerSettings {
 
   API_KEY = "";
@@ -68,7 +70,9 @@ export class FileOrganizerSettings {
   hasCatalystAccess = null;
   hasRunOnboarding = false;
   pdfPageLimit = 10; // default to 10 pages
-  enableProcessingNotifications = true; // Show toast notifications during file processing
+  /** @deprecated Use inboxNotificationLevel. Kept for settings migration only. */
+  enableProcessingNotifications = true;
+  inboxNotificationLevel: InboxNotificationLevel = "warning";
   showSyncTab = false; // Show Sync tab in assistant (experimental mobile sync feature)
   enableScreenpipe = false; // Enable ScreenPipe integration for screen activity search
   screenpipeApiUrl = "http://localhost:3030"; // ScreenPipe API URL
