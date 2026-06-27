@@ -91,7 +91,7 @@ CRITICAL:
 - Always wrap each transcript in its own code block with triple backticks
 - If multiple transcripts exist, each must be clearly labeled with its source recording file name`;
 
-    const result = await streamText({
+    const result = streamText({
       model: model as any,
       system: systemPrompt,
       messages: [

@@ -291,7 +291,7 @@ export async function formatDocumentContent(
   formattingInstruction: string,
   model: LanguageModel
 ) {
-  const { partialObjectStream } = await streamObject({
+  const { partialObjectStream } = streamObject({
     model,
     schema: z.object({
       formattedContent: z.string(),

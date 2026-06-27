@@ -802,7 +802,7 @@ export async function POST(req: NextRequest) {
             includeTemporalGuidance: true,
           };
 
-          const result = await streamText({
+          const result = streamText({
             model: getResponsesModel() as any,
             providerOptions: getChatResponsesProviderOptions(),
             system: buildChatSystemPrompt(
@@ -1051,7 +1051,7 @@ export async function POST(req: NextRequest) {
             messages: messagesToProcess,
           });
 
-          const result = await streamText({
+          const result = streamText({
             model: getModel() as any,
             system: buildChatSystemPrompt(
               contextString,

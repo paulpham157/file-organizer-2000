@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       ? `\n\nIMPORTANT: When generating frontmatter, use flat YAML format with each property on its own line (no nesting). Example:\n---\ntotal: 15\ntopics: ["Topic 1", "Topic 2", "Topic 3"]\ncreated: "2025-01-09"\n---`
       : '';
 
-    const result = await streamText({
+    const result = streamText({
       model: model as any,
       system: 'Answer directly in markdown',
       messages: [
