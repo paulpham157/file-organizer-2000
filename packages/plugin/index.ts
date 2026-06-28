@@ -207,9 +207,7 @@ export default class FileOrganizer extends Plugin {
       | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
 
-    const migratedLevel = migrateInboxNotificationLevel(
-      loaded as Record<string, unknown> | null
-    );
+    const migratedLevel = migrateInboxNotificationLevel(loaded);
     if (migratedLevel) {
       this.settings.inboxNotificationLevel = migratedLevel;
     }
