@@ -35,9 +35,11 @@ import {
   getYouTubeContent,
   getOriginalContent,
   YouTubeError,
-  isYoutubeVideoTemplate,
+  isYoutubeTemplate,
   prepareYouTubeFormatContent,
   finalizeYouTubeFormattedNote,
+  shouldSkipYoutubeInboxFormatting,
+  getYoutubeInboxFormatSkipReasonAfterPrep,
   type YouTubeFetchedContent,
 } from "./services/youtube-service";
 
@@ -99,6 +101,8 @@ interface ProcessingContext {
     reason: string;
   }>;
   youtubeContent?: YouTubeFetchedContent;
+  /** Set when inbox YouTube transcript fetch failed — avoids duplicate fetch. */
+  youtubeTranscriptFetchFailed?: boolean;
 }
 
 interface StepValidation {
@@ -386,7 +390,7 @@ export class Inbox {
         Action.ERROR_CLASSIFY
       );
 
-      // Fetch transcript only after classification as youtube_video
+      // Fetch transcript only after classification as a youtube_* template
       await executeStep(
         context,
         fetchYouTubeTranscriptStep,
@@ -537,7 +541,7 @@ async function recommendNameStep(
   const useYoutubeTitle =
     context.youtubeContent?.title &&
     documentType &&
-    isYoutubeVideoTemplate(documentType);
+    isYoutubeTemplate(documentType);
 
   const newName = useYoutubeTitle
     ? [{ title: context.youtubeContent!.title }]
@@ -703,9 +707,9 @@ async function fetchYouTubeTranscriptStep(
     }
 
     const documentType = context.classification?.documentType;
-    if (!documentType || !isYoutubeVideoTemplate(documentType)) {
+    if (!documentType || !isYoutubeTemplate(documentType)) {
       logger.info(
-        "Skipping YouTube transcript: not classified as youtube_video",
+        "Skipping YouTube transcript: not classified as a youtube_* template",
         { documentType: documentType ?? "(none)" }
       );
       return context;
@@ -717,7 +721,9 @@ async function fetchYouTubeTranscriptStep(
       title: youtubeContent.title,
       transcript: youtubeContent.transcript,
       channel: youtubeContent.channel,
+      channelUrl: youtubeContent.channelUrl,
       datePublished: youtubeContent.datePublished,
+      segments: youtubeContent.segments,
     };
 
     // Keep transcript in context only — do not persist raw transcript to the vault.
@@ -732,6 +738,7 @@ async function fetchYouTubeTranscriptStep(
     return context;
   } catch (error) {
     if (error instanceof YouTubeError) {
+      context.youtubeTranscriptFetchFailed = true;
       context.recordManager.addError(context.hash, {
         action: Action.ERROR_FETCH_YOUTUBE,
         message: error.message,
@@ -853,14 +860,50 @@ async function formatContentStep(
 
   const documentType = context.classification.documentType;
 
+  if (
+    shouldSkipYoutubeInboxFormatting(
+      documentType,
+      context.plugin.settings.enableYouTubeTranscriptFetching
+    )
+  ) {
+    logger.info(
+      "Skipping youtube formatting: YouTube transcript fetching is disabled"
+    );
+    return context;
+  }
+
   const prep = await prepareYouTubeFormatContent(context.plugin, {
     baseContent: context.content,
     templateName: documentType,
     existingYoutubeContent: context.youtubeContent,
+    enableTranscriptFetching:
+      context.plugin.settings.enableYouTubeTranscriptFetching,
+    transcriptFetchAlreadyFailed: context.youtubeTranscriptFetchFailed,
   });
 
   const isYouTubeFormat =
-    isYoutubeVideoTemplate(documentType) && !!prep.youtubeContent;
+    isYoutubeTemplate(documentType) && !!prep.youtubeContent;
+
+  if (
+    isYoutubeTemplate(documentType) &&
+    prep.videoId &&
+    !prep.youtubeContent
+  ) {
+    const reason = prep.transcriptFetchFailed
+      ? "Could not fetch YouTube transcript"
+      : "YouTube transcript unavailable";
+    logger.info("Skipping youtube formatting:", reason);
+    if (
+      shouldShowInboxNotification(
+        context.plugin.settings.inboxNotificationLevel,
+        "warning"
+      )
+    ) {
+      new Notice(`${reason}. Leaving the note unchanged.`, 5000);
+    }
+    return context;
+  }
+
   const formatContent = prep.formatContent;
 
   // get token amount from token counter
@@ -872,6 +915,18 @@ async function formatContentStep(
       tokenAmount,
       maxFormattingTokens: context.plugin.settings.maxFormattingTokens,
     });
+    if (
+      isYoutubeTemplate(documentType) &&
+      shouldShowInboxNotification(
+        context.plugin.settings.inboxNotificationLevel,
+        "warning"
+      )
+    ) {
+      new Notice(
+        `YouTube note is too large to format (${tokenAmount} tokens). Try a shorter video or increase the formatting token limit in settings.`,
+        6000
+      );
+    }
     return context;
   }
 
@@ -901,7 +956,8 @@ async function formatContentStep(
       context.content = await finalizeYouTubeFormattedNote(
         context.plugin.app,
         context.containerFile,
-        documentType
+        documentType,
+        context.youtubeContent ?? undefined
       );
     } else if (context.containerFile) {
       context.content = await context.plugin.app.vault.read(
@@ -923,9 +979,9 @@ async function recommendTagsStep(
   context: ProcessingContext
 ): Promise<ProcessingContext> {
   const documentType = context.classification?.documentType;
-  if (documentType && isYoutubeVideoTemplate(documentType)) {
+  if (documentType && isYoutubeTemplate(documentType)) {
     logger.info(
-      "Skipping tag recommendation: youtube_video template adds tags during formatting"
+      "Skipping tag recommendation: youtube_* templates add tags during formatting"
     );
     return context;
   }

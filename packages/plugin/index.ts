@@ -52,6 +52,7 @@ import {
   checkAndCreateFolders,
   checkAndCreateTemplates,
   restoreDefaultTemplates,
+  DEFAULT_TEMPLATE_NAMES,
 } from "./fileUtils";
 
 import { checkLicenseKey } from "./apiUtils";
@@ -575,6 +576,7 @@ export default class FileOrganizer extends Plugin {
     } catch (error) {
       logger.error("Error formatting content:", error);
       new Notice("An error occurred while formatting the content.", 6000);
+      throw error;
     }
   }
 
@@ -1802,11 +1804,9 @@ export default class FileOrganizer extends Plugin {
                 text: "This will restore the following templates to their original plugin versions:",
               });
               const list = contentEl.createEl("ul");
-              list.createEl("li", { text: "meeting_note.md" });
-              list.createEl("li", { text: "youtube_video.md" });
-              list.createEl("li", { text: "enhance.md" });
-              list.createEl("li", { text: "research_paper.md" });
-              list.createEl("li", { text: "flash_cards.md" });
+              for (const templateName of DEFAULT_TEMPLATE_NAMES) {
+                list.createEl("li", { text: templateName });
+              }
               contentEl.createEl("p", {
                 text: "Your custom templates will not be affected.",
                 attr: { style: "margin-top: 1em; font-weight: bold;" },

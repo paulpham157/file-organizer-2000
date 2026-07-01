@@ -16,13 +16,14 @@ import {
   ORGANIZER_SECONDARY_DELAY_MS,
   useOrganizerFetch,
 } from "../../../../lib/use-debounced-fetch";
+import { getTemplateDisplayHint } from "../../../../lib/template-metadata";
 
 interface UserTemplatesProps {
   plugin: FileOrganizer;
   file: TFile | null;
   content: string;
   refreshKey: number;
-  onFormat: (templateName: string) => void;
+  onFormat: (templateName: string) => void | Promise<void>;
   onTokenLimitError?: (error: string) => void;
 }
 
@@ -49,6 +50,9 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const [isFileTooLarge, setIsFileTooLarge] = React.useState<boolean>(false);
   const requestIdRef = React.useRef(0);
+  /** After Apply, skip slow re-classification when parent refreshes content. */
+  const skipNextClassificationRef = React.useRef(false);
+  const appliedTemplateRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (content && file) {
@@ -82,6 +86,9 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   }, [content]);
 
   const resetForNewFileContext = React.useCallback(() => {
+    if (skipNextClassificationRef.current) {
+      return;
+    }
     requestIdRef.current++;
     setSelectedTemplateName(null);
     setClassificationStatus("loading");
@@ -95,6 +102,32 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
       }
 
       const requestId = ++requestIdRef.current;
+
+      if (skipNextClassificationRef.current && appliedTemplateRef.current) {
+        skipNextClassificationRef.current = false;
+        try {
+          const fetchedTemplateNames = await plugin.getTemplateNames();
+          if (signal.aborted || requestId !== requestIdRef.current) {
+            return;
+          }
+          setTemplateNames(fetchedTemplateNames);
+          const applied = fetchedTemplateNames.find(
+            t =>
+              t.toLowerCase() === appliedTemplateRef.current?.toLowerCase()
+          );
+          setSelectedTemplateName(applied ?? appliedTemplateRef.current);
+          appliedTemplateRef.current = null;
+          setClassificationStatus("success");
+        } catch (error) {
+          if (requestId !== requestIdRef.current) {
+            return;
+          }
+          logger.error("Error loading templates after format:", error);
+          setClassificationStatus("success");
+        }
+        return;
+      }
+
       setClassificationStatus("loading");
 
       try {
@@ -179,24 +212,69 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
     return "Select template";
   };
 
+  const selectedTemplateHint = selectedTemplateName
+    ? getTemplateDisplayHint(selectedTemplateName)
+    : undefined;
+
   const dropdownTemplates = templateNames.filter(
     t => t !== selectedTemplateName
   );
 
   const handleFormatClick = async () => {
-    if (selectedTemplateName) {
-      setFormatting(true);
-      try {
-        onFormat(selectedTemplateName);
-      } catch (error) {
-        logger.error("Error formatting:", error);
-      } finally {
-        setFormatting(false);
-      }
+    if (!selectedTemplateName || formatting) {
+      return;
+    }
+
+    appliedTemplateRef.current = selectedTemplateName;
+    skipNextClassificationRef.current = true;
+    setFormatting(true);
+    try {
+      await onFormat(selectedTemplateName);
+    } catch (error) {
+      skipNextClassificationRef.current = false;
+      appliedTemplateRef.current = null;
+      logger.error("Error formatting:", error);
+    } finally {
+      setFormatting(false);
     }
   };
 
+  const renderFormattingState = () => (
+    <div className="flex flex-col space-y-2">
+      <div className="text-[--text-muted] p-2 flex items-center gap-2">
+        <svg
+          className="animate-spin h-4 w-4 shrink-0"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          />
+        </svg>
+        <span>
+          Formatting
+          {selectedTemplateName ? ` as ${selectedTemplateName}` : ""}
+          …
+        </span>
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
+    if (formatting) {
+      return renderFormattingState();
+    }
     if (contentLoadStatus === "error" || classificationStatus === "error") {
       return (
         <div className="text-[--text-error] p-2 bg-[--background-modifier-error]">
@@ -214,8 +292,9 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
       <div className="flex flex-col space-y-2">
         <div className="relative" ref={dropdownRef}>
           <button
-            className="w-full flex items-center justify-between px-3 py-2 bg-[--background-secondary] text-[--text-normal] hover:bg-[--background-modifier-hover] transition-colors duration-200"
+            className="w-full flex items-center justify-between px-3 py-2 bg-[--background-secondary] text-[--text-normal] hover:bg-[--background-modifier-hover] transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             onClick={() => setShowDropdown(!showDropdown)}
+            disabled={formatting}
           >
             <span>{getDisplayText()}</span>
             <svg
@@ -256,6 +335,11 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
             </div>
           )}
         </div>
+        {selectedTemplateHint && (
+          <p className="text-[--text-muted] text-xs leading-snug px-1">
+            {selectedTemplateHint}
+          </p>
+        )}
         {isFileTooLarge && (
           <div className="text-[--text-error] p-2 bg-[--background-modifier-error]">
             File is too large to format.
@@ -294,6 +378,8 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
               </svg>
               Applying...
             </span>
+          ) : selectedTemplateName ? (
+            `Apply ${selectedTemplateName}`
           ) : (
             "Apply"
           )}

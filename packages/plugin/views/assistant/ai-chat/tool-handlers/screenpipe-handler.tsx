@@ -7,6 +7,7 @@ import {
   type ScreenpipeSearchParams,
   type ScreenpipeResult,
 } from "../../../../services/screenpipe-client";
+import { extractYouTubeVideoId } from "../../../../inbox/services/youtube-context";
 
 interface ScreenpipeToolArgs {
   q?: string;
@@ -471,12 +472,9 @@ export function ScreenpipeHandler({
             // Try to extract YouTube URL from text if ScreenPipe didn't provide one
             let extractedUrl = url;
             if (!extractedUrl && items[0].text) {
-              // Look for YouTube URLs in the text
-              const youtubeUrlMatch = items[0].text.match(
-                /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/
-              );
-              if (youtubeUrlMatch) {
-                extractedUrl = youtubeUrlMatch[0];
+              const videoId = extractYouTubeVideoId(items[0].text);
+              if (videoId) {
+                extractedUrl = `https://www.youtube.com/watch?v=${videoId}`;
               }
             }
 

@@ -1,28 +1,38 @@
-import { requestUrl, type App, type TFile } from "obsidian";
+import { requestUrl } from "obsidian";
 import { logger } from "../../services/logger";
 import FileOrganizer from "../../index";
 import { fetchTranscript } from "youtube-transcript-plus";
 import { obsidianFetch } from "../../lib/obsidian-fetch";
 import {
-  appendYouTubeContextBlock,
   extractYouTubeVideoId,
-  getOriginalContent,
-  isYoutubeVideoTemplate,
-  stripYouTubeContextFromFormattedNote,
+  formatTimedTranscript,
+  normalizeTranscriptOffsetSeconds,
+  type TranscriptSegment,
   type YouTubeFetchedContent,
 } from "./youtube-context";
 
 export {
   appendYouTubeContextBlock,
   buildYouTubeContextBlock,
+  buildYouTubeWatchUrlWithTimestamp,
+  ensureYouTubeFrontmatterFields,
+  enhanceYouTubeFormattedNote,
   extractYouTubeVideoId,
   getOriginalContent,
   isPendingYouTubeFormat,
+  isYoutubeTemplate,
   isYoutubeVideoTemplate,
+  formatTimedTranscript,
+  formatTranscriptTimestamp,
+  linkifyYouTubeChannelSection,
+  linkifyYouTubeTimestamps,
+  normalizeTranscriptOffsetSeconds,
+  parseBracketTimestampToSeconds,
   stripYouTubeContextBlock,
   stripYouTubeContextFromFormattedNote,
   YOUTUBE_FULL_TRANSCRIPT_HEADER,
   YOUTUBE_VIDEO_INFORMATION_HEADER,
+  type TranscriptSegment,
   type YouTubeFetchedContent,
 } from "./youtube-context";
 
@@ -63,6 +73,7 @@ function decodeHtmlEntities(text: string): string {
 export interface YouTubeMetadata {
   title: string;
   channel?: string;
+  channelUrl?: string;
   datePublished?: string;
 }
 
@@ -72,9 +83,14 @@ export interface YouTubeMetadata {
  */
 function parseJsonLdFromHtml(html: string): {
   channel?: string;
+  channelUrl?: string;
   datePublished?: string;
 } {
-  const result: { channel?: string; datePublished?: string } = {};
+  const result: {
+    channel?: string;
+    channelUrl?: string;
+    datePublished?: string;
+  } = {};
   const jsonLdRegex =
     /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match: RegExpExecArray | null;
@@ -95,9 +111,14 @@ function parseJsonLdFromHtml(html: string): {
           }
           const author = record.author;
           if (author && typeof author === "object") {
-            const authorName = (author as Record<string, unknown>).name;
+            const authorRecord = author as Record<string, unknown>;
+            const authorName = authorRecord.name;
             if (typeof authorName === "string") {
               result.channel = authorName.trim();
+            }
+            const authorUrl = authorRecord.url;
+            if (typeof authorUrl === "string") {
+              result.channelUrl = authorUrl.trim();
             }
           }
           if (!result.channel) {
@@ -133,15 +154,16 @@ function parseJsonLdFromHtml(html: string): {
 }
 
 /**
- * Extracts the channel name from YouTube's ytInitialData (embedded in watch page).
- * YouTube often omits author from JSON-LD; ytInitialData has the owner in
- * videoSecondaryInfoRenderer.owner.videoOwnerRenderer.title (runs[0].text or simpleText).
+ * Extracts channel name and URL from YouTube's ytInitialData (embedded in watch page).
  */
-function parseYtInitialDataChannel(html: string): string | undefined {
+function parseYtInitialDataChannelInfo(html: string): {
+  channel?: string;
+  channelUrl?: string;
+} {
   const match = html.match(
     /(?:var\s+)?(?:window\s*\[\s*["']ytInitialData["']\s*\]|ytInitialData)\s*=\s*(\{)/
   );
-  if (!match || !match[1]) return undefined;
+  if (!match || !match[1]) return {};
 
   const startIndex = match.index + match[0].length - 1; // index of first `{`
   let depth = 0;
@@ -178,75 +200,147 @@ function parseYtInitialDataChannel(html: string): string | undefined {
         try {
           const jsonStr = html.slice(startIndex, i + 1);
           const data = JSON.parse(jsonStr) as unknown;
-          const channel = getChannelFromYtInitialData(data);
-          if (channel) return channel;
+          return getChannelInfoFromYtInitialData(data);
         } catch {
           // ignore parse errors
         }
-        return undefined;
+        return {};
       }
       i++;
       continue;
     }
     i++;
   }
+  return {};
+}
+
+function buildYouTubeChannelUrl(
+  browseEndpoint: Record<string, unknown> | undefined
+): string | undefined {
+  if (!browseEndpoint) {
+    return undefined;
+  }
+
+  const canonicalBaseUrl = browseEndpoint.canonicalBaseUrl;
+  if (typeof canonicalBaseUrl === "string" && canonicalBaseUrl.startsWith("/")) {
+    return `https://www.youtube.com${canonicalBaseUrl}`;
+  }
+
+  const browseId = browseEndpoint.browseId;
+  if (typeof browseId === "string" && browseId.startsWith("UC")) {
+    return `https://www.youtube.com/channel/${browseId}`;
+  }
+
   return undefined;
 }
 
-function getChannelFromYtInitialData(data: unknown): string | undefined {
-  const extractChannelFromOwner = (owner: unknown): string | undefined => {
-    const videoOwner = (owner as Record<string, unknown>)?.videoOwnerRenderer as Record<string, unknown> | undefined;
-    const title = videoOwner?.title as Record<string, unknown> | undefined;
-    if (!title) return undefined;
-    const runs = title.runs as Array<{ text?: string }> | undefined;
-    if (Array.isArray(runs) && runs[0]?.text) return String(runs[0].text).trim();
-    const simpleText = title.simpleText;
-    if (typeof simpleText === "string") return simpleText.trim();
+function getBrowseEndpointFromNavigationEndpoint(
+  navigationEndpoint: unknown
+): Record<string, unknown> | undefined {
+  if (!navigationEndpoint || typeof navigationEndpoint !== "object") {
     return undefined;
+  }
+  const browseEndpoint = (navigationEndpoint as Record<string, unknown>)
+    .browseEndpoint;
+  if (!browseEndpoint || typeof browseEndpoint !== "object") {
+    return undefined;
+  }
+  return browseEndpoint as Record<string, unknown>;
+}
+
+function getChannelInfoFromYtInitialData(data: unknown): {
+  channel?: string;
+  channelUrl?: string;
+} {
+  const extractChannelFromOwner = (
+    owner: unknown
+  ): { channel?: string; channelUrl?: string } => {
+    const videoOwner = (owner as Record<string, unknown>)
+      ?.videoOwnerRenderer as Record<string, unknown> | undefined;
+    const title = videoOwner?.title as Record<string, unknown> | undefined;
+    if (!title) return {};
+
+    const runs = title.runs as Array<{
+      text?: string;
+      navigationEndpoint?: unknown;
+    }> | undefined;
+    if (Array.isArray(runs) && runs[0]?.text) {
+      const channel = String(runs[0].text).trim();
+      const channelUrl = buildYouTubeChannelUrl(
+        getBrowseEndpointFromNavigationEndpoint(runs[0].navigationEndpoint)
+      );
+      return { channel, channelUrl };
+    }
+
+    const simpleText = title.simpleText;
+    if (typeof simpleText === "string") {
+      const channel = simpleText.trim();
+      const channelUrl = buildYouTubeChannelUrl(
+        getBrowseEndpointFromNavigationEndpoint(
+          videoOwner?.navigationEndpoint ??
+            (title as Record<string, unknown>).navigationEndpoint
+        )
+      );
+      return { channel, channelUrl };
+    }
+
+    return {};
   };
 
-  const searchVideoSecondaryInfo = (items: unknown): string | undefined => {
+  const searchVideoSecondaryInfo = (
+    items: unknown
+  ): { channel?: string; channelUrl?: string } | undefined => {
     if (!Array.isArray(items)) return undefined;
     for (const item of items) {
-      const section = (item as Record<string, unknown>).itemSectionRenderer as Record<string, unknown> | undefined;
-      const sectionContents = section?.contents as Array<Record<string, unknown>> | undefined;
-      const direct = (item as Record<string, unknown>).videoSecondaryInfoRenderer as Record<string, unknown> | undefined;
+      const section = (item as Record<string, unknown>).itemSectionRenderer as
+        | Record<string, unknown>
+        | undefined;
+      const sectionContents = section?.contents as
+        | Array<Record<string, unknown>>
+        | undefined;
+      const direct = (item as Record<string, unknown>)
+        .videoSecondaryInfoRenderer as Record<string, unknown> | undefined;
       if (direct?.owner) {
-        const ch = extractChannelFromOwner(direct.owner);
-        if (ch) return ch;
+        const info = extractChannelFromOwner(direct.owner);
+        if (info.channel) return info;
       }
       if (!Array.isArray(sectionContents)) continue;
       for (const sec of sectionContents) {
-        const videoSecondary = sec.videoSecondaryInfoRenderer as Record<string, unknown> | undefined;
+        const videoSecondary = sec.videoSecondaryInfoRenderer as
+          | Record<string, unknown>
+          | undefined;
         const owner = videoSecondary?.owner;
         if (owner) {
-          const ch = extractChannelFromOwner(owner);
-          if (ch) return ch;
+          const info = extractChannelFromOwner(owner);
+          if (info.channel) return info;
         }
       }
     }
     return undefined;
   };
 
-  if (!data || typeof data !== "object") return undefined;
+  if (!data || typeof data !== "object") return {};
   const d = data as Record<string, unknown>;
   const contents = d.contents as Record<string, unknown> | undefined;
-  const twoCol = contents?.twoColumnWatchNextResults as Record<string, unknown> | undefined;
-  if (!twoCol) return undefined;
+  const twoCol = contents?.twoColumnWatchNextResults as
+    | Record<string, unknown>
+    | undefined;
+  if (!twoCol) return {};
 
-  // Primary: results.results.contents
   const results = twoCol.results as Record<string, unknown> | undefined;
   const resultsInner = results?.results as Record<string, unknown> | undefined;
   const resultsContents = resultsInner?.contents;
-  const ch1 = searchVideoSecondaryInfo(resultsContents);
-  if (ch1) return ch1;
+  const primary = searchVideoSecondaryInfo(resultsContents);
+  if (primary?.channel) return primary;
 
-  // Fallback: secondaryResults.contents or secondaryResults.secondaryResults.contents
-  const secondaryResults = twoCol.secondaryResults as Record<string, unknown> | undefined;
+  const secondaryResults = twoCol.secondaryResults as
+    | Record<string, unknown>
+    | undefined;
   const secondaryContents = Array.isArray(secondaryResults?.contents)
     ? secondaryResults.contents
-    : (secondaryResults?.secondaryResults as Record<string, unknown> | undefined)?.contents;
-  return searchVideoSecondaryInfo(secondaryContents);
+    : (secondaryResults?.secondaryResults as Record<string, unknown> | undefined)
+        ?.contents;
+  return searchVideoSecondaryInfo(secondaryContents) ?? {};
 }
 
 /**
@@ -308,13 +402,19 @@ async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
     }
 
     // Channel: prefer ytInitialData (YouTube often omits author from JSON-LD)
-    const ytChannel = parseYtInitialDataChannel(html);
-    if (ytChannel) {
-      metadata.channel = ytChannel;
+    const ytChannelInfo = parseYtInitialDataChannelInfo(html);
+    if (ytChannelInfo.channel) {
+      metadata.channel = ytChannelInfo.channel;
+    }
+    if (ytChannelInfo.channelUrl) {
+      metadata.channelUrl = ytChannelInfo.channelUrl;
     }
     // Date and optional channel fallback from JSON-LD
     const jsonLd = parseJsonLdFromHtml(html);
     if (!metadata.channel && jsonLd.channel) metadata.channel = jsonLd.channel;
+    if (!metadata.channelUrl && jsonLd.channelUrl) {
+      metadata.channelUrl = jsonLd.channelUrl;
+    }
     if (jsonLd.datePublished) {
       metadata.datePublished = formatDatePublished(jsonLd.datePublished);
     }
@@ -326,6 +426,7 @@ async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
     console.debug("[YouTube Service] Extracted metadata:", {
       title: metadata.title,
       channel: metadata.channel ?? "(none)",
+      channelUrl: metadata.channelUrl ?? "(none)",
       datePublished: metadata.datePublished ?? "(none)",
     });
     return metadata;
@@ -347,12 +448,7 @@ async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
 export async function getYouTubeContent(
   videoId: string,
   _plugin?: FileOrganizer
-): Promise<{
-  title: string;
-  transcript: string;
-  channel?: string;
-  datePublished?: string;
-}> {
+): Promise<Omit<YouTubeFetchedContent, "videoId">> {
   // Validate and normalize videoId to ensure it's a string
   if (!videoId) {
     throw new YouTubeError("videoId is required");
@@ -458,13 +554,21 @@ export async function getYouTubeContent(
       throw new YouTubeError("No transcript items returned from YouTube");
     }
 
-    // Combine transcript items into a single string
-    const rawTranscript = transcriptItems
-      .map((item: { text: string }) => item.text)
-      .join(" ");
+    const segments: TranscriptSegment[] = transcriptItems.map(
+      (item: { text: string; offset?: number }) => ({
+        text: decodeHtmlEntities(item.text),
+        offset: normalizeTranscriptOffsetSeconds(item.offset ?? 0),
+      })
+    );
 
-    // Decode HTML entities in transcript (handles cases like &amp;#39;)
-    const decodedTranscript = decodeHtmlEntities(rawTranscript);
+    const timedTranscript = formatTimedTranscript(segments);
+    const decodedTranscript =
+      timedTranscript ||
+      segments
+        .map(s => s.text)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
 
     // Ensure title is properly decoded (double-check)
     const decodedTitle = decodeHtmlEntities(metadata.title);
@@ -472,15 +576,19 @@ export async function getYouTubeContent(
     console.debug("[YouTube Service] Successfully fetched:", {
       title: decodedTitle,
       channel: metadata.channel ?? "(none)",
+      channelUrl: metadata.channelUrl ?? "(none)",
       datePublished: metadata.datePublished ?? "(none)",
       transcriptLength: decodedTranscript.length,
+      segmentCount: segments.length,
     });
 
     return {
       title: decodedTitle,
       transcript: decodedTranscript,
       channel: metadata.channel,
+      channelUrl: metadata.channelUrl,
       datePublished: metadata.datePublished,
+      segments,
     };
   } catch (error) {
     if (error instanceof YouTubeError) {
@@ -493,82 +601,13 @@ export async function getYouTubeContent(
   }
 }
 
-export interface PrepareYouTubeFormatContentResult {
-  formatContent: string;
-  videoId: string | null;
-  videoTitle: string | null;
-  youtubeContent: YouTubeFetchedContent | null;
-}
-
-export async function prepareYouTubeFormatContent(
-  plugin: FileOrganizer,
-  options: {
-    baseContent: string;
-    templateName: string;
-    existingYoutubeContent?: YouTubeFetchedContent;
-  }
-): Promise<PrepareYouTubeFormatContentResult> {
-  const original = getOriginalContent(options.baseContent);
-  let formatContent = original;
-  let videoId: string | null = null;
-  let videoTitle: string | null = null;
-  let youtubeContent = options.existingYoutubeContent ?? null;
-
-  if (!isYoutubeVideoTemplate(options.templateName)) {
-    return { formatContent, videoId, videoTitle, youtubeContent };
-  }
-
-  videoId = extractYouTubeVideoId(original);
-  if (!videoId) {
-    logger.info("No YouTube URL found in content for youtube_video formatting");
-    return { formatContent, videoId, videoTitle, youtubeContent };
-  }
-
-  if (!youtubeContent) {
-    try {
-      const fetched = await getYouTubeContent(videoId, plugin);
-      videoTitle = fetched.title;
-      youtubeContent = {
-        videoId,
-        title: fetched.title,
-        transcript: fetched.transcript,
-        channel: fetched.channel,
-        datePublished: fetched.datePublished,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.warn(
-        "Failed to fetch YouTube transcript, formatting without it:",
-        errorMessage,
-        error
-      );
-      return { formatContent, videoId, videoTitle: null, youtubeContent: null };
-    }
-  } else {
-    videoTitle = youtubeContent.title;
-  }
-
-  formatContent = appendYouTubeContextBlock(original, youtubeContent);
-  return { formatContent, videoId, videoTitle, youtubeContent };
-}
-
-export async function finalizeYouTubeFormattedNote(
-  app: App,
-  file: TFile,
-  templateName: string
-): Promise<string> {
-  const formatted = await app.vault.read(file);
-  if (!isYoutubeVideoTemplate(templateName)) {
-    return formatted;
-  }
-
-  const cleaned = stripYouTubeContextFromFormattedNote(formatted);
-  if (cleaned !== formatted) {
-    await app.vault.modify(file, cleaned);
-  }
-  return cleaned;
-}
+export {
+  finalizeYouTubeFormattedNote,
+  getYoutubeInboxFormatSkipReasonAfterPrep,
+  prepareYouTubeFormatContent,
+  shouldSkipYoutubeInboxFormatting,
+  type PrepareYouTubeFormatContentResult,
+} from "./youtube-format";
 
 export class YouTubeError extends Error {
   constructor(message: string, public details?: unknown) {

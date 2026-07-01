@@ -6,6 +6,10 @@ import { logger } from "./services/logger";
 export const DEFAULT_TEMPLATE_NAMES = [
   "meeting_note.md",
   "youtube_video.md",
+  "youtube_summary.md",
+  "youtube_key_concepts.md",
+  "youtube_qa.md",
+  "youtube_timestamped_outline.md",
   "enhance.md",
   "research_paper.md",
   "flash_cards.md",
@@ -149,16 +153,48 @@ citation: "[Complete citation in APA/MLA format]"
 `;
 }
 
-function getYoutubeVideoTemplateContent(): string {
-  return `Please create an Obsidian note using the video link and any available transcript or additional context. The note must include:
+function getYoutubeTemplateSharedRules(): string {
+  return `- Extract the video title from the "YouTube Video Information" section if provided, or infer from the transcript content.
 
-1. Frontmatter (at the top) with the following properties:
+- Use the **Channel** line from the "YouTube Video Information" section when present. Set frontmatter \`channel\` to that name. If a **Channel URL** line is present, also set \`channel_url\` in frontmatter to that exact URL. In the body \`## Channel\` section, use plain text matching \`channel\` (a link will be added automatically when \`channel_url\` is set). If no Channel line is present, leave \`channel\` empty and omit or minimalize the Channel section. Use **Date Published** for \`date_published\` when present.
+
+- Extract topics by analyzing the main themes discussed in the transcript. Use 2-5 specific, relevant topics.
+
+- Generate tags based on the video content. Always include "youtube" and add 2-4 additional relevant tags. Tags in frontmatter should NOT include the "#" symbol (only use "#" for inline tags in the content body). **CRITICAL: Tags must have NO spaces between words. Use hyphens or underscores to connect multi-word tags (e.g., "web-development" or "machine_learning", not "web development" or "machine learning").**
+
+- Create a concise summary (1-2 sentences) that captures the video's main theme and key takeaways.
+
+- The Full Transcript section may use \`[MM:SS]\` or \`[H:MM:SS]\` timestamp prefixes. Use those bare bracket timestamps when citing specific moments in the body (e.g. bullet points or outline entries). They will be converted to clickable YouTube links automatically after formatting.
+
+- If a full transcript is provided in the "Full Transcript" section, use it as the source of truth for the note body.
+
+- **CRITICAL - NO RAW TRANSCRIPT IN OUTPUT: Do not include \`## YouTube Video Information\`, \`## Full Transcript\`, or the raw transcript text in the final note. The transcript is input only.**
+
+- If "Date Published" is in the YouTube Video Information section, use it for \`date_published\`. Otherwise extract from transcript if mentioned, or leave empty.
+
+- Maintain the exact markdown syntax for the frontmatter block (\`---\` at the top and bottom).
+
+- Extract the video ID from the YouTube URL in the content, then create the embed using Obsidian's embed syntax:
+  - Format: ![](https://www.youtube.com/watch?v=VIDEO_ID) (replace VIDEO_ID with the actual video ID)
+  - This will automatically embed the YouTube video player in Obsidian
+
+- **CRITICAL - NO SPONSOR CONTENT: Never include sponsor segments, promotional content, or ads. Exclude: "sponsored by", "use code X", "check out our sponsor", discount/promo codes, product plugs, and mid-roll ad segments. Summarize ONLY the main educational or informational content. Skip sponsor blocks entirely.**
+
+- Do not use \`\`\` code blocks or markdown code formatting in the summary body.
+
+- Focus on accuracy and completeness based on the actual transcript content provided.`;
+}
+
+function getYoutubeFrontmatterAndEmbedInstructions(): string {
+  return `1. Frontmatter (at the top) with the following properties:
 
 ---
 
 title: "{{video title - extract from YouTube Video Information section or transcript}}"
 
 channel: "{{channel name if available, otherwise leave empty}}"
+
+channel_url: "{{channel URL from YouTube Video Information if available, otherwise leave empty}}"
 
 date_published: "{{video publication date if available in transcript or metadata, otherwise leave empty}}"
 
@@ -174,41 +210,21 @@ summary: "{{short summary of the video's main theme and key takeaways}}"
 
 ![](https://www.youtube.com/watch?v=VIDEO_ID)
 
-3. A **Channel** section: a \`## Channel\` heading followed by a single line containing the channel/uploader name (same value as the \`channel\` frontmatter field). If the channel is unknown, use \`## Channel\` with the text \`Unknown\` or omit the section.
+3. A **Channel** section: a \`## Channel\` heading followed by a single line containing the channel/uploader name (same value as the \`channel\` frontmatter field). If \`channel_url\` is set in frontmatter, keep the body line as plain text — it will be linked automatically. If the channel is unknown, use \`## Channel\` with the text \`Unknown\` or omit the section.`;
+}
+
+function getYoutubeVideoTemplateContent(): string {
+  return `Please create an Obsidian note using the video link and any available transcript or additional context. The note must include:
+
+${getYoutubeFrontmatterAndEmbedInstructions()}
 
 4. A comprehensive, detailed summary of the key points from the video (below the Channel section).
 
 **Instructions:**
 
-- Extract the video title from the "YouTube Video Information" section if provided, or infer from the transcript content.
+${getYoutubeTemplateSharedRules()}
 
-- Use the **Channel** line from the "YouTube Video Information" section when present. Set frontmatter \`channel\` and the body \`## Channel\` section to **exactly** that name (they must match). If no Channel line is present, leave \`channel\` empty and omit or minimalize the Channel section. Use **Date Published** for \`date_published\` when present.
-
-- Extract topics by analyzing the main themes discussed in the transcript. Use 2-5 specific, relevant topics.
-
-- Generate tags based on the video content. Always include "youtube" and add 2-4 additional relevant tags. Tags in frontmatter should NOT include the "#" symbol (only use "#" for inline tags in the content body). **CRITICAL: Tags must have NO spaces between words. Use hyphens or underscores to connect multi-word tags (e.g., "web-development" or "machine_learning", not "web development" or "machine learning").**
-
-- Create a concise summary (1-2 sentences) that captures the video's main theme and key takeaways.
-
-- If a full transcript is provided in the "Full Transcript" section, use it to create an accurate, detailed summary below the embed link.
-
-- **CRITICAL - NO RAW TRANSCRIPT IN OUTPUT: Do not include \`## YouTube Video Information\`, \`## Full Transcript\`, or the raw transcript text in the final note. The transcript is input only — output frontmatter, embed, channel section, and summary only.**
-
-- If "Date Published" is in the YouTube Video Information section, use it for \`date_published\`. Otherwise extract from transcript if mentioned, or leave empty.
-
-- Maintain the exact markdown syntax for the frontmatter block (\`---\` at the top and bottom).
-
-- Extract the video ID from the YouTube URL in the content, then create the embed using Obsidian's embed syntax:
-  - Format: ![](https://www.youtube.com/watch?v=VIDEO_ID) (replace VIDEO_ID with the actual video ID)
-  - This will automatically embed the YouTube video player in Obsidian
-
-- In the main body, provide a comprehensive summary with bullet points covering all major points from the video transcript.
-
-- **CRITICAL - NO SPONSOR CONTENT: Never include sponsor segments, promotional content, or ads in the summary or body. Exclude: "sponsored by", "use code X", "check out our sponsor", "this video is brought to you by", discount/promo codes, product plugs, and mid-roll ad segments. Summarize ONLY the main educational or informational content of the video. If the transcript contains sponsor blocks, skip them entirely—do not paraphrase or mention them.**
-
-- Do not use \`\`\` code blocks or markdown code formatting in the summary.
-
-- Focus on accuracy and completeness based on the actual transcript content provided.
+- In the main body under \`## Detailed Summary\`, provide bullet points covering all major points. When helpful, prefix bullets with \`[MM:SS]\` timestamps from the transcript so the reader can jump to that moment in the video.
 
 **Example Output Format:**
 
@@ -217,6 +233,8 @@ summary: "{{short summary of the video's main theme and key takeaways}}"
 title: "How to Build a React App in 2024"
 
 channel: "Tech Tutorials"
+
+channel_url: "https://www.youtube.com/@TechTutorials"
 
 date_published: "2024-01-15"
 
@@ -236,13 +254,80 @@ Tech Tutorials
 
 ## Detailed Summary
 
-- Introduction to React fundamentals and modern development practices
-- Setting up a new React project with Vite
-- Using React Hooks for state management
+- [02:14] Introduction to React fundamentals and modern development practices
+- [08:30] Setting up a new React project with Vite
+- [15:02] Using React Hooks for state management
 - Implementing Context API for global state
-- Best practices for component structure and organization
-- Performance optimization techniques
-- Deployment strategies and recommendations`;
+- Best practices for component structure and organization`;
+}
+
+function getYoutubeSummaryTemplateContent(): string {
+  return `Please create a concise Obsidian note from the YouTube video and transcript. The note must include:
+
+${getYoutubeFrontmatterAndEmbedInstructions()}
+
+4. A **Short Summary** section (\`## Short Summary\`) with 1-2 paragraphs capturing the main thesis and outcome of the video.
+
+5. A **Key Takeaways** section (\`## Key Takeaways\`) with 3-7 bullet points — the most important things to remember.
+
+**Instructions:**
+
+${getYoutubeTemplateSharedRules()}
+
+- Keep the body shorter than a full lecture note. Prioritize clarity over exhaustive coverage.
+- Use \`[MM:SS]\` timestamps on takeaways when they anchor a specific moment worth revisiting.`;
+}
+
+function getYoutubeKeyConceptsTemplateContent(): string {
+  return `Please create an Obsidian note organized by key concepts from the YouTube video transcript. The note must include:
+
+${getYoutubeFrontmatterAndEmbedInstructions()}
+
+4. A **Key Concepts** section (\`## Key Concepts\`) where each concept is a \`### Concept Name\` subsection with a short explanation (2-5 sentences) of how the video presents it.
+
+**Instructions:**
+
+${getYoutubeTemplateSharedRules()}
+
+- Identify 4-10 distinct concepts; merge minor mentions into related concepts.
+- Under each \`###\` heading, explain the concept in your own words based on the transcript.
+- Optionally start a concept subsection with \`[MM:SS]\` when the concept is first introduced in the video.`;
+}
+
+function getYoutubeQaTemplateContent(): string {
+  return `Please create an Obsidian Q&A study note from the YouTube video transcript. The note must include:
+
+${getYoutubeFrontmatterAndEmbedInstructions()}
+
+4. A **Q&A** section (\`## Q&A\`) with 5-12 question-and-answer pairs that test understanding of the video.
+
+**Instructions:**
+
+${getYoutubeTemplateSharedRules()}
+
+- Format each pair as:
+  - **Q:** [Clear question]
+  - **A:** [Concise answer grounded in the transcript]
+- Questions should cover the main ideas, not trivia or sponsor mentions.
+- Optionally include \`[MM:SS]\` after an answer when a specific moment supports it.`;
+}
+
+function getYoutubeTimestampedOutlineTemplateContent(): string {
+  return `Please create a timestamped outline Obsidian note from the YouTube video transcript. The note must include:
+
+${getYoutubeFrontmatterAndEmbedInstructions()}
+
+4. An **Outline** section (\`## Outline\`) structured as a hierarchical outline of the video.
+
+**Instructions:**
+
+${getYoutubeTemplateSharedRules()}
+
+- Use nested bullet points for sections and subtopics.
+- **Every top-level outline bullet must start with a \`[MM:SS]\` or \`[H:MM:SS]\` timestamp** from the transcript marking where that section begins.
+- Sub-bullets may omit timestamps unless they mark a distinct jump in the video.
+- Group content by topic, not by arbitrary time intervals.
+- Skip sponsor segments entirely — do not create outline entries for ads.`;
 }
 
 function getEnhanceTemplateContent(): string {
@@ -433,6 +518,10 @@ export async function checkAndCreateTemplates(
 ) {
   const meetingNoteTemplatePath = `${settings.templatePaths}/meeting_note.md`;
   const youtubeVideoTemplatePath = `${settings.templatePaths}/youtube_video.md`;
+  const youtubeSummaryTemplatePath = `${settings.templatePaths}/youtube_summary.md`;
+  const youtubeKeyConceptsTemplatePath = `${settings.templatePaths}/youtube_key_concepts.md`;
+  const youtubeQaTemplatePath = `${settings.templatePaths}/youtube_qa.md`;
+  const youtubeTimestampedOutlineTemplatePath = `${settings.templatePaths}/youtube_timestamped_outline.md`;
   const enhanceTemplatePath = `${settings.templatePaths}/enhance.md`;
   const researchPaperTemplatePath = `${settings.templatePaths}/research_paper.md`;
   const flashCardsTemplatePath = `${settings.templatePaths}/flash_cards.md`;
@@ -458,6 +547,34 @@ export async function checkAndCreateTemplates(
     );
   }
 
+  if (!(await app.vault.adapter.exists(youtubeSummaryTemplatePath))) {
+    await app.vault.create(
+      youtubeSummaryTemplatePath,
+      getYoutubeSummaryTemplateContent()
+    );
+  }
+
+  if (!(await app.vault.adapter.exists(youtubeKeyConceptsTemplatePath))) {
+    await app.vault.create(
+      youtubeKeyConceptsTemplatePath,
+      getYoutubeKeyConceptsTemplateContent()
+    );
+  }
+
+  if (!(await app.vault.adapter.exists(youtubeQaTemplatePath))) {
+    await app.vault.create(
+      youtubeQaTemplatePath,
+      getYoutubeQaTemplateContent()
+    );
+  }
+
+  if (!(await app.vault.adapter.exists(youtubeTimestampedOutlineTemplatePath))) {
+    await app.vault.create(
+      youtubeTimestampedOutlineTemplatePath,
+      getYoutubeTimestampedOutlineTemplateContent()
+    );
+  }
+
   if (!(await app.vault.adapter.exists(enhanceTemplatePath))) {
     await app.vault.create(enhanceTemplatePath, getEnhanceTemplateContent());
   }
@@ -471,7 +588,7 @@ export async function checkAndCreateTemplates(
 }
 
 // Restore default templates to their original plugin versions
-// Only restores the 5 default templates, does not affect user-created templates
+// Only restores bundled default templates, does not affect user-created templates
 export async function restoreDefaultTemplates(
   app: App,
   settings: FileOrganizerSettings
@@ -479,6 +596,10 @@ export async function restoreDefaultTemplates(
   const templatePaths = {
     meetingNote: `${settings.templatePaths}/meeting_note.md`,
     youtubeVideo: `${settings.templatePaths}/youtube_video.md`,
+    youtubeSummary: `${settings.templatePaths}/youtube_summary.md`,
+    youtubeKeyConcepts: `${settings.templatePaths}/youtube_key_concepts.md`,
+    youtubeQa: `${settings.templatePaths}/youtube_qa.md`,
+    youtubeTimestampedOutline: `${settings.templatePaths}/youtube_timestamped_outline.md`,
     enhance: `${settings.templatePaths}/enhance.md`,
     researchPaper: `${settings.templatePaths}/research_paper.md`,
     flashCards: `${settings.templatePaths}/flash_cards.md`,
@@ -487,6 +608,10 @@ export async function restoreDefaultTemplates(
   const templateContents = {
     meetingNote: getMeetingNoteTemplateContent(),
     youtubeVideo: getYoutubeVideoTemplateContent(),
+    youtubeSummary: getYoutubeSummaryTemplateContent(),
+    youtubeKeyConcepts: getYoutubeKeyConceptsTemplateContent(),
+    youtubeQa: getYoutubeQaTemplateContent(),
+    youtubeTimestampedOutline: getYoutubeTimestampedOutlineTemplateContent(),
     enhance: getEnhanceTemplateContent(),
     researchPaper: getResearchPaperTemplateContent(),
     flashCards: getFlashCardsTemplateContent(),

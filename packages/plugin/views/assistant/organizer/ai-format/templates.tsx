@@ -4,11 +4,7 @@ import FileOrganizer from "../../../../index";
 import { UserTemplates } from "./user-templates";
 import { DEFAULT_SETTINGS } from "../../../../settings";
 import { logger } from "../../../../services/logger";
-import {
-  isYoutubeVideoTemplate,
-  prepareYouTubeFormatContent,
-  finalizeYouTubeFormattedNote,
-} from "../../../../inbox/services/youtube-service";
+import { formatNoteWithTemplate } from "../../../../lib/format-with-template";
 
 interface ClassificationBoxProps {
   plugin: FileOrganizer;
@@ -40,116 +36,27 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
       return;
     }
     try {
-      let fileContent = await plugin.app.vault.read(file);
-      if (typeof fileContent !== "string") {
-        throw new Error("File content is not a string");
-      }
-
-      if (isYoutubeVideoTemplate(templateName)) {
-        new Notice("Fetching YouTube transcript...", 2000);
-      }
-
-      const prep = await prepareYouTubeFormatContent(plugin, {
-        baseContent: fileContent,
+      const result = await formatNoteWithTemplate({
+        plugin,
+        file,
         templateName,
+        formatBehavior,
+        onFileRename,
       });
-      fileContent = prep.formatContent;
-      const { videoId, videoTitle } = prep;
 
-      if (isYoutubeVideoTemplate(templateName) && prep.youtubeContent) {
-        new Notice("Transcript fetched, formatting...", 2000);
+      if (result.skipped) {
+        return;
       }
 
-      const formattingInstruction = await plugin.getTemplateInstructions(
-        templateName
-      );
-
-      if (formatBehavior === "override") {
-        let targetFile = file;
-        if (
-          isYoutubeVideoTemplate(templateName) &&
-          videoId &&
-          videoTitle
-        ) {
-          try {
-            const sanitizedTitle = videoTitle
-              .replace(/[<>:"/\\|?*]/g, "")
-              .replace(/\s+/g, " ")
-              .trim()
-              .substring(0, 100);
-
-            const newFileName = `${sanitizedTitle}.md`;
-            const newPath = `${file.parent?.path || ""}/${newFileName}`.replace(
-              /^\/+/,
-              ""
-            );
-
-            if (sanitizedTitle && newFileName !== file.name) {
-              let uniquePath = newPath;
-              if (await plugin.app.vault.adapter.exists(newPath)) {
-                let counter = 1;
-                const parentDir = file.parent?.path || "";
-                while (await plugin.app.vault.adapter.exists(uniquePath)) {
-                  uniquePath = `${parentDir}/${sanitizedTitle} (${counter}).md`.replace(
-                    /^\/+/,
-                    ""
-                  );
-                  counter++;
-                  if (counter > 100) break;
-                }
-              }
-
-              if (!(await plugin.app.vault.adapter.exists(uniquePath))) {
-                await plugin.app.fileManager.renameFile(file, uniquePath);
-                const renamedFile =
-                  plugin.app.vault.getAbstractFileByPath(uniquePath);
-                if (renamedFile instanceof TFile) {
-                  targetFile = renamedFile;
-                  onFileRename?.(targetFile);
-                }
-              }
-            }
-          } catch (error) {
-            logger.warn("Failed to rename file with video title:", error);
-          }
-        }
-
-        await plugin.streamFormatInCurrentNote({
-          file: targetFile,
-          content: fileContent,
-          formattingInstruction: formattingInstruction,
-        });
-        await finalizeYouTubeFormattedNote(
-          plugin.app,
-          targetFile,
-          templateName
-        );
-        onFormatComplete?.(targetFile);
-      } else if (formatBehavior === "newFile") {
-        const newFile = await plugin.streamFormatInSplitView({
-          file: file,
-          content: fileContent,
-          formattingInstruction: formattingInstruction,
-        });
-        if (newFile) {
-          await finalizeYouTubeFormattedNote(
-            plugin.app,
-            newFile,
-            templateName
-          );
-          onFormatComplete?.(newFile);
-        }
-      } else if (formatBehavior === "append") {
-        await plugin.streamFormatAppendInCurrentNote({
-          file: file,
-          content: fileContent,
-          formattingInstruction: formattingInstruction,
-        });
-        await finalizeYouTubeFormattedNote(plugin.app, file, templateName);
-        onFormatComplete?.(file);
-      }
+      onFormatComplete?.(result.file);
     } catch (error) {
       logger.error("Error in handleFormat:", error);
+      new Notice(
+        `Error formatting file: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        6000
+      );
     }
   };
 
@@ -230,7 +137,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
           file={file}
           content={content}
           refreshKey={refreshKey}
-          onFormat={(templateName) => { void handleFormat(templateName); }}
+          onFormat={handleFormat}
           onTokenLimitError={onTokenLimitError}
         />
       </div>

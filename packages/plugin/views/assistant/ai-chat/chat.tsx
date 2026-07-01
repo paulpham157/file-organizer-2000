@@ -1721,43 +1721,15 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           // Execute formatting asynchronously
           void (async () => {
             try {
-              const {
-                prepareYouTubeFormatContent,
-                finalizeYouTubeFormattedNote,
-                isYoutubeVideoTemplate,
-              } = await import("../../../inbox/services/youtube-service");
+              const { formatNoteWithTemplate } = await import(
+                "../../../lib/format-with-template"
+              );
 
-              const baseContent = await app.vault.read(activeFile);
-              if (typeof baseContent !== "string") {
-                throw new Error("File content is not a string");
-              }
-
-              if (isYoutubeVideoTemplate(templateName)) {
-                new Notice("Fetching YouTube transcript...", 2000);
-              }
-
-              const prep = await prepareYouTubeFormatContent(plugin, {
-                baseContent,
+              await formatNoteWithTemplate({
+                plugin,
+                file: activeFile,
                 templateName,
               });
-
-              if (isYoutubeVideoTemplate(templateName) && prep.youtubeContent) {
-                new Notice("Transcript fetched, formatting...", 2000);
-              }
-
-              const formattingInstruction =
-                await plugin.getTemplateInstructions(templateName);
-              await plugin.streamFormatInCurrentNote({
-                file: activeFile,
-                content: prep.formatContent,
-                formattingInstruction: formattingInstruction,
-              });
-
-              await finalizeYouTubeFormattedNote(
-                app,
-                activeFile,
-                templateName
-              );
             } catch (error) {
               logger.error("Error formatting file:", error);
               new Notice(
