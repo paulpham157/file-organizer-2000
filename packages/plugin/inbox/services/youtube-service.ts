@@ -1,26 +1,30 @@
-import { requestUrl } from "obsidian";
+import { requestUrl, type App, type TFile } from "obsidian";
 import { logger } from "../../services/logger";
 import FileOrganizer from "../../index";
 import { fetchTranscript } from "youtube-transcript-plus";
 import { obsidianFetch } from "../../lib/obsidian-fetch";
+import {
+  appendYouTubeContextBlock,
+  extractYouTubeVideoId,
+  getOriginalContent,
+  isYoutubeVideoTemplate,
+  stripYouTubeContextFromFormattedNote,
+  type YouTubeFetchedContent,
+} from "./youtube-context";
 
-// Regex patterns for both YouTube URL formats
-const YOUTUBE_URL_PATTERNS = [
-  /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)/,
-  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
-];
-
-export function extractYouTubeVideoId(
-  content: string
-): string | null {
-  for (const pattern of YOUTUBE_URL_PATTERNS) {
-    const match = content.match(pattern);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-  return null;
-}
+export {
+  appendYouTubeContextBlock,
+  buildYouTubeContextBlock,
+  extractYouTubeVideoId,
+  getOriginalContent,
+  isPendingYouTubeFormat,
+  isYoutubeVideoTemplate,
+  stripYouTubeContextBlock,
+  stripYouTubeContextFromFormattedNote,
+  YOUTUBE_FULL_TRANSCRIPT_HEADER,
+  YOUTUBE_VIDEO_INFORMATION_HEADER,
+  type YouTubeFetchedContent,
+} from "./youtube-context";
 
 /**
  * Decodes HTML entities in a string
@@ -489,24 +493,81 @@ export async function getYouTubeContent(
   }
 }
 
-export function getOriginalContent(content: string): string {
-  let original = content;
+export interface PrepareYouTubeFormatContentResult {
+  formatContent: string;
+  videoId: string | null;
+  videoTitle: string | null;
+  youtubeContent: YouTubeFetchedContent | null;
+}
 
-  // Remove YouTube section if present
-  original = original.split("\n\n## YouTube Video:")[0];
+export async function prepareYouTubeFormatContent(
+  plugin: FileOrganizer,
+  options: {
+    baseContent: string;
+    templateName: string;
+    existingYoutubeContent?: YouTubeFetchedContent;
+  }
+): Promise<PrepareYouTubeFormatContentResult> {
+  const original = getOriginalContent(options.baseContent);
+  let formatContent = original;
+  let videoId: string | null = null;
+  let videoTitle: string | null = null;
+  let youtubeContent = options.existingYoutubeContent ?? null;
 
-  // Remove audio file link and transcript header if present
-  // Format: ![[audioFileName]]\n\n## Transcript for audioFileName\n\n[transcript]
-  const audioLinkPattern = /^!\[\[[^\]]+\]\]\s*\n\n/;
-  const transcriptHeaderPattern = /^## Transcript for [^\n]+\n\n/;
+  if (!isYoutubeVideoTemplate(options.templateName)) {
+    return { formatContent, videoId, videoTitle, youtubeContent };
+  }
 
-  // Remove audio link at the start
-  original = original.replace(audioLinkPattern, '');
+  videoId = extractYouTubeVideoId(original);
+  if (!videoId) {
+    logger.info("No YouTube URL found in content for youtube_video formatting");
+    return { formatContent, videoId, videoTitle, youtubeContent };
+  }
 
-  // Remove transcript header at the start
-  original = original.replace(transcriptHeaderPattern, '');
+  if (!youtubeContent) {
+    try {
+      const fetched = await getYouTubeContent(videoId, plugin);
+      videoTitle = fetched.title;
+      youtubeContent = {
+        videoId,
+        title: fetched.title,
+        transcript: fetched.transcript,
+        channel: fetched.channel,
+        datePublished: fetched.datePublished,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.warn(
+        "Failed to fetch YouTube transcript, formatting without it:",
+        errorMessage,
+        error
+      );
+      return { formatContent, videoId, videoTitle: null, youtubeContent: null };
+    }
+  } else {
+    videoTitle = youtubeContent.title;
+  }
 
-  return original;
+  formatContent = appendYouTubeContextBlock(original, youtubeContent);
+  return { formatContent, videoId, videoTitle, youtubeContent };
+}
+
+export async function finalizeYouTubeFormattedNote(
+  app: App,
+  file: TFile,
+  templateName: string
+): Promise<string> {
+  const formatted = await app.vault.read(file);
+  if (!isYoutubeVideoTemplate(templateName)) {
+    return formatted;
+  }
+
+  const cleaned = stripYouTubeContextFromFormattedNote(formatted);
+  if (cleaned !== formatted) {
+    await app.vault.modify(file, cleaned);
+  }
+  return cleaned;
 }
 
 export class YouTubeError extends Error {

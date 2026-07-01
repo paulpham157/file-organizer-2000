@@ -10,33 +10,52 @@ import { AppendButton } from "./components/append-button";
 import { CopyButton } from "./components/copy-button";
 import { RefreshButton } from "./components/refresh-button";
 
+/** Message for UI rendering; timestamps are stored as ms, not SDK `Date`. */
+export type RenderableChatMessage = Omit<Message, "createdAt"> & {
+  createdAt?: number;
+};
+
+export function toRenderableChatMessage(
+  msg: Message,
+  existingTimestamp?: number
+): RenderableChatMessage {
+  const { createdAt: sdkCreatedAt, ...rest } = msg;
+  const createdAt =
+    existingTimestamp ??
+    (sdkCreatedAt instanceof Date
+      ? sdkCreatedAt.getTime()
+      : typeof sdkCreatedAt === "number"
+        ? sdkCreatedAt
+        : Date.now());
+
+  return { ...rest, createdAt };
+}
+
 interface MessageRendererProps {
-  message: Message & {
-    experimental_attachments?: Attachment[];
-    createdAt?: number;
-    parts?: Array<{
-      type?: string;
-      output?: unknown;
-      toolInvocation?: { result?: unknown };
-    }>;
-  };
+  message: RenderableChatMessage;
   onMessageRefresh?: (messageId: string) => void;
 }
 
-function hasPendingToolCalls(
-  message: MessageRendererProps["message"]
-): boolean {
+function hasPendingToolCalls(message: RenderableChatMessage): boolean {
   if (!message.parts?.length) return false;
 
-  const toolParts = message.parts.filter(
-    (p) => p.type?.startsWith("tool-") || p.toolInvocation
-  );
+  const toolParts = message.parts.filter((p) => {
+    const part = p as {
+      type?: string;
+      output?: unknown;
+      toolInvocation?: { result?: unknown };
+    };
+    return part.type?.startsWith("tool-") || part.toolInvocation;
+  });
   if (toolParts.length === 0) return false;
 
   return toolParts.some((p) => {
-    if (p.output !== undefined) return false;
-    const invocation = p.toolInvocation as { result?: unknown } | undefined;
-    return invocation?.result === undefined;
+    const part = p as {
+      output?: unknown;
+      toolInvocation?: { result?: unknown };
+    };
+    if (part.output !== undefined) return false;
+    return part.toolInvocation?.result === undefined;
   });
 }
 

@@ -76,6 +76,13 @@ type ContextCollections = {
   textSelections: Record<string, TextSelectionContextItem>;
 };
 
+/** Persisted snapshot of chat context (optional fields for partial/legacy sessions). */
+export type SavedContextItems = {
+  [K in keyof ContextCollections]?: ContextCollections[K];
+} & {
+  currentFile?: FileContextItem | null;
+};
+
 interface ContextItemsState extends ContextCollections {
   currentFile: FileContextItem | null;
   includeCurrentFile: boolean;

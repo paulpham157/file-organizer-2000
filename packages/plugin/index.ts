@@ -369,7 +369,7 @@ export default class FileOrganizer extends Plugin {
     file: TFile;
     formattingInstruction: string;
     content: string;
-  }): Promise<void> {
+  }): Promise<TFile | null> {
     try {
       new Notice("Formatting content in split view...", 3000);
 
@@ -397,12 +397,14 @@ export default class FileOrganizer extends Plugin {
       );
 
       new Notice("Content formatted in split view successfully", 3000);
+      return newFile;
     } catch (error) {
       logger.error("Error formatting content in split view:", error);
       new Notice(
         "An error occurred while formatting the content in split view.",
         6000
       );
+      return null;
     }
   }
 

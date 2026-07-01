@@ -35,6 +35,10 @@ import {
   getYouTubeContent,
   getOriginalContent,
   YouTubeError,
+  isYoutubeVideoTemplate,
+  prepareYouTubeFormatContent,
+  finalizeYouTubeFormattedNote,
+  type YouTubeFetchedContent,
 } from "./services/youtube-service";
 
 // Move constants to the top level and ensure they're used consistently
@@ -94,6 +98,7 @@ interface ProcessingContext {
     tag: string;
     reason: string;
   }>;
+  youtubeContent?: YouTubeFetchedContent;
 }
 
 interface StepValidation {
@@ -374,7 +379,14 @@ export class Inbox {
         Action.ERROR_CLEANUP
       );
 
-      // Only process YouTube if content contains a YouTube URL
+      await executeStep(
+        context,
+        recommendClassificationStep,
+        Action.CLASSIFY,
+        Action.ERROR_CLASSIFY
+      );
+
+      // Fetch transcript only after classification as youtube_video
       await executeStep(
         context,
         fetchYouTubeTranscriptStep,
@@ -384,10 +396,11 @@ export class Inbox {
 
       await executeStep(
         context,
-        recommendClassificationStep,
-        Action.CLASSIFY,
-        Action.ERROR_CLASSIFY
+        formatContentStep,
+        Action.FORMATTING,
+        Action.ERROR_FORMATTING
       );
+
       await executeStep(
         context,
         recommendFolderStep,
@@ -399,12 +412,6 @@ export class Inbox {
         recommendNameStep,
         Action.RENAME,
         Action.ERROR_RENAME
-      );
-      await executeStep(
-        context,
-        formatContentStep,
-        Action.FORMATTING,
-        Action.ERROR_FORMATTING
       );
       await executeStep(
         context,
@@ -526,10 +533,18 @@ async function recommendNameStep(
     return context;
   }
 
-  const newName = await context.plugin.recommendName(
-    getOriginalContent(context.content),
-    context.containerFile.basename
-  );
+  const documentType = context.classification?.documentType;
+  const useYoutubeTitle =
+    context.youtubeContent?.title &&
+    documentType &&
+    isYoutubeVideoTemplate(documentType);
+
+  const newName = useYoutubeTitle
+    ? [{ title: context.youtubeContent!.title }]
+    : await context.plugin.recommendName(
+        getOriginalContent(context.content),
+        context.containerFile.basename
+      );
   context.newName = newName[0]?.title;
 
   // if new name is the same as the old name then don't rename
@@ -567,12 +582,12 @@ async function recommendFolderStep(
     return context;
   }
 
-  // Get original content without transcript for folder recommendation
-  const originalContent = getOriginalContent(context.content);
+  // Use post-format content so folder suggestions reflect the note body (especially YouTube).
+  const folderContent = context.content;
 
   const newPath = await context.plugin.recommendFolders(
-    originalContent,
-    context.inboxFile.basename
+    folderContent,
+    context.containerFile.path
   );
 
   assertInvariant(
@@ -684,21 +699,29 @@ async function fetchYouTubeTranscriptStep(
 
     const videoId = extractYouTubeVideoId(context.content);
     if (!videoId) {
-      // This should never happen now, but just in case
+      return context;
+    }
+
+    const documentType = context.classification?.documentType;
+    if (!documentType || !isYoutubeVideoTemplate(documentType)) {
+      logger.info(
+        "Skipping YouTube transcript: not classified as youtube_video",
+        { documentType: documentType ?? "(none)" }
+      );
       return context;
     }
 
     const youtubeContent = await getYouTubeContent(videoId, context.plugin);
-    const { title, transcript } = youtubeContent;
-    const appendContent = `\n\n## YouTube Video: ${title}\n\n### Transcript\n\n${transcript}`;
+    context.youtubeContent = {
+      videoId,
+      title: youtubeContent.title,
+      transcript: youtubeContent.transcript,
+      channel: youtubeContent.channel,
+      datePublished: youtubeContent.datePublished,
+    };
 
-    await context.plugin.app.vault.modify(
-      context.containerFile,
-      context.content + appendContent
-    );
-
-    // Update the context content to include the transcript
-    context.content += appendContent;
+    // Keep transcript in context only — do not persist raw transcript to the vault.
+    // formatContentStep passes it to the formatter and strips it from the final note.
 
     // Explicitly log the completion of YouTube transcript fetching
     context.recordManager.completeAction(
@@ -828,9 +851,21 @@ async function formatContentStep(
 
   logger.info("Formatting content step", context.classification);
 
+  const documentType = context.classification.documentType;
+
+  const prep = await prepareYouTubeFormatContent(context.plugin, {
+    baseContent: context.content,
+    templateName: documentType,
+    existingYoutubeContent: context.youtubeContent,
+  });
+
+  const isYouTubeFormat =
+    isYoutubeVideoTemplate(documentType) && !!prep.youtubeContent;
+  const formatContent = prep.formatContent;
+
   // get token amount from token counter
   await initializeTokenCounter();
-  const tokenAmount = getTokenCount(context.content);
+  const tokenAmount = getTokenCount(formatContent);
   cleanup();
   if (tokenAmount > context.plugin.settings.maxFormattingTokens) {
     logger.info("Skipping formatting: content too large", {
@@ -858,9 +893,21 @@ async function formatContentStep(
 
     await context.plugin.streamFormatInCurrentNote({
       file: context.containerFile,
-      content: context.content,
+      content: formatContent,
       formattingInstruction: instructions,
     });
+
+    if (isYouTubeFormat && context.containerFile) {
+      context.content = await finalizeYouTubeFormattedNote(
+        context.plugin.app,
+        context.containerFile,
+        documentType
+      );
+    } else if (context.containerFile) {
+      context.content = await context.plugin.app.vault.read(
+        context.containerFile
+      );
+    }
 
     // Explicitly log the completion of formatting
     context.recordManager.completeAction(context.hash, Action.FORMATTING_DONE);
@@ -875,6 +922,14 @@ async function formatContentStep(
 async function recommendTagsStep(
   context: ProcessingContext
 ): Promise<ProcessingContext> {
+  const documentType = context.classification?.documentType;
+  if (documentType && isYoutubeVideoTemplate(documentType)) {
+    logger.info(
+      "Skipping tag recommendation: youtube_video template adds tags during formatting"
+    );
+    return context;
+  }
+
   const existingTags = await context.plugin.getAllVaultTags();
   if (!context.content || !context.containerFile) {
     logger.info(

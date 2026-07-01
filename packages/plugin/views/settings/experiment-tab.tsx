@@ -129,13 +129,12 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
 
               <div className="setting-item p-4 bg-[--background-primary] rounded-lg border border-[--background-modifier-border] space-y-2">
                 <div className="font-medium text-[--text-normal]">
-                  Assistant: tool steps preference
+                  How much the assistant can do per message
                 </div>
                 <p className="text-sm text-[--text-muted]">
-                  Optional hint for how many tool rounds the cloud chat may run per
-                  message. The server always applies your plan limits (e.g. free vs
-                  paid) and caps when context is very large. Choose &quot;Auto&quot; to
-                  use your tier default only.
+                  Lets the assistant take multiple actions (search notes, open files,
+                  and similar) before replying. Auto is recommended for most people.
+                  Your subscription and note size may still apply limits.
                 </p>
                 <select
                   className="w-full max-w-xs px-2 py-1.5 bg-[--background-primary] border border-[--background-modifier-border] rounded text-[--text-normal]"
@@ -148,9 +147,9 @@ export const ExperimentTab: React.FC<ExperimentTabProps> = ({ plugin }) => {
                     await plugin.saveSettings();
                   })(e); }}
                 >
-                  <option value="auto">Auto (plan default)</option>
-                  <option value="3">Prefer 3 steps</option>
-                  <option value="5">Prefer 5 steps</option>
+                  <option value="auto">Auto (recommended)</option>
+                  <option value="3">Lighter — fewer actions</option>
+                  <option value="5">Thorough — more actions</option>
                 </select>
               </div>
 

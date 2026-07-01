@@ -2,6 +2,7 @@ import { normalizePath, App } from "obsidian";
 import { Message } from "ai";
 import { logger } from "../../../../services/logger";
 import { parseJsonString } from "../../../../lib/api-json";
+import type { SavedContextItems } from "../use-context-items";
 
 type TimeoutID = ReturnType<typeof setTimeout>;
 
@@ -14,15 +15,7 @@ export interface ChatSession {
   model?: string; // Selected model for this session
   contextSnapshot?: string; // Optional: context used when session was created
   messageContextSnapshots?: Record<string, string>; // Map of message ID to context snapshot for refresh
-  contextItems?: {
-    files?: Record<string, unknown>;
-    folders?: Record<string, unknown>;
-    tags?: Record<string, unknown>;
-    youtubeVideos?: Record<string, unknown>;
-    searchResults?: Record<string, unknown>;
-    textSelections?: Record<string, unknown>;
-    currentFile?: unknown;
-  }; // Store context items to restore when switching chats
+  contextItems?: SavedContextItems; // Store context items to restore when switching chats
 }
 
 export class ChatHistoryManager {

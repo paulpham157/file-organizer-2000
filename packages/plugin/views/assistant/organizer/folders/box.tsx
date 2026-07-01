@@ -16,6 +16,7 @@ import {
   buildSuggestionCacheKey,
   getCachedFolderSuggestions,
 } from "../../../../lib/suggestion-cache";
+import { isPendingYouTubeFormat } from "../../../../inbox/services/youtube-service";
 
 interface SimilarFolderBoxProps {
   plugin: FileOrganizer;
@@ -32,6 +33,10 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
   refreshKey,
   onTokenLimitError,
 }) => {
+  const pendingYoutubeFormat = React.useMemo(
+    () => isPendingYouTubeFormat(content),
+    [content]
+  );
   const [suggestions, setSuggestions] = React.useState<FolderSuggestion[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [initialLoadComplete, setInitialLoadComplete] = React.useState(false);
@@ -56,7 +61,7 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
     requestIdRef.current++;
     setError(null);
 
-    if (!file || !content) {
+    if (!file || !content || pendingYoutubeFormat) {
       setSuggestions([]);
       setLoading(false);
       setInitialLoadComplete(false);
@@ -82,12 +87,13 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
     applyFolderSuggestions,
     content,
     file,
+    pendingYoutubeFormat,
     plugin.settings.contentCutoffChars,
   ]);
 
   const suggestFolders = React.useCallback(
     async (forceRefresh = false, signal?: AbortSignal) => {
-      if (!file || !content) {
+      if (!file || !content || pendingYoutubeFormat) {
         return;
       }
 
@@ -144,12 +150,12 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
         }
       }
     },
-    [applyFolderSuggestions, content, file, onTokenLimitError, plugin]
+    [applyFolderSuggestions, content, file, onTokenLimitError, pendingYoutubeFormat, plugin]
   );
 
   useOrganizerFetch(
     signal => suggestFolders(false, signal),
-    file?.path,
+    pendingYoutubeFormat ? undefined : file?.path,
     content,
     refreshKey,
     resetForNewFileContext
@@ -225,6 +231,14 @@ export const SimilarFolderBox: React.FC<SimilarFolderBoxProps> = ({
   );
 
   const renderContent = () => {
+    if (pendingYoutubeFormat) {
+      return (
+        <div className="text-[--text-muted] p-2 text-sm">
+          Format as a YouTube video above to get folder suggestions.
+        </div>
+      );
+    }
+
     if (loading && suggestions.length === 0 && !error) {
       return <SkeletonLoader count={4} width="100px" height="30px" rows={1} />;
     }

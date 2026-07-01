@@ -192,6 +192,8 @@ summary: "{{short summary of the video's main theme and key takeaways}}"
 
 - If a full transcript is provided in the "Full Transcript" section, use it to create an accurate, detailed summary below the embed link.
 
+- **CRITICAL - NO RAW TRANSCRIPT IN OUTPUT: Do not include \`## YouTube Video Information\`, \`## Full Transcript\`, or the raw transcript text in the final note. The transcript is input only — output frontmatter, embed, channel section, and summary only.**
+
 - If "Date Published" is in the YouTube Video Information section, use it for \`date_published\`. Otherwise extract from transcript if mentioned, or leave empty.
 
 - Maintain the exact markdown syntax for the frontmatter block (\`---\` at the top and bottom).

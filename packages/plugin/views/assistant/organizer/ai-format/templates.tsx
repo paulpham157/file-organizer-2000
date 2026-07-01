@@ -5,8 +5,9 @@ import { UserTemplates } from "./user-templates";
 import { DEFAULT_SETTINGS } from "../../../../settings";
 import { logger } from "../../../../services/logger";
 import {
-  extractYouTubeVideoId,
-  getYouTubeContent,
+  isYoutubeVideoTemplate,
+  prepareYouTubeFormatContent,
+  finalizeYouTubeFormattedNote,
 } from "../../../../inbox/services/youtube-service";
 
 interface ClassificationBoxProps {
@@ -15,6 +16,7 @@ interface ClassificationBoxProps {
   content: string;
   refreshKey: number;
   onFileRename?: (newFile: TFile) => void;
+  onFormatComplete?: (file: TFile) => void;
   onTokenLimitError?: (error: string) => void;
 }
 
@@ -24,6 +26,7 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
   content,
   refreshKey,
   onFileRename,
+  onFormatComplete,
   onTokenLimitError,
 }) => {
   const [formatBehavior, setFormatBehavior] = React.useState<
@@ -42,74 +45,19 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
         throw new Error("File content is not a string");
       }
 
-      // If formatting as youtube_video, fetch transcript and metadata first
-      let videoTitle: string | null = null;
-      let videoId: string | null = null;
+      if (isYoutubeVideoTemplate(templateName)) {
+        new Notice("Fetching YouTube transcript...", 2000);
+      }
 
-      if (
-        templateName === "youtube_video" ||
-        templateName === "youtube_video.md"
-      ) {
-        videoId = extractYouTubeVideoId(fileContent);
-        console.debug("[YouTube Format] Extracted video ID:", videoId);
-        if (videoId) {
-          try {
-            console.debug("[YouTube Format] Starting transcript and metadata fetch...");
-            logger.info("Fetching YouTube transcript and metadata for formatting...");
-            new Notice("Fetching YouTube transcript...", 2000);
-            const { title, transcript, channel, datePublished } =
-              await getYouTubeContent(videoId, plugin);
-            videoTitle = title; // Store for potential file renaming
-            console.debug("[YouTube Format] Successfully fetched:", {
-              title,
-              channel: channel ?? "(none)",
-              datePublished: datePublished ?? "(none)",
-              transcriptLength: transcript?.length,
-            });
+      const prep = await prepareYouTubeFormatContent(plugin, {
+        baseContent: fileContent,
+        templateName,
+      });
+      fileContent = prep.formatContent;
+      const { videoId, videoTitle } = prep;
 
-            // Build YouTube Video Information block so AI can fill frontmatter (channel, date_published)
-            const infoLines = [
-              "## YouTube Video Information",
-              "",
-              `Title: ${title}`,
-              `Video ID: ${videoId}`,
-              ...(channel ? [`Channel: ${channel}`] : []),
-              ...(datePublished ? [`Date Published: ${datePublished}`] : []),
-              "",
-              "## Full Transcript",
-              "",
-              transcript,
-            ];
-            const videoInfo = "\n\n" + infoLines.join("\n");
-            fileContent = fileContent + videoInfo;
-
-            logger.info("YouTube transcript fetched successfully");
-            new Notice("Transcript fetched, formatting...", 2000);
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            console.error(
-              "[YouTube Format] Error fetching transcript:",
-              errorMessage,
-              error
-            );
-            console.error("[YouTube Format] Full error object:", error);
-            logger.warn(
-              "Failed to fetch YouTube transcript, formatting without it:",
-              errorMessage,
-              error
-            );
-            new Notice(
-              `Could not fetch transcript: ${errorMessage}. Formatting with available content.`,
-              5000
-            );
-            // Continue formatting even if transcript fetch fails
-          }
-        } else {
-          logger.info(
-            "No YouTube URL found in content for youtube_video formatting"
-          );
-        }
+      if (isYoutubeVideoTemplate(templateName) && prep.youtubeContent) {
+        new Notice("Transcript fetched, formatting...", 2000);
       }
 
       const formattingInstruction = await plugin.getTemplateInstructions(
@@ -117,28 +65,18 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
       );
 
       if (formatBehavior === "override") {
-        // For YouTube videos, optionally rename the file to match the video title
         let targetFile = file;
         if (
-          (templateName === "youtube_video" ||
-            templateName === "youtube_video.md") &&
+          isYoutubeVideoTemplate(templateName) &&
           videoId &&
           videoTitle
         ) {
           try {
-            console.debug("[YouTube Format] Attempting to rename file with title:", {
-              videoTitle,
-              videoId,
-              currentFileName: file.name,
-              parentPath: file.parent?.path,
-            });
-
-            // Sanitize the title for use as a filename
             const sanitizedTitle = videoTitle
-              .replace(/[<>:"/\\|?*]/g, "") // Remove invalid filename characters
-              .replace(/\s+/g, " ") // Normalize whitespace
+              .replace(/[<>:"/\\|?*]/g, "")
+              .replace(/\s+/g, " ")
               .trim()
-              .substring(0, 100); // Limit length
+              .substring(0, 100);
 
             const newFileName = `${sanitizedTitle}.md`;
             const newPath = `${file.parent?.path || ""}/${newFileName}`.replace(
@@ -146,99 +84,34 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
               ""
             );
 
-            console.debug("[YouTube Format] Rename check:", {
-              sanitizedTitle,
-              newFileName,
-              currentFileName: file.name,
-              newPath,
-              willRename: sanitizedTitle && newFileName !== file.name,
-            });
-
-            // Only rename if the title is different and valid
-            if (
-              sanitizedTitle &&
-              newFileName !== file.name
-            ) {
-              const pathExists = await plugin.app.vault.adapter.exists(newPath);
-              console.debug("[YouTube Format] Path exists check:", {
-                newPath,
-                exists: pathExists,
-              });
-
-              if (!pathExists) {
-                await plugin.app.fileManager.renameFile(file, newPath);
-                const renamedFile = plugin.app.vault.getAbstractFileByPath(
-                  newPath
-                );
-                if (renamedFile instanceof TFile) {
-                  targetFile = renamedFile;
-                  logger.info(`Renamed file to match video title: ${newFileName}`);
-                  // Notify parent component about the rename
-                  if (onFileRename) {
-                    onFileRename(targetFile);
-                  }
-                } else {
-                  targetFile = file; // Fallback to original if rename failed
-                  console.warn("[YouTube Format] Rename failed: targetFile not found after rename");
-                }
-              } else {
-                // File with that name already exists - try to find a unique name
-                let uniquePath = newPath;
+            if (sanitizedTitle && newFileName !== file.name) {
+              let uniquePath = newPath;
+              if (await plugin.app.vault.adapter.exists(newPath)) {
                 let counter = 1;
-                const baseName = sanitizedTitle;
                 const parentDir = file.parent?.path || "";
-
                 while (await plugin.app.vault.adapter.exists(uniquePath)) {
-                  const uniqueFileName = `${baseName} (${counter}).md`;
-                  uniquePath = `${parentDir}/${uniqueFileName}`.replace(/^\/+/, "");
-                  counter++;
-
-                  // Safety limit to prevent infinite loops
-                  if (counter > 100) {
-                    console.warn("[YouTube Format] Too many duplicate files, keeping original name");
-                    break;
-                  }
-                }
-
-                if (counter <= 100) {
-                  await plugin.app.fileManager.renameFile(file, uniquePath);
-                  const renamedFile = plugin.app.vault.getAbstractFileByPath(
-                    uniquePath
+                  uniquePath = `${parentDir}/${sanitizedTitle} (${counter}).md`.replace(
+                    /^\/+/,
+                    ""
                   );
-                  if (renamedFile instanceof TFile) {
-                    targetFile = renamedFile;
-                    logger.info(`Renamed file to match video title: ${uniquePath}`);
-                    // Notify parent component about the rename
-                    if (onFileRename) {
-                      onFileRename(targetFile);
-                    }
-                  } else {
-                    targetFile = file;
-                    console.warn("[YouTube Format] Rename failed: targetFile not found after rename");
-                  }
-                } else {
-                  console.warn("[YouTube Format] Cannot rename: too many duplicate files exist");
+                  counter++;
+                  if (counter > 100) break;
                 }
               }
-            } else {
-              console.debug("[YouTube Format] Skipping rename:", {
-                reason: !sanitizedTitle ? "no sanitized title" : "filename unchanged",
-                sanitizedTitle,
-                newFileName,
-                currentFileName: file.name,
-              });
+
+              if (!(await plugin.app.vault.adapter.exists(uniquePath))) {
+                await plugin.app.fileManager.renameFile(file, uniquePath);
+                const renamedFile =
+                  plugin.app.vault.getAbstractFileByPath(uniquePath);
+                if (renamedFile instanceof TFile) {
+                  targetFile = renamedFile;
+                  onFileRename?.(targetFile);
+                }
+              }
             }
           } catch (error) {
-            console.error("[YouTube Format] Error during rename:", error);
             logger.warn("Failed to rename file with video title:", error);
-            // Continue with original filename
           }
-        } else {
-          console.debug("[YouTube Format] Not renaming - conditions not met:", {
-            isYouTubeTemplate: templateName === "youtube_video" || templateName === "youtube_video.md",
-            hasVideoId: !!videoId,
-            hasVideoTitle: !!videoTitle,
-          });
         }
 
         await plugin.streamFormatInCurrentNote({
@@ -246,21 +119,34 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
           content: fileContent,
           formattingInstruction: formattingInstruction,
         });
+        await finalizeYouTubeFormattedNote(
+          plugin.app,
+          targetFile,
+          templateName
+        );
+        onFormatComplete?.(targetFile);
       } else if (formatBehavior === "newFile") {
-        await plugin.streamFormatInSplitView({
+        const newFile = await plugin.streamFormatInSplitView({
           file: file,
           content: fileContent,
           formattingInstruction: formattingInstruction,
         });
+        if (newFile) {
+          await finalizeYouTubeFormattedNote(
+            plugin.app,
+            newFile,
+            templateName
+          );
+          onFormatComplete?.(newFile);
+        }
       } else if (formatBehavior === "append") {
-        // Placeholder for append logic:
-        // will not create a backup file
-        // will append to the end of the current note
         await plugin.streamFormatAppendInCurrentNote({
           file: file,
           content: fileContent,
           formattingInstruction: formattingInstruction,
         });
+        await finalizeYouTubeFormattedNote(plugin.app, file, templateName);
+        onFormatComplete?.(file);
       }
     } catch (error) {
       logger.error("Error in handleFormat:", error);

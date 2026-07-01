@@ -18,6 +18,7 @@ import {
   buildSuggestionCacheKey,
   getCachedTagSuggestions,
 } from "../../../lib/suggestion-cache";
+import { isPendingYouTubeFormat } from "../../../inbox/services/youtube-service";
 
 const ExistingTagButton = ExistingFolderButton;
 const NewTagButton = NewFolderButton;
@@ -37,6 +38,10 @@ export const SimilarTags: React.FC<SimilarTagsProps> = ({
   refreshKey,
   onTokenLimitError,
 }) => {
+  const pendingYoutubeFormat = React.useMemo(
+    () => isPendingYouTubeFormat(content),
+    [content]
+  );
   const [existingTags, setExistingTags] = React.useState<
     { tag: string; score: number; reason: string }[]
   >([]);
@@ -77,7 +82,7 @@ export const SimilarTags: React.FC<SimilarTagsProps> = ({
   const resetForNewFileContext = React.useCallback(() => {
     requestIdRef.current++;
 
-    if (!file || !content) {
+    if (!file || !content || pendingYoutubeFormat) {
       setExistingTags([]);
       setNewTags([]);
       setLoading(false);
@@ -101,10 +106,16 @@ export const SimilarTags: React.FC<SimilarTagsProps> = ({
       setLoading(false);
       setInitialLoadComplete(true);
     }
-  }, [applyTagSuggestions, content, file, plugin.settings.contentCutoffChars]);
+  }, [
+    applyTagSuggestions,
+    content,
+    file,
+    pendingYoutubeFormat,
+    plugin.settings.contentCutoffChars,
+  ]);
 
   const fetchTags = React.useCallback(async (signal: AbortSignal) => {
-    if (!file || !content) {
+    if (!file || !content || pendingYoutubeFormat) {
       return;
     }
 
@@ -166,11 +177,11 @@ export const SimilarTags: React.FC<SimilarTagsProps> = ({
         setInitialLoadComplete(true);
       }
     }
-  }, [applyTagSuggestions, content, file, onTokenLimitError, plugin]);
+  }, [applyTagSuggestions, content, file, onTokenLimitError, pendingYoutubeFormat, plugin]);
 
   useOrganizerFetch(
     fetchTags,
-    file?.path,
+    pendingYoutubeFormat ? undefined : file?.path,
     content,
     refreshKey,
     resetForNewFileContext
@@ -181,6 +192,14 @@ export const SimilarTags: React.FC<SimilarTagsProps> = ({
   };
 
   const renderContent = () => {
+    if (pendingYoutubeFormat) {
+      return (
+        <div className="text-[--text-muted] p-2 text-sm">
+          Format as a YouTube video above to get tag suggestions.
+        </div>
+      );
+    }
+
     if (loading && existingTags.length === 0 && newTags.length === 0) {
       return <SkeletonLoader count={4} width="60px" height="24px" rows={1} />;
     }

@@ -20,7 +20,11 @@ import Tiptap from "./tiptap";
 import { usePlugin } from "../provider";
 
 import { logMessage } from "../../../someUtils";
-import { MessageRenderer } from "./message-renderer";
+import {
+  MessageRenderer,
+  toRenderableChatMessage,
+  type RenderableChatMessage,
+} from "./message-renderer";
 import ToolInvocationHandler from "./tool-handlers/tool-invocation-handler";
 import { convertToCoreMessages, streamText, Message } from "ai";
 import { ollama } from "ollama-ai-provider";
@@ -120,6 +124,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
     currentDatetime: string;
     model: string;
     newUnifiedContext: string;
+    enableChatWebSearch?: boolean;
     /** Sent only when settings preference is not "auto"; server clamps to tier. */
     requestedMaxSteps?: number;
   }
@@ -498,9 +503,7 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         setGroundingMetadata(chunk.data.groundingMetadata);
       }
     },
-    maxSteps: 5,
     api: `${plugin.getServerUrl()}/api/chat`,
-    experimental_throttle: 100,
     headers: (() => {
       const apiKey = plugin.getApiKey()?.trim();
       const headers: Record<string, string> = {
@@ -1026,28 +1029,15 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
         isGenerating,
       }));
 
-  // Helper to normalize message with timestamp
   const normalizeMessage = (
     msg: Message,
     existingTimestamp?: number
-  ): Message & { createdAt?: number } => {
-    const normalized = { ...msg } as unknown;
-    if (existingTimestamp) {
-      normalized.createdAt = existingTimestamp;
-    } else if (msg.createdAt instanceof Date) {
-      normalized.createdAt = msg.createdAt.getTime();
-    } else if (typeof msg.createdAt === "number") {
-      normalized.createdAt = msg.createdAt;
-    } else {
-      // New message, add timestamp
-      normalized.createdAt = Date.now();
-    }
-    return normalized as Message & { createdAt?: number };
-  };
+  ): RenderableChatMessage =>
+    toRenderableChatMessage(msg, existingTimestamp);
 
   // Track messages with timestamps (convert Date to number for consistency)
   const [messagesWithTimestamps, setMessagesWithTimestamps] = useState<
-    Array<Message & { createdAt?: number }>
+    RenderableChatMessage[]
   >([]);
 
   // Sync messages with timestamps
@@ -1731,52 +1721,43 @@ export const ChatComponent: React.FC<ChatComponentProps> = ({
           // Execute formatting asynchronously
           void (async () => {
             try {
-              let fileContent = await app.vault.read(activeFile);
-              if (typeof fileContent !== "string") {
+              const {
+                prepareYouTubeFormatContent,
+                finalizeYouTubeFormattedNote,
+                isYoutubeVideoTemplate,
+              } = await import("../../../inbox/services/youtube-service");
+
+              const baseContent = await app.vault.read(activeFile);
+              if (typeof baseContent !== "string") {
                 throw new Error("File content is not a string");
               }
 
-              // Handle YouTube video special case
-              if (
-                templateName === "youtube_video" ||
-                templateName === "youtube_video.md"
-              ) {
-                const { extractYouTubeVideoId, getYouTubeContent } =
-                  await import("../../../inbox/services/youtube-service");
-                const videoId = extractYouTubeVideoId(fileContent);
-                if (videoId) {
-                  try {
-                    new Notice("Fetching YouTube transcript...", 2000);
-                    const { title, transcript } = await getYouTubeContent(
-                      videoId,
-                      plugin
-                    );
-                    const videoInfo = `\n\n## YouTube Video Information\n\nTitle: ${title}\nVideo ID: ${videoId}\n\n## Full Transcript\n\n${transcript}`;
-                    fileContent = fileContent + videoInfo;
-                    new Notice("Transcript fetched, formatting...", 2000);
-                  } catch (error) {
-                    logger.warn(
-                      "Failed to fetch YouTube transcript, formatting without it:",
-                      error
-                    );
-                    new Notice(
-                      `Could not fetch transcript: ${
-                        error instanceof Error ? error.message : String(error)
-                      }. Formatting with available content.`,
-                      5000
-                    );
-                  }
-                }
+              if (isYoutubeVideoTemplate(templateName)) {
+                new Notice("Fetching YouTube transcript...", 2000);
               }
 
-              // Get template instructions and format
+              const prep = await prepareYouTubeFormatContent(plugin, {
+                baseContent,
+                templateName,
+              });
+
+              if (isYoutubeVideoTemplate(templateName) && prep.youtubeContent) {
+                new Notice("Transcript fetched, formatting...", 2000);
+              }
+
               const formattingInstruction =
                 await plugin.getTemplateInstructions(templateName);
               await plugin.streamFormatInCurrentNote({
                 file: activeFile,
-                content: fileContent,
+                content: prep.formatContent,
                 formattingInstruction: formattingInstruction,
               });
+
+              await finalizeYouTubeFormattedNote(
+                app,
+                activeFile,
+                templateName
+              );
             } catch (error) {
               logger.error("Error formatting file:", error);
               new Notice(

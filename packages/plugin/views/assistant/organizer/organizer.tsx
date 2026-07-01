@@ -423,6 +423,18 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
                 }
               }, 500);
             })(); }}
+            onFormatComplete={(formattedFile) => { void (async () => {
+              try {
+                const content = await plugin.app.vault.read(formattedFile);
+                activeFileRef.current = formattedFile;
+                activeFilePathRef.current = formattedFile.path;
+                setActiveFile(formattedFile);
+                setNoteContent(content);
+                setRefreshKey(prev => prev + 1);
+              } catch (err) {
+                logger.error("Error reading file after format:", err);
+              }
+            })(); }}
           />,
           "Error loading classification"
         )}
