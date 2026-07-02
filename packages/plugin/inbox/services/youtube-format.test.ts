@@ -12,12 +12,20 @@ import {
 
 const mockGetYouTubeContent = jest.fn();
 
+jest.mock("../../utils/token-counter", () => ({
+  initializeTokenCounter: jest.fn().mockResolvedValue(undefined),
+  getTokenCount: jest.fn((text: string) => Math.ceil(text.length / 4)),
+  cleanup: jest.fn(),
+}));
+
 jest.mock("./youtube-service", () => ({
   getYouTubeContent: (...args: unknown[]) => mockGetYouTubeContent(...args),
 }));
 
 describe("youtube-format", () => {
-  const plugin = {} as import("../../index").default;
+  const plugin = {
+    settings: { maxFormattingTokens: 100_000 },
+  } as import("../../index").default;
 
   const existingYoutubeContent = {
     videoId: "abc123",
@@ -168,6 +176,34 @@ describe("youtube-format", () => {
       expect(result.videoTitle).toBe("Fetched Video");
       expect(result.youtubeContent?.transcript).toBe("[00:00] Live transcript");
       expect(result.formatContent).toContain("Title: Fetched Video");
+    });
+
+    it("samples transcript when formatting budget is exceeded", async () => {
+      const segments = Array.from({ length: 200 }, (_, i) => ({
+        text: `segment-${i} `.repeat(30),
+        offset: i * 60,
+      }));
+
+      mockGetYouTubeContent.mockResolvedValueOnce({
+        title: "Long Video",
+        transcript: "placeholder",
+        segments,
+      });
+
+      const smallBudgetPlugin = {
+        settings: { maxFormattingTokens: 2000 },
+      } as import("../../index").default;
+
+      const result = await prepareYouTubeFormatContent(smallBudgetPlugin, {
+        baseContent: "https://www.youtube.com/watch?v=abc123",
+        templateName: "youtube_summary",
+      });
+
+      expect(result.transcriptTruncated).toBe(true);
+      expect(result.formatContent).toContain("Transcript was sampled");
+      expect(result.youtubeContent?.transcript.length).toBeLessThan(
+        segments.map(segment => segment.text).join(" ").length
+      );
     });
 
     it("returns transcriptFetchFailed when fetch throws", async () => {

@@ -33,6 +33,10 @@ export interface YouTubeFetchedContent {
   channelUrl?: string;
   datePublished?: string;
   segments?: TranscriptSegment[];
+  /** Model-only notice when transcript was sampled; stripped from vault notes. */
+  truncationNotice?: string;
+  /** Set when transcript was sampled for the formatting token budget. */
+  transcriptTruncated?: boolean;
 }
 
 /** Formats seconds as MM:SS or H:MM:SS for timestamps in notes. */
@@ -58,6 +62,214 @@ export function normalizeTranscriptOffsetSeconds(offset: number): number {
 }
 
 const DEFAULT_TRANSCRIPT_GROUP_SECONDS = 45;
+
+/** Target ~80% of maxFormattingTokens for transcript + context block. */
+export const TRANSCRIPT_TOKEN_BUDGET_RATIO = 0.8;
+
+export const TRANSCRIPT_TRUNCATION_NOTICE =
+  "> Note: Transcript was sampled for length (intro, middle sections, and ending). Summarize from these excerpts.";
+
+/** Last caption offset approximates video duration in seconds. */
+export function getVideoDurationFromSegments(
+  segments: TranscriptSegment[]
+): number {
+  if (segments.length === 0) {
+    return 0;
+  }
+  return Math.max(
+    ...segments.map(segment =>
+      normalizeTranscriptOffsetSeconds(segment.offset)
+    )
+  );
+}
+
+/** Shorter grouping for long videos to keep line count manageable. */
+export function getAdaptiveTranscriptGroupInterval(durationSec: number): number {
+  if (durationSec <= 3600) {
+    return 45;
+  }
+  if (durationSec <= 7200) {
+    return 90;
+  }
+  return 120;
+}
+
+const HEAD_SAMPLE_SECONDS = 45 * 60;
+const TAIL_SAMPLE_SECONDS = 15 * 60;
+
+/**
+ * Picks intro, evenly spaced middle windows, and ending caption segments.
+ * Preserves chronological order from the original segment list.
+ */
+export function sampleTranscriptSegments(
+  segments: TranscriptSegment[],
+  middleWindowCount = 4
+): TranscriptSegment[] {
+  if (segments.length === 0) {
+    return [];
+  }
+
+  const duration = getVideoDurationFromSegments(segments);
+  const headEnd = Math.min(HEAD_SAMPLE_SECONDS, duration);
+  const tailStart = Math.max(headEnd, duration - TAIL_SAMPLE_SECONDS);
+  const pickedIndices = new Set<number>();
+
+  segments.forEach((segment, index) => {
+    const offset = normalizeTranscriptOffsetSeconds(segment.offset);
+    if (offset < headEnd || offset >= tailStart) {
+      pickedIndices.add(index);
+    }
+  });
+
+  const middleSpan = tailStart - headEnd;
+  if (middleSpan > 0 && middleWindowCount > 0) {
+    for (let window = 0; window < middleWindowCount; window++) {
+      const windowStart = headEnd + (middleSpan * window) / middleWindowCount;
+      const windowEnd = headEnd + (middleSpan * (window + 1)) / middleWindowCount;
+      segments.forEach((segment, index) => {
+        const offset = normalizeTranscriptOffsetSeconds(segment.offset);
+        if (offset >= windowStart && offset < windowEnd) {
+          pickedIndices.add(index);
+        }
+      });
+    }
+  }
+
+  return segments.filter((_, index) => pickedIndices.has(index));
+}
+
+export interface PrepareTranscriptForFormattingOptions {
+  maxFormattingTokens: number;
+  originalContent: string;
+  youtubeMetadata: Omit<YouTubeFetchedContent, "transcript">;
+  countTokens: (text: string) => number;
+}
+
+export interface PrepareTranscriptForFormattingResult {
+  transcript: string;
+  groupIntervalSec: number;
+  truncated: boolean;
+}
+
+/**
+ * Applies adaptive grouping, then samples segments when the full context block
+ * would exceed the formatting token budget.
+ */
+export function prepareTranscriptForFormatting(
+  segments: TranscriptSegment[],
+  options: PrepareTranscriptForFormattingOptions
+): PrepareTranscriptForFormattingResult {
+  if (segments.length === 0) {
+    return {
+      transcript: "",
+      groupIntervalSec: DEFAULT_TRANSCRIPT_GROUP_SECONDS,
+      truncated: false,
+    };
+  }
+
+  const tokenBudget = Math.floor(
+    options.maxFormattingTokens * TRANSCRIPT_TOKEN_BUDGET_RATIO
+  );
+  const duration = getVideoDurationFromSegments(segments);
+  let groupIntervalSec = getAdaptiveTranscriptGroupInterval(duration);
+  let middleWindowCount = 4;
+  let truncated = false;
+  let workingSegments = segments;
+
+  const measureFormatTokens = (
+    transcript: string,
+    includeTruncationNotice: boolean
+  ): number => {
+    const content: YouTubeFetchedContent = {
+      ...options.youtubeMetadata,
+      transcript,
+      ...(includeTruncationNotice
+        ? { truncationNotice: TRANSCRIPT_TRUNCATION_NOTICE }
+        : {}),
+    };
+    return options.countTokens(
+      appendYouTubeContextBlock(options.originalContent, content)
+    );
+  };
+
+  const buildTranscript = (segs: TranscriptSegment[]): string =>
+    formatTimedTranscript(segs, groupIntervalSec);
+
+  let transcript = buildTranscript(workingSegments);
+  if (measureFormatTokens(transcript, false) <= tokenBudget) {
+    return { transcript, groupIntervalSec, truncated };
+  }
+
+  truncated = true;
+  while (middleWindowCount >= 0) {
+    workingSegments =
+      middleWindowCount === 0
+        ? sampleTranscriptSegments(segments, 0)
+        : sampleTranscriptSegments(segments, middleWindowCount);
+
+    transcript = buildTranscript(workingSegments);
+    if (measureFormatTokens(transcript, true) <= tokenBudget) {
+      return { transcript, groupIntervalSec, truncated };
+    }
+
+    middleWindowCount -= 1;
+  }
+
+  const widerIntervals = [180, 240, 300];
+  for (const interval of widerIntervals) {
+    groupIntervalSec = interval;
+    transcript = buildTranscript(workingSegments);
+    if (measureFormatTokens(transcript, true) <= tokenBudget) {
+      return { transcript, groupIntervalSec, truncated: true };
+    }
+  }
+
+  transcript = hardCapTranscriptToBudget(
+    transcript,
+    tokenBudget,
+    measureFormatTokens
+  );
+
+  return { transcript, groupIntervalSec, truncated: true };
+}
+
+function hardCapTranscriptToBudget(
+  transcript: string,
+  tokenBudget: number,
+  measureFormatTokens: (
+    transcript: string,
+    includeTruncationNotice: boolean
+  ) => number
+): string {
+  if (measureFormatTokens(transcript, true) <= tokenBudget) {
+    return transcript;
+  }
+
+  let low = 0;
+  let high = transcript.length;
+  let bestLength = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const candidate = transcript.slice(0, mid).trimEnd();
+    if (candidate.length === 0) {
+      high = mid - 1;
+      continue;
+    }
+    if (measureFormatTokens(candidate, true) <= tokenBudget) {
+      bestLength = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  if (bestLength > 0) {
+    return transcript.slice(0, bestLength).trimEnd();
+  }
+
+  return "";
+}
 
 /**
  * Groups caption segments into readable lines with [MM:SS] markers.
@@ -154,6 +366,7 @@ export function buildYouTubeContextBlock(
     ...(content.datePublished
       ? [`Date Published: ${content.datePublished}`]
       : []),
+    ...(content.truncationNotice ? ["", content.truncationNotice] : []),
     "",
     YOUTUBE_FULL_TRANSCRIPT_HEADER,
     "",
@@ -357,7 +570,7 @@ export function linkifyYouTubeChannelSection(content: string): string {
   const channel = readFrontmatterField(frontmatterMatch[1], "channel");
 
   return content.replace(
-    /(## Channel\s*\n\n)(?!\[)([^\n]+)(?=\n)/,
+    /(## Channel[^\S\n]*\r?\n)(?:\r?\n)?(?!\[)([^\n\r]+)/,
     (_match, heading: string, line: string) => {
       const text = line.trim();
       if (!text) {

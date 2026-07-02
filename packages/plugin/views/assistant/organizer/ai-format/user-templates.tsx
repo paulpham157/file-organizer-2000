@@ -17,6 +17,7 @@ import {
   useOrganizerFetch,
 } from "../../../../lib/use-debounced-fetch";
 import { getTemplateDisplayHint } from "../../../../lib/template-metadata";
+import { isPendingYouTubeFormat } from "../../../../inbox/services/youtube-context";
 
 interface UserTemplatesProps {
   plugin: FileOrganizer;
@@ -25,6 +26,9 @@ interface UserTemplatesProps {
   refreshKey: number;
   onFormat: (templateName: string) => void | Promise<void>;
   onTokenLimitError?: (error: string) => void;
+  /** True when this note has a pre-format backup link in its content. */
+  canRestoreOriginal?: boolean;
+  onRestoreOriginal?: () => void | Promise<void>;
 }
 
 export const UserTemplates: React.FC<UserTemplatesProps> = ({
@@ -34,6 +38,8 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   refreshKey,
   onFormat,
   onTokenLimitError,
+  canRestoreOriginal = false,
+  onRestoreOriginal,
 }) => {
   const [templateNames, setTemplateNames] = React.useState<string[]>([]);
   const [selectedTemplateName, setSelectedTemplateName] = React.useState<
@@ -41,6 +47,7 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   >(null);
   const [showDropdown, setShowDropdown] = React.useState<boolean>(false);
   const [formatting, setFormatting] = React.useState<boolean>(false);
+  const [restoring, setRestoring] = React.useState<boolean>(false);
   const [contentLoadStatus, setContentLoadStatus] = React.useState<
     "loading" | "success" | "error"
   >("loading");
@@ -67,10 +74,19 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
 
     const checkTokenCount = async () => {
       try {
+        if (isPendingYouTubeFormat(content)) {
+          if (isMounted) {
+            setIsFileTooLarge(false);
+          }
+          return;
+        }
+
         await initializeTokenCounter();
         if (isMounted) {
           const tokenCount = getTokenCount(content);
-          setIsFileTooLarge(tokenCount > 128000);
+          setIsFileTooLarge(
+            tokenCount > plugin.settings.maxFormattingTokens
+          );
         }
       } catch (error) {
         console.error("Error checking token count:", error);
@@ -83,7 +99,7 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
       isMounted = false;
       cleanup();
     };
-  }, [content]);
+  }, [content, plugin.settings.maxFormattingTokens]);
 
   const resetForNewFileContext = React.useCallback(() => {
     if (skipNextClassificationRef.current) {
@@ -221,7 +237,7 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   );
 
   const handleFormatClick = async () => {
-    if (!selectedTemplateName || formatting) {
+    if (!selectedTemplateName || formatting || restoring) {
       return;
     }
 
@@ -236,6 +252,21 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
       logger.error("Error formatting:", error);
     } finally {
       setFormatting(false);
+    }
+  };
+
+  const handleRestoreClick = async () => {
+    if (!canRestoreOriginal || !onRestoreOriginal || formatting || restoring) {
+      return;
+    }
+
+    setRestoring(true);
+    try {
+      await onRestoreOriginal();
+    } catch (error) {
+      logger.error("Error restoring original note:", error);
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -274,6 +305,33 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
   const renderContent = () => {
     if (formatting) {
       return renderFormattingState();
+    }
+    if (restoring) {
+      return (
+        <div className="text-[--text-muted] p-2 flex items-center gap-2">
+          <svg
+            className="animate-spin h-4 w-4 shrink-0"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          <span>Restoring original note…</span>
+        </div>
+      );
     }
     if (contentLoadStatus === "error" || classificationStatus === "error") {
       return (
@@ -345,45 +403,89 @@ export const UserTemplates: React.FC<UserTemplatesProps> = ({
             File is too large to format.
           </div>
         )}
-        <button
-          className={`px-4 py-2 transition-colors duration-200 flex items-center justify-center ${
-            !selectedTemplateName || formatting
-              ? "bg-[--background-modifier-border] text-[--text-muted] cursor-not-allowed"
-              : "bg-[--interactive-accent] text-white hover:bg-[--interactive-accent-hover]"
-          }`}
-          disabled={!selectedTemplateName || formatting || isFileTooLarge}
-          onClick={() => { void handleFormatClick(); }}
-        >
-          {formatting ? (
-            <span className="flex items-center justify-center">
-              <svg
-                className="animate-spin -ml-1 mr-2 h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Applying...
-            </span>
-          ) : selectedTemplateName ? (
-            `Apply ${selectedTemplateName}`
-          ) : (
-            "Apply"
+        <div className="flex flex-col gap-2">
+          <button
+            className={`w-full px-4 py-2 transition-colors duration-200 flex items-center justify-center ${
+              !selectedTemplateName || formatting || restoring
+                ? "bg-[--background-modifier-border] text-[--text-muted] cursor-not-allowed"
+                : "bg-[--interactive-accent] text-[--text-on-accent] hover:bg-[--interactive-accent-hover]"
+            }`}
+            disabled={
+              !selectedTemplateName || formatting || restoring || isFileTooLarge
+            }
+            onClick={() => { void handleFormatClick(); }}
+          >
+            {formatting ? (
+              <span className="flex items-center justify-center">
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Applying...
+              </span>
+            ) : selectedTemplateName ? (
+              `Apply ${selectedTemplateName}`
+            ) : (
+              "Apply"
+            )}
+          </button>
+          {canRestoreOriginal && (
+            <p className="text-[--text-muted] text-xs leading-snug px-1 text-center">
+              {restoring ? (
+                "Restoring original note..."
+              ) : (
+                <>
+                  Pre-format backup available.{" "}
+                  <span
+                    role="button"
+                    tabIndex={formatting || restoring ? -1 : 0}
+                    aria-disabled={formatting || restoring}
+                    aria-label="Restore original note from pre-format backup"
+                    title="Undo the last Replace format using the saved pre-format backup."
+                    className={`text-[--text-accent] hover:underline ${
+                      formatting || restoring
+                        ? "opacity-60 cursor-not-allowed no-underline"
+                        : "cursor-pointer"
+                    }`}
+                    onClick={() => {
+                      if (formatting || restoring) {
+                        return;
+                      }
+                      void handleRestoreClick();
+                    }}
+                    onKeyDown={(event) => {
+                      if (formatting || restoring) {
+                        return;
+                      }
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        void handleRestoreClick();
+                      }
+                    }}
+                  >
+                    Restore original
+                  </span>
+                </>
+              )}
+            </p>
           )}
-        </button>
+        </div>
       </div>
     );
   };

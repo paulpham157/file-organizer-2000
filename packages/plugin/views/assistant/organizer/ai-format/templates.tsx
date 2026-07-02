@@ -1,10 +1,32 @@
 import * as React from "react";
-import { TFile, Notice } from "obsidian";
+import { TFile, Notice, normalizePath } from "obsidian";
 import FileOrganizer from "../../../../index";
 import { UserTemplates } from "./user-templates";
 import { DEFAULT_SETTINGS } from "../../../../settings";
 import { logger } from "../../../../services/logger";
 import { formatNoteWithTemplate } from "../../../../lib/format-with-template";
+
+function resolveBackupFile(
+  plugin: FileOrganizer,
+  backupPath: string
+): TFile | null {
+  const normalized = backupPath.replace(/^\//, "");
+  const candidates = [
+    normalized,
+    `${normalized}.md`,
+    normalizePath(normalized),
+    normalizePath(`${normalized}.md`),
+  ];
+
+  for (const candidate of candidates) {
+    const file = plugin.app.vault.getAbstractFileByPath(candidate);
+    if (file instanceof TFile) {
+      return file;
+    }
+  }
+
+  return null;
+}
 
 interface ClassificationBoxProps {
   plugin: FileOrganizer;
@@ -45,6 +67,9 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
       });
 
       if (result.skipped) {
+        if (result.skipReason?.includes("too large")) {
+          onTokenLimitError?.(result.skipReason);
+        }
         return;
       }
 
@@ -60,29 +85,30 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
     }
   };
 
-  const handleRevert = async () => {
+  const handleRestoreOriginal = async () => {
     if (!file || !backupFile) return;
 
     try {
-      const backupFileRef = plugin.app.vault.getAbstractFileByPath(
-        backupFile
-      );
-      if (!(backupFileRef instanceof TFile)) {
+      const backupFileRef = resolveBackupFile(plugin, backupFile);
+      if (!backupFileRef) {
         throw new Error("Backup file not found");
       }
 
       const backupContent = await plugin.app.vault.read(backupFileRef);
       await plugin.app.vault.modify(file, backupContent);
-      new Notice("Successfully reverted to backup version", 3000);
+      setBackupFile(null);
+      new Notice("Restored note from pre-format backup", 3000);
+      onFormatComplete?.(file);
     } catch (error) {
-      logger.error("Error reverting to backup:", error);
+      logger.error("Error restoring from backup:", error);
+      new Notice("Could not restore the original note", 4000);
     }
   };
 
   const extractBackupFile = React.useCallback((content: string) => {
     const match = content.match(/\[\[(.+?)\s*\|\s*Link to original file\]\]/);
     if (match) {
-      setBackupFile(match[1]);
+      setBackupFile(match[1].trim());
     } else {
       setBackupFile(null);
     }
@@ -121,16 +147,6 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
             <option value="newFile">New File</option>
             <option value="append">Append</option>
           </select>
-          <div className="flex justify-between items-center">
-            {backupFile && (
-              <button
-                onClick={() => { void handleRevert(); }}
-                className="px-3 py-1 text-sm bg-[--background-modifier-error] text-[--text-on-accent] hover:opacity-90 transition-opacity"
-              >
-                Revert
-              </button>
-            )}
-          </div>
         </div>
         <UserTemplates
           plugin={plugin}
@@ -139,6 +155,8 @@ export const ClassificationContainer: React.FC<ClassificationBoxProps> = ({
           refreshKey={refreshKey}
           onFormat={handleFormat}
           onTokenLimitError={onTokenLimitError}
+          canRestoreOriginal={!!backupFile}
+          onRestoreOriginal={() => { void handleRestoreOriginal(); }}
         />
       </div>
     </div>

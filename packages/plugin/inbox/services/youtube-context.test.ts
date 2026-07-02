@@ -6,15 +6,20 @@ import {
   extractYouTubeVideoId,
   formatTimedTranscript,
   formatTranscriptTimestamp,
+  getAdaptiveTranscriptGroupInterval,
   getOriginalContent,
+  getVideoDurationFromSegments,
   isPendingYouTubeFormat,
   isYoutubeTemplate,
   isYoutubeVideoTemplate,
   linkifyYouTubeChannelSection,
   linkifyYouTubeTimestamps,
   parseBracketTimestampToSeconds,
+  prepareTranscriptForFormatting,
+  sampleTranscriptSegments,
   stripYouTubeContextBlock,
   stripYouTubeContextFromFormattedNote,
+  TRANSCRIPT_TRUNCATION_NOTICE,
   YOUTUBE_FULL_TRANSCRIPT_HEADER,
   YOUTUBE_VIDEO_INFORMATION_HEADER,
   type TranscriptSegment,
@@ -81,6 +86,94 @@ describe("youtube-context helpers", () => {
     const timed = formatTimedTranscript(segments, 45);
     expect(timed).toBe(
       "[00:00] Intro setup\n[00:50] Main topic continued"
+    );
+  });
+
+  it("uses adaptive grouping intervals by video duration", () => {
+    expect(getAdaptiveTranscriptGroupInterval(1800)).toBe(45);
+    expect(getAdaptiveTranscriptGroupInterval(3600)).toBe(45);
+    expect(getAdaptiveTranscriptGroupInterval(3601)).toBe(90);
+    expect(getAdaptiveTranscriptGroupInterval(7200)).toBe(90);
+    expect(getAdaptiveTranscriptGroupInterval(7201)).toBe(120);
+  });
+
+  it("samples intro, middle, and ending segments", () => {
+    const segments: TranscriptSegment[] = [
+      { text: "intro", offset: 30 },
+      { text: "middle", offset: 5400 },
+      { text: "ending", offset: 7100 },
+    ];
+
+    expect(getVideoDurationFromSegments(segments)).toBe(7100);
+    const sampled = sampleTranscriptSegments(segments, 2);
+    expect(sampled.map(segment => segment.text)).toEqual([
+      "intro",
+      "middle",
+      "ending",
+    ]);
+  });
+
+  it("samples transcript when formatting budget is exceeded", () => {
+    const segments: TranscriptSegment[] = Array.from({ length: 200 }, (_, i) => ({
+      text: `word-${i} `.repeat(20),
+      offset: i * 60,
+    }));
+
+    const result = prepareTranscriptForFormatting(segments, {
+      maxFormattingTokens: 2000,
+      originalContent: "https://youtu.be/abc123",
+      youtubeMetadata: {
+        videoId: "abc123",
+        title: "Long Video",
+        channel: "Channel",
+      },
+      countTokens: text => Math.ceil(text.length / 4),
+    });
+
+    expect(result.truncated).toBe(true);
+    expect(result.transcript.length).toBeLessThan(
+      formatTimedTranscript(segments, result.groupIntervalSec).length
+    );
+    const block = buildYouTubeContextBlock({
+      videoId: "abc123",
+      title: "Long Video",
+      channel: "Channel",
+      transcript: result.transcript,
+      truncationNotice: TRANSCRIPT_TRUNCATION_NOTICE,
+    });
+    expect(block).toContain(TRANSCRIPT_TRUNCATION_NOTICE);
+  });
+
+  it("hard caps transcript when sampling and grouping still exceed budget", () => {
+    const segments: TranscriptSegment[] = Array.from({ length: 80 }, (_, i) => ({
+      text: `segment-${i} `.repeat(40),
+      offset: i * 60,
+    }));
+
+    const maxFormattingTokens = 500;
+    const countTokens = (text: string) => Math.ceil(text.length / 4);
+    const originalContent = "https://youtu.be/abc123";
+    const youtubeMetadata = {
+      videoId: "abc123",
+      title: "Long Video",
+      channel: "Channel",
+    };
+
+    const result = prepareTranscriptForFormatting(segments, {
+      maxFormattingTokens,
+      originalContent,
+      youtubeMetadata,
+      countTokens,
+    });
+
+    expect(result.truncated).toBe(true);
+    const block = appendYouTubeContextBlock(originalContent, {
+      ...youtubeMetadata,
+      transcript: result.transcript,
+      truncationNotice: TRANSCRIPT_TRUNCATION_NOTICE,
+    });
+    expect(countTokens(block)).toBeLessThanOrEqual(
+      Math.floor(maxFormattingTokens * 0.8)
     );
   });
 
@@ -176,6 +269,24 @@ Test Channel
 - Point`;
     expect(linkifyYouTubeChannelSection(note)).toContain(
       "[Test Channel](https://www.youtube.com/@test-channel)"
+    );
+  });
+
+  it("linkifies the channel section with a single newline after the heading", () => {
+    const note = `---
+title: "Test"
+channel: "Jaryd Krause - Buying Online Businesses"
+channel_url: https://www.youtube.com/@buyingonlinebusinesses
+---
+
+## Channel
+Jaryd Krause - Buying Online Businesses
+
+## Summary
+
+- Point`;
+    expect(linkifyYouTubeChannelSection(note)).toContain(
+      "[Jaryd Krause - Buying Online Businesses](https://www.youtube.com/@buyingonlinebusinesses)"
     );
   });
 

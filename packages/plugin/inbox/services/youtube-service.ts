@@ -6,6 +6,8 @@ import { obsidianFetch } from "../../lib/obsidian-fetch";
 import {
   extractYouTubeVideoId,
   formatTimedTranscript,
+  getAdaptiveTranscriptGroupInterval,
+  getVideoDurationFromSegments,
   normalizeTranscriptOffsetSeconds,
   type TranscriptSegment,
   type YouTubeFetchedContent,
@@ -364,7 +366,7 @@ function formatDatePublished(isoDate: string): string {
 async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
   try {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
-    console.debug("[YouTube Service] Fetching metadata from:", url);
+    logger.debug("[YouTube Service] Fetching metadata from:", url);
 
     const response = await requestUrl({
       url,
@@ -423,7 +425,7 @@ async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
       throw new Error("Could not extract title from YouTube page");
     }
 
-    console.debug("[YouTube Service] Extracted metadata:", {
+    logger.debug("[YouTube Service] Extracted metadata:", {
       title: metadata.title,
       channel: metadata.channel ?? "(none)",
       channelUrl: metadata.channelUrl ?? "(none)",
@@ -431,7 +433,7 @@ async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata> {
     });
     return metadata;
   } catch (error) {
-    console.error("[YouTube Service] Error fetching metadata:", error);
+    logger.error("[YouTube Service] Error fetching metadata:", error);
     throw new YouTubeError(
       `Failed to fetch YouTube video metadata: ${
         error instanceof Error ? error.message : "Unknown error"
@@ -472,15 +474,15 @@ export async function getYouTubeContent(
     );
   }
 
-  console.debug(
+  logger.debug(
     "[YouTube Service] Fetching YouTube content directly (client-side):",
     finalVideoId,
-    `(original: ${typeof videoId === 'string' ? videoId : JSON.stringify(videoId)})`
+    `(original: ${typeof videoId === "string" ? videoId : JSON.stringify(videoId)})`
   );
 
   try {
     // Fetch transcript and metadata (title, channel, date) in parallel
-    console.debug(
+    logger.debug(
       "[YouTube Service] Starting parallel fetch of transcript and metadata..."
     );
 
@@ -524,7 +526,7 @@ export async function getYouTubeContent(
           });
         },
       }).catch(error => {
-        console.error("[YouTube Service] Transcript fetch error:", error);
+        logger.error("[YouTube Service] Transcript fetch error:", error);
         const errorMessage = error instanceof Error
           ? error.message
           : String(error);
@@ -541,7 +543,7 @@ export async function getYouTubeContent(
         );
       }),
       fetchYouTubeMetadata(finalVideoId).catch(error => {
-        console.warn(
+        logger.warn(
           "[YouTube Service] Metadata fetch failed, using fallback:",
           error
         );
@@ -561,7 +563,9 @@ export async function getYouTubeContent(
       })
     );
 
-    const timedTranscript = formatTimedTranscript(segments);
+    const duration = getVideoDurationFromSegments(segments);
+    const groupInterval = getAdaptiveTranscriptGroupInterval(duration);
+    const timedTranscript = formatTimedTranscript(segments, groupInterval);
     const decodedTranscript =
       timedTranscript ||
       segments
@@ -573,7 +577,7 @@ export async function getYouTubeContent(
     // Ensure title is properly decoded (double-check)
     const decodedTitle = decodeHtmlEntities(metadata.title);
 
-    console.debug("[YouTube Service] Successfully fetched:", {
+    logger.debug("[YouTube Service] Successfully fetched:", {
       title: decodedTitle,
       channel: metadata.channel ?? "(none)",
       channelUrl: metadata.channelUrl ?? "(none)",
@@ -594,9 +598,8 @@ export async function getYouTubeContent(
     if (error instanceof YouTubeError) {
       throw error; // Re-throw YouTubeError as-is
     }
-    console.error("[YouTube Service] Error fetching YouTube content:", error);
+    logger.error("[YouTube Service] Error fetching YouTube content:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    logger.error("Error fetching YouTube content:", error);
     throw new YouTubeError(`Failed to fetch YouTube content: ${message}`);
   }
 }
@@ -604,8 +607,10 @@ export async function getYouTubeContent(
 export {
   finalizeYouTubeFormattedNote,
   getYoutubeInboxFormatSkipReasonAfterPrep,
+  measureFormatContentTokens,
   prepareYouTubeFormatContent,
   shouldSkipYoutubeInboxFormatting,
+  YOUTUBE_TRANSCRIPT_FETCH_DISABLED_MESSAGE,
   type PrepareYouTubeFormatContentResult,
 } from "./youtube-format";
 

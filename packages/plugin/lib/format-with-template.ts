@@ -3,8 +3,11 @@ import FileOrganizer from "../index";
 import { logger } from "../services/logger";
 import {
   finalizeYouTubeFormattedNote,
-  isYoutubeVideoTemplate,
+  getYoutubeInboxFormatSkipReasonAfterPrep,
+  isYoutubeTemplate,
+  measureFormatContentTokens,
   prepareYouTubeFormatContent,
+  YOUTUBE_TRANSCRIPT_FETCH_DISABLED_MESSAGE,
   type YouTubeFetchedContent,
 } from "../inbox/services/youtube-service";
 
@@ -18,7 +21,7 @@ export interface FormatNoteWithTemplateOptions {
   formatBehavior?: FormatBehavior;
   /** Default true — explicit user actions should fetch transcripts. */
   enableTranscriptFetching?: boolean;
-  /** When true, warn but still format if the transcript is missing. Default true. */
+  /** When false, skip formatting if the transcript is missing (matches inbox). Default false. */
   allowFormatWithoutTranscript?: boolean;
   renameToVideoTitle?: boolean;
   onFileRename?: (file: TFile) => void;
@@ -97,7 +100,7 @@ export async function formatNoteWithTemplate(
     templateName,
     formatBehavior = "override",
     enableTranscriptFetching = true,
-    allowFormatWithoutTranscript = true,
+    allowFormatWithoutTranscript = false,
     renameToVideoTitle = formatBehavior === "override",
     onFileRename,
   } = options;
@@ -111,7 +114,7 @@ export async function formatNoteWithTemplate(
     }
   }
 
-  if (isYoutubeVideoTemplate(templateName)) {
+  if (isYoutubeTemplate(templateName)) {
     new Notice("Fetching YouTube transcript...", 2000);
   }
 
@@ -121,28 +124,51 @@ export async function formatNoteWithTemplate(
     enableTranscriptFetching,
   });
 
-  if (isYoutubeVideoTemplate(templateName)) {
+  if (isYoutubeTemplate(templateName)) {
     if (prep.transcriptFetchSkipped) {
-      const message =
-        "YouTube transcript fetching is disabled in settings. Enable it in plugin settings to format YouTube videos.";
-      new Notice(message, 6000);
-      return { file, youtubeContent: null, skipped: true, skipReason: message };
+      new Notice(YOUTUBE_TRANSCRIPT_FETCH_DISABLED_MESSAGE, 6000);
+      return {
+        file,
+        youtubeContent: null,
+        skipped: true,
+        skipReason: YOUTUBE_TRANSCRIPT_FETCH_DISABLED_MESSAGE,
+      };
     }
 
-    if (prep.videoId && !prep.youtubeContent) {
-      const message =
-        "Could not fetch YouTube transcript. The note was not formatted.";
+    const skipReason = getYoutubeInboxFormatSkipReasonAfterPrep(
+      templateName,
+      prep
+    );
+    if (skipReason) {
       if (!allowFormatWithoutTranscript) {
+        const message = `${skipReason}. The note was not formatted.`;
         new Notice(message, 6000);
         return { file, youtubeContent: null, skipped: true, skipReason: message };
       }
       new Notice(
-        "Could not fetch YouTube transcript. Formatting with limited context.",
+        `${skipReason}. Formatting with limited context.`,
         6000
       );
     } else if (prep.youtubeContent) {
-      new Notice("Transcript fetched, formatting...", 2000);
+      const message = prep.transcriptTruncated
+        ? "Long video: transcript sampled. Formatting..."
+        : "Transcript fetched, formatting...";
+      new Notice(message, 2000);
     }
+  }
+
+  const tokenAmount = await measureFormatContentTokens(prep.formatContent);
+  if (tokenAmount > plugin.settings.maxFormattingTokens) {
+    const message = isYoutubeTemplate(templateName)
+      ? `YouTube note is too large to format (${tokenAmount} tokens). Try a shorter video or increase the formatting token limit in settings.`
+      : `Content is too large to format (${tokenAmount} tokens). Increase the formatting token limit in settings.`;
+    new Notice(message, 6000);
+    return {
+      file,
+      youtubeContent: prep.youtubeContent,
+      skipped: true,
+      skipReason: message,
+    };
   }
 
   const formattingInstruction =
@@ -151,7 +177,7 @@ export async function formatNoteWithTemplate(
   if (
     formatBehavior === "override" &&
     renameToVideoTitle &&
-    isYoutubeVideoTemplate(templateName) &&
+    isYoutubeTemplate(templateName) &&
     prep.videoId &&
     prep.videoTitle
   ) {

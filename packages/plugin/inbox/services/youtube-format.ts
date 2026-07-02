@@ -2,11 +2,18 @@ import { type App, type TFile } from "obsidian";
 import { logger } from "../../services/logger";
 import FileOrganizer from "../../index";
 import {
+  cleanup,
+  getTokenCount,
+  initializeTokenCounter,
+} from "../../utils/token-counter";
+import {
   appendYouTubeContextBlock,
   enhanceYouTubeFormattedNote,
   extractYouTubeVideoId,
   getOriginalContent,
   isYoutubeTemplate,
+  prepareTranscriptForFormatting,
+  TRANSCRIPT_TRUNCATION_NOTICE,
   type YouTubeFetchedContent,
 } from "./youtube-context";
 import { getYouTubeContent } from "./youtube-service";
@@ -20,6 +27,57 @@ export interface PrepareYouTubeFormatContentResult {
   transcriptFetchSkipped?: boolean;
   /** Transcript unavailable after fetch or a prior failed attempt. */
   transcriptFetchFailed?: boolean;
+  /** Transcript was sampled to fit the formatting token budget. */
+  transcriptTruncated?: boolean;
+}
+
+async function applyYoutubeTranscriptBudget(
+  plugin: FileOrganizer,
+  original: string,
+  youtubeContent: YouTubeFetchedContent
+): Promise<YouTubeFetchedContent> {
+  const segments = youtubeContent.segments;
+  if (!segments?.length) {
+    return youtubeContent;
+  }
+
+  await initializeTokenCounter();
+  try {
+    const prepared = prepareTranscriptForFormatting(segments, {
+      maxFormattingTokens: plugin.settings.maxFormattingTokens,
+      originalContent: original,
+      youtubeMetadata: {
+        videoId: youtubeContent.videoId,
+        title: youtubeContent.title,
+        channel: youtubeContent.channel,
+        channelUrl: youtubeContent.channelUrl,
+        datePublished: youtubeContent.datePublished,
+        segments: youtubeContent.segments,
+      },
+      countTokens: getTokenCount,
+    });
+
+    if (!prepared.truncated) {
+      return {
+        ...youtubeContent,
+        transcript: prepared.transcript,
+      };
+    }
+
+    logger.info("YouTube transcript sampled for formatting token budget", {
+      groupIntervalSec: prepared.groupIntervalSec,
+      maxFormattingTokens: plugin.settings.maxFormattingTokens,
+    });
+
+    return {
+      ...youtubeContent,
+      transcript: prepared.transcript,
+      transcriptTruncated: true,
+      truncationNotice: TRANSCRIPT_TRUNCATION_NOTICE,
+    };
+  } finally {
+    cleanup();
+  }
 }
 
 /** Inbox: skip youtube_* formatting when auto-fetch is disabled. */
@@ -29,6 +87,9 @@ export function shouldSkipYoutubeInboxFormatting(
 ): boolean {
   return isYoutubeTemplate(documentType) && !enableTranscriptFetching;
 }
+
+export const YOUTUBE_TRANSCRIPT_FETCH_DISABLED_MESSAGE =
+  "YouTube transcript fetching is disabled in settings. Enable it in plugin settings to format YouTube videos.";
 
 /** Inbox: skip formatting when a youtube URL has no transcript after prep. */
 export function getYoutubeInboxFormatSkipReasonAfterPrep(
@@ -44,6 +105,17 @@ export function getYoutubeInboxFormatSkipReasonAfterPrep(
   return prep.transcriptFetchFailed
     ? "Could not fetch YouTube transcript"
     : "YouTube transcript unavailable";
+}
+
+export async function measureFormatContentTokens(
+  content: string
+): Promise<number> {
+  await initializeTokenCounter();
+  try {
+    return getTokenCount(content);
+  } finally {
+    cleanup();
+  }
 }
 
 export async function prepareYouTubeFormatContent(
@@ -134,8 +206,20 @@ export async function prepareYouTubeFormatContent(
     videoTitle = youtubeContent.title;
   }
 
+  youtubeContent = await applyYoutubeTranscriptBudget(
+    plugin,
+    original,
+    youtubeContent
+  );
+
   formatContent = appendYouTubeContextBlock(original, youtubeContent);
-  return { formatContent, videoId, videoTitle, youtubeContent };
+  return {
+    formatContent,
+    videoId,
+    videoTitle,
+    youtubeContent,
+    transcriptTruncated: youtubeContent.transcriptTruncated,
+  };
 }
 
 export async function finalizeYouTubeFormattedNote(

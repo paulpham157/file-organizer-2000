@@ -40,6 +40,7 @@ import {
   finalizeYouTubeFormattedNote,
   shouldSkipYoutubeInboxFormatting,
   getYoutubeInboxFormatSkipReasonAfterPrep,
+  YOUTUBE_TRANSCRIPT_FETCH_DISABLED_MESSAGE,
   type YouTubeFetchedContent,
 } from "./services/youtube-service";
 
@@ -869,6 +870,17 @@ async function formatContentStep(
     logger.info(
       "Skipping youtube formatting: YouTube transcript fetching is disabled"
     );
+    if (
+      shouldShowInboxNotification(
+        context.plugin.settings.inboxNotificationLevel,
+        "warning"
+      )
+    ) {
+      new Notice(
+        `${YOUTUBE_TRANSCRIPT_FETCH_DISABLED_MESSAGE} Leaving the note unchanged.`,
+        6000
+      );
+    }
     return context;
   }
 
@@ -884,27 +896,42 @@ async function formatContentStep(
   const isYouTubeFormat =
     isYoutubeTemplate(documentType) && !!prep.youtubeContent;
 
-  if (
-    isYoutubeTemplate(documentType) &&
-    prep.videoId &&
-    !prep.youtubeContent
-  ) {
-    const reason = prep.transcriptFetchFailed
-      ? "Could not fetch YouTube transcript"
-      : "YouTube transcript unavailable";
-    logger.info("Skipping youtube formatting:", reason);
+  const skipReasonAfterPrep = getYoutubeInboxFormatSkipReasonAfterPrep(
+    documentType,
+    prep
+  );
+  if (skipReasonAfterPrep) {
+    logger.info("Skipping youtube formatting:", skipReasonAfterPrep);
     if (
       shouldShowInboxNotification(
         context.plugin.settings.inboxNotificationLevel,
         "warning"
       )
     ) {
-      new Notice(`${reason}. Leaving the note unchanged.`, 5000);
+      new Notice(
+        `${skipReasonAfterPrep}. Leaving the note unchanged.`,
+        5000
+      );
     }
     return context;
   }
 
   const formatContent = prep.formatContent;
+
+  if (prep.transcriptTruncated) {
+    logger.info("YouTube transcript was sampled to fit formatting token budget");
+    if (
+      shouldShowInboxNotification(
+        context.plugin.settings.inboxNotificationLevel,
+        "info"
+      )
+    ) {
+      new Notice(
+        "Long video: transcript was sampled to fit formatting limits.",
+        5000
+      );
+    }
+  }
 
   // get token amount from token counter
   await initializeTokenCounter();
