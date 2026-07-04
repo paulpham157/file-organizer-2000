@@ -25,8 +25,7 @@
     },
     "strictNullChecks": false,
     "baseUrl": ".",
-    "composite": true,
-    "typeRoots": ["./node_modules/@types"]
+    "composite": true
   },
   "include": [
     "next-env.d.ts",

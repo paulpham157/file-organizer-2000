@@ -238,21 +238,15 @@ async function handleApiKeyAuth(
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((unkey as any).keys?.verifyKey) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        response = await (unkey as any).keys.verifyKey(verifyParams);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } else if ((unkey as any).verifyKey) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        response = await (unkey as any).verifyKey(verifyParams);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } else if ((unkey as any).keys?.verify) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        response = await (unkey as any).keys.verify(verifyParams);
+      if (unkey.keys?.verifyKey) {
+        response = await unkey.keys.verifyKey(verifyParams);
+      } else if (unkey.verifyKey) {
+        response = await unkey.verifyKey(verifyParams);
+      } else if (unkey.keys?.verify) {
+        response = await unkey.keys.verify(verifyParams);
       }
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const error = err as any;
+      const error = err;
       logger.error('Unkey verification error', err, {
         message: error?.message,
         statusCode: error?.statusCode,

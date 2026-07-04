@@ -446,7 +446,7 @@ export function FileList({ pageSize = 12 }: FileListProps) {
                             selectedFile.textContent || ''
                           );
                           setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
+                          window.setTimeout(() => setCopied(false), 2000);
                         }}
                       >
                         {copied ? (

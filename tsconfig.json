@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ES2018",
     "module": "commonjs",
+    "moduleResolution": "bundler",
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,

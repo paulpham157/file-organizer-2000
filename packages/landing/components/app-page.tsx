@@ -83,7 +83,7 @@ export function AppPage() {
         </CardHeader>
         <CardContent>
           {notificationPermission === 'default' && (
-            <Button onClick={requestNotificationPermission} className="w-full mb-2">
+            <Button onClick={() => { void requestNotificationPermission(); }} className="w-full mb-2">
               Enable Notifications
             </Button>
           )}

@@ -343,7 +343,7 @@ export default function DashboardPage() {
                     type="file"
                     multiple
                     className="hidden"
-                    onChange={handleFileUpload}
+                    onChange={(e) => { void handleFileUpload(e); }}
                   />
                 </label>
               </div>

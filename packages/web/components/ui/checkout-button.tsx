@@ -23,7 +23,7 @@ export default function CheckoutButton() {
 
   return (
     // width: max-content;
-    <Button onClick={handleCheckout} disabled={loading} className="border w-max">
+    <Button onClick={() => { void handleCheckout(); }} disabled={loading} className="border w-max">
       {loading ? "Processing..." : "Get Started"}
     </Button>
   );

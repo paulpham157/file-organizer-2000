@@ -80,7 +80,7 @@ const LicenseForm = () => {
       try {
         await navigator.clipboard.writeText(licenseKey);
         setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        window.setTimeout(() => setCopied(false), 2000);
       } catch (error) {
         console.error('Failed to copy key:', error);
       }
@@ -131,7 +131,7 @@ const LicenseForm = () => {
                         className="font-mono text-sm flex-1"
                       />
                       <Button
-                        onClick={handleCopyKey}
+                        onClick={() => { void handleCopyKey(); }}
                         variant="outline"
                         size="icon"
                         className="shrink-0"
@@ -152,7 +152,7 @@ const LicenseForm = () => {
                 </CardContent>
                 <CardFooter className="flex justify-center pt-4 pb-6 px-2">
                   <Button
-                    onClick={handleCreateKey}
+                    onClick={() => { void handleCreateKey(); }}
                     disabled={loading}
                     variant="outline"
                     className="w-full"
@@ -172,7 +172,7 @@ const LicenseForm = () => {
                 <CardHeader></CardHeader>
                 <CardFooter className="flex justify-center">
                   <Button
-                    onClick={handleCreateKey}
+                    onClick={() => { void handleCreateKey(); }}
                     disabled={loading}
                     className="w-full mt-4 bg-purple-500 hover:bg-purple-600 text-white"
                     variant="default"

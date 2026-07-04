@@ -48,7 +48,7 @@ export default function SettingsScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: confirmDeleteAccount
+          onPress: () => { void confirmDeleteAccount(); }
         }
       ],
       { cancelable: true }
@@ -121,7 +121,7 @@ export default function SettingsScreen() {
           {isUS && (
             <View style={styles.upgradeSection}>
               <Button
-                onPress={handleUpgrade}
+                onPress={() => { void handleUpgrade(); }}
                 variant="primary"
               >
                 Upgrade on notecompanion.ai
@@ -136,7 +136,7 @@ export default function SettingsScreen() {
                   Tapping "Upgrade on notecompanion.ai" will take you outside the app to complete your purchase. This subscription is managed entirely through our website, not Apple.
                 </ThemedText>
               </View>
-              <TouchableOpacity style={styles.tosLink} onPress={() => Linking.openURL('https://notecompanion.ai/terms-of-service')}>
+              <TouchableOpacity style={styles.tosLink} onPress={() => { void Linking.openURL('https://notecompanion.ai/terms-of-service'); }}>
                 <ThemedText style={styles.tosLinkText}>Terms of Service</ThemedText>
                 <MaterialIcons name="launch" size={16} color={primaryColor} />
               </TouchableOpacity>
@@ -146,7 +146,7 @@ export default function SettingsScreen() {
           {/* Sign Out Button */}
           <View style={styles.signOutContainer}>
             <Button
-              onPress={() => signOut()}
+              onPress={() => { void signOut(); }}
               variant="secondary" 
               textStyle={{color: '#333333', fontWeight: '600'}}
             >
@@ -175,11 +175,11 @@ export default function SettingsScreen() {
         {/* Legal Section */}
         <View style={styles.legalSection}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>Legal</ThemedText>
-          <TouchableOpacity style={styles.legalLink} onPress={() => Linking.openURL('https://notecompanion.ai/privacy')}> 
+          <TouchableOpacity style={styles.legalLink} onPress={() => { void Linking.openURL('https://notecompanion.ai/privacy'); }}> 
             <ThemedText style={styles.legalLinkText}>Privacy Policy</ThemedText>
             <MaterialIcons name="launch" size={16} color={primaryColor} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.legalLink} onPress={() => Linking.openURL('https://notecompanion.ai/terms-of-service')}>
+          <TouchableOpacity style={styles.legalLink} onPress={() => { void Linking.openURL('https://notecompanion.ai/terms-of-service'); }}>
             <ThemedText style={styles.legalLinkText}>Terms of Service</ThemedText>
             <MaterialIcons name="launch" size={16} color={primaryColor} />
           </TouchableOpacity>

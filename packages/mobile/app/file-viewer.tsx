@@ -373,7 +373,7 @@ export default function FileViewerScreen() {
           </View>
           <TouchableOpacity 
             style={[styles.headerButton, styles.shareButton]} 
-            onPress={handleShare}
+            onPress={() => { void handleShare(); }}
           >
             <MaterialIcons name="share" size={24} color="#68D391" />
           </TouchableOpacity>

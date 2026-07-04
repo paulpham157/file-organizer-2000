@@ -98,12 +98,12 @@ export async function POST(request: NextRequest) {
           message: transcriptPlusError.message,
           stack: transcriptPlusError.stack,
           // Log any additional error properties that might contain HTTP details
-          responseStatus: (transcriptPlusError as any).responseStatus,
-          responseBody: (transcriptPlusError as any).responseBody,
-          statusCode: (transcriptPlusError as any).statusCode,
-          status: (transcriptPlusError as any).status,
-          code: (transcriptPlusError as any).code,
-          cause: (transcriptPlusError as any).cause,
+          responseStatus: transcriptPlusError.responseStatus,
+          responseBody: transcriptPlusError.responseBody,
+          statusCode: transcriptPlusError.statusCode,
+          status: transcriptPlusError.status,
+          code: transcriptPlusError.code,
+          cause: transcriptPlusError.cause,
           // Log all enumerable properties
           allProperties: Object.keys(transcriptPlusError),
         });

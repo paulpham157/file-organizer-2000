@@ -50,7 +50,7 @@ export default function RootLayout() {
     if (!isMounted.current || !isReady) {
       console.log('[RootLayout] Component not fully ready, delaying navigation');
       // Set a small timeout to ensure the component is mounted and ready
-      setTimeout(() => {
+      window.setTimeout(() => {
         console.log('[RootLayout] Attempting delayed navigation');
         if (isMounted.current && isReady) {
           console.log('[RootLayout] Executing delayed navigation to:', pathname);
@@ -268,12 +268,12 @@ export default function RootLayout() {
   // Mark component as ready after Stack is rendered
   useEffect(() => {
     // Set a small delay to ensure the Stack is fully rendered
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       console.log('[RootLayout] Setting isReady to true');
       setIsReady(true);
     }, 100);
     
-    return () => clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [loaded]);
 
   // Add logging for URL handling setup

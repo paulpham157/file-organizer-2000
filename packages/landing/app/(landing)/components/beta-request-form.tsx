@@ -52,7 +52,7 @@ export function BetaRequestForm({
           <form 
             id={formId}
             className="flex flex-col sm:flex-row gap-2 w-full max-w-md mx-auto"
-            onSubmit={handleSubmit}
+            onSubmit={(e) => { void handleSubmit(e); }}
           >
             <div className="relative flex-1">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />

@@ -20,11 +20,11 @@ const LoadingAnimation = () => {
   const [message, setMessage] = useState(LOADING_MESSAGES[0])
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       setMessage(LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)])
     }, 3000)
 
-    return () => clearInterval(interval)
+    return () => window.clearInterval(interval)
   }, [])
 
   return (

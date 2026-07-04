@@ -83,14 +83,14 @@ export default function NotesScreen() {
       (f) => f.processingStatus === "pending" || f.processingStatus === "processing"
     );
 
-    let id: ReturnType<typeof setInterval> | null = null;
+    let id: ReturnType<typeof window.setInterval> | null = null;
     if (stillProcessing) {
-      id = setInterval(() => {
+      id = window.setInterval(() => {
         console.log("auto-refreshing notes list…");
         loadFiles(false);                        // silent refresh
       }, 5000);
     }
-    return () => { if (id) clearInterval(id); };
+    return () => { if (id) window.clearInterval(id); };
   }, [files, loading, loadFiles]);
 
   const handleRefresh = useCallback(() => {
@@ -156,7 +156,7 @@ export default function NotesScreen() {
         <ThemedText style={styles.errorText}>{error}</ThemedText>
         <TouchableOpacity
           style={styles.retryButton}
-          onPress={() => loadFiles()}
+          onPress={() => { void loadFiles(); }}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
@@ -174,7 +174,7 @@ export default function NotesScreen() {
           files={files}
           onRefresh={handleRefresh}
           refreshing={refreshing}
-          onFileDeleted={() => loadFiles(false)}
+          onFileDeleted={() => { void loadFiles(false); }}
         />
       )}
     </ThemedView>

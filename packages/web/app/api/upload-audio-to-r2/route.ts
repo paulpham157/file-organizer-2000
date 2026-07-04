@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
 
     // Upload to R2
     const command = new PutObjectCommand({
-      Bucket: R2_BUCKET!,
+      Bucket: R2_BUCKET,
       Key: key,
       Body: Buffer.from(audioBuffer),
       ContentType: mimeType,

@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { WebhookEvent } from "./types";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20",
 });
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function verifyStripeWebhook(req: NextRequest): Promise<WebhookEvent> {
   const signature = req.headers.get("stripe-signature");

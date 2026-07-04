@@ -177,7 +177,7 @@ export default function SignInScreen() {
           />
           <TouchableOpacity
             style={[styles.button, styles.emailButton]}
-            onPress={onSignInWithEmail}
+            onPress={() => { void onSignInWithEmail(); }}
             disabled={loading}
           >
             <Text style={styles.emailButtonText}>
@@ -195,7 +195,7 @@ export default function SignInScreen() {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.googleButton]}
-            onPress={onSignInWithGoogle}
+            onPress={() => { void onSignInWithGoogle(); }}
           >
             <Ionicons name="logo-google" size={24} color="#EA4335" />
             <Text style={styles.buttonText}>Continue with Google</Text>
@@ -203,7 +203,7 @@ export default function SignInScreen() {
 
           <TouchableOpacity
             style={[styles.button, styles.appleButton]}
-            onPress={onSignInWithApple}
+            onPress={() => { void onSignInWithApple(); }}
           >
             <Ionicons name="logo-apple" size={24} color="#000000" />
             <Text style={styles.buttonText}>

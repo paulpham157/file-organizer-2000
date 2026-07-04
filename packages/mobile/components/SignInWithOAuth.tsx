@@ -27,7 +27,7 @@ export function SignInWithOAuth() {
     <View style={styles.container}>
       <Button
         title="Sign in with Google"
-        onPress={onPress}
+        onPress={() => { void onPress(); }}
       />
     </View>
   );

@@ -47,7 +47,7 @@ export function WaitlistForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-sm mx-auto space-x-2">
+    <form onSubmit={(e) => { void handleSubmit(e); }} className="flex w-full max-w-sm mx-auto space-x-2">
       <Input
         type="email"
         placeholder="Enter your email"

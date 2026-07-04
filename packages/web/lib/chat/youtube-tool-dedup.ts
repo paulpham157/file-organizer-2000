@@ -97,7 +97,7 @@ export function applyYoutubeToolDedupToMessage(
     return message;
   }
 
-  const tool = message as any;
+  const tool = message;
   const extracted = getFirstToolResultContent(tool);
   const toolName =
     extracted?.firstItem.toolName ?? tool.toolName;

@@ -280,7 +280,7 @@ export function FileCard({ file, onDelete, onView }: FileCardProps) {
             <View style={styles.headerActions}>
               <TouchableOpacity
                 style={styles.iconButton}
-                onPress={handleShare}
+                onPress={() => { void handleShare(); }}
                 disabled={!file.processed}
               >
                 <MaterialIcons 

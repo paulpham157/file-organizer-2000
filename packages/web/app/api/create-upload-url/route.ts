@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     const key = `uploads/${userId}/${uuidv4()}-${safeFilename}`;
 
     const command = new PutObjectCommand({
-      Bucket: R2_BUCKET!,
+      Bucket: R2_BUCKET,
       Key: key,
       ContentType: contentType || 'application/octet-stream', // Use provided type or default
       // Add ACL if your bucket requires it, e.g., ACL: 'public-read' if needed

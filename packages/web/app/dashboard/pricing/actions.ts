@@ -5,7 +5,7 @@ import Stripe from "stripe";
 import { PRODUCTS, PRICES, ProductMetadata } from "../../../srm.config";
 import { getUrl } from "@/lib/getUrl";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20",
 });
 

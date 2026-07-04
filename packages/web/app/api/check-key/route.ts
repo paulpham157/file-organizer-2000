@@ -153,10 +153,9 @@ export async function POST(request: NextRequest) {
           // The error might contain the response in a different format
           // Check if we can extract valid/invalid from the error
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if ((verifyError as any)?.error) {
+          if (verifyError?.error) {
             // This is the v2 error format - use it as response
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            response = verifyError as any;
+            response = verifyError;
             console.log('Using error object as response');
           } else {
             // Re-throw if we can't extract response
@@ -246,9 +245,8 @@ export async function POST(request: NextRequest) {
     if (response) {
       // Check if response has data$ (SDK internal format from error)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((response as any).data$) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const data = (response as any).data$;
+      if (response.data$) {
+        const data = response.data$;
         result = data.data || data.result;
         extractedError = data.error;
       } else if ('data' in response) {
@@ -260,10 +258,9 @@ export async function POST(request: NextRequest) {
         result = response.result;
         extractedError = response.error;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } else if ((response as any).error) {
+      } else if (response.error) {
         // Error-only response (from SDK error)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        extractedError = (response as any).error;
+        extractedError = response.error;
         // If there's no data, the key is invalid
         result = { valid: false };
       }
@@ -289,7 +286,7 @@ export async function POST(request: NextRequest) {
         error: extractedError?.message || extractedError?.detail,
         responseKeys: response ? Object.keys(response) : [],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        hasData$: response ? !!(response as any).data$ : false,
+        hasData$: response ? !!response.data$ : false,
       });
       return NextResponse.json(
         {

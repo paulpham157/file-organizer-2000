@@ -439,7 +439,7 @@ export default function HomeScreen() {
             styles.uploadButtonWrapper,
             status === "uploading" && styles.uploadButtonDisabled,
           ]}
-          onPress={pickDocument}
+          onPress={() => { void pickDocument(); }}
           disabled={status === "uploading"}
         >
           <View style={styles.uploadButtonGradient}></View>
@@ -455,7 +455,7 @@ export default function HomeScreen() {
             styles.uploadButtonWrapper,
             status === "uploading" && styles.uploadButtonDisabled,
           ]}
-          onPress={pickPhotos}
+          onPress={() => { void pickPhotos(); }}
           disabled={status === "uploading"}
         >
           <View style={styles.uploadButtonGradient}></View>
@@ -479,7 +479,7 @@ export default function HomeScreen() {
             styles.magicDiagramButton, // New style for distinction
             status === "uploading" && styles.uploadButtonDisabled,
           ]}
-          onPress={takeMagicDiagramPhoto}
+          onPress={() => { void takeMagicDiagramPhoto(); }}
           disabled={status === "uploading"}
         >
           <View style={styles.uploadButtonGradient}></View>

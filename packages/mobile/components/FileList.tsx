@@ -150,8 +150,8 @@ export function FileList({
       renderItem={({ item }) => (
         <FileCard
           file={item}
-          onDelete={handleDelete}
-          onView={handleView}
+          onDelete={(id) => { void handleDelete(id); }}
+          onView={(file) => { void handleView(file); }}
         />
       )}
       contentContainerStyle={styles.listContent}

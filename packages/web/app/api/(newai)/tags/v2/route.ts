@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
     // Handle errors with status property
     if (error && typeof error === 'object' && 'status' in error && 'message' in error) {
       return NextResponse.json(
-        { error: (error as any).message },
-        { status: (error as any).status || 500 }
+        { error: error.message },
+        { status: error.status || 500 }
       );
     }
 

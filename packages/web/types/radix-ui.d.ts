@@ -2,43 +2,43 @@ import { PropsWithChildren } from 'react'
 
 // Fix for Select component
 declare module '@radix-ui/react-select' {
-  export interface SelectProps extends PropsWithChildren {}
-  export interface SelectTriggerProps extends PropsWithChildren {}
-  export interface SelectValueProps extends PropsWithChildren {}
-  export interface SelectContentProps extends PropsWithChildren {}
-  export interface SelectItemProps extends PropsWithChildren {}
-  export interface SelectLabelProps extends PropsWithChildren {}
-  export interface SelectGroupProps extends PropsWithChildren {}
+  export type SelectProps = PropsWithChildren
+  export type SelectTriggerProps = PropsWithChildren
+  export type SelectValueProps = PropsWithChildren
+  export type SelectContentProps = PropsWithChildren
+  export type SelectItemProps = PropsWithChildren
+  export type SelectLabelProps = PropsWithChildren
+  export type SelectGroupProps = PropsWithChildren
 }
 
 // Fix for Dialog component
 declare module '@radix-ui/react-dialog' {
-  export interface DialogProps extends PropsWithChildren {}
-  export interface DialogTriggerProps extends PropsWithChildren {}
-  export interface DialogContentProps extends PropsWithChildren {}
-  export interface DialogTitleProps extends PropsWithChildren {}
-  export interface DialogDescriptionProps extends PropsWithChildren {}
+  export type DialogProps = PropsWithChildren
+  export type DialogTriggerProps = PropsWithChildren
+  export type DialogContentProps = PropsWithChildren
+  export type DialogTitleProps = PropsWithChildren
+  export type DialogDescriptionProps = PropsWithChildren
 }
 
 // Fix for Tabs component
 declare module '@radix-ui/react-tabs' {
-  export interface TabsProps extends PropsWithChildren {}
-  export interface TabsListProps extends PropsWithChildren {}
-  export interface TabsTriggerProps extends PropsWithChildren {}
-  export interface TabsContentProps extends PropsWithChildren {}
+  export type TabsProps = PropsWithChildren
+  export type TabsListProps = PropsWithChildren
+  export type TabsTriggerProps = PropsWithChildren
+  export type TabsContentProps = PropsWithChildren
 }
 
 // Fix for Label component
 declare module '@radix-ui/react-label' {
-  export interface LabelProps extends PropsWithChildren {}
+  export type LabelProps = PropsWithChildren
 }
 
 // Fix for Switch component 
 declare module '@radix-ui/react-switch' {
-  export interface SwitchProps extends PropsWithChildren {}
+  export type SwitchProps = PropsWithChildren
 }
 
 // Fix for Separator component
 declare module '@radix-ui/react-separator' {
-  export interface SeparatorProps extends PropsWithChildren {}
+  export type SeparatorProps = PropsWithChildren
 }

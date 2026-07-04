@@ -42,14 +42,14 @@ export function CodeBlock({ code }: { code: string }) {
   const copy = async () => {
     await navigator?.clipboard?.writeText(code);
     setIcon(CheckIcon);
-    setTimeout(() => setIcon(CopyIcon), 2000);
+    window.setTimeout(() => setIcon(CopyIcon), 2000);
   };
 
   return (
     <pre className="bg-muted rounded-md p-6 my-6 relative">
       <Button
         size="icon"
-        onClick={copy}
+        onClick={() => { void copy(); }}
         variant={"outline"}
         className="absolute right-2 top-2"
       >

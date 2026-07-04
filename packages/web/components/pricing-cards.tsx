@@ -157,7 +157,7 @@ export function PricingCards({ onSubscriptionComplete }: PricingCardsProps) {
             className="w-full py-6 text-base font-medium transition-all cursor-pointer bg-violet-600 hover:bg-violet-700 text-white border-none shadow-md hover:shadow-lg"
             variant="default"
             disabled={isLoading}
-            onClick={() => handlePlanSelection(isYearly ? "Yearly" : "Monthly")}
+            onClick={() => { void handlePlanSelection(isYearly ? "Yearly" : "Monthly"); }}
           >
             {isLoading ? (
               "Redirecting…"

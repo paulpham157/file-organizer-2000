@@ -8,7 +8,7 @@ import { config, PRICES } from '@/srm.config';
 import { getUrl } from '@/lib/getUrl';
 import { sql } from 'drizzle-orm';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-06-20',
 });
 

@@ -964,21 +964,20 @@ export async function POST(req: NextRequest) {
           );
           if (toolMessages.length > 0) {
             toolMessages.forEach((tool, idx) => {
-              const toolAny = tool as any;
               const contentStr =
-                typeof toolAny.content === 'string'
-                  ? toolAny.content
-                  : Array.isArray(toolAny.content)
-                  ? JSON.stringify(toolAny.content)
-                  : JSON.stringify(toolAny.content);
+                typeof tool.content === 'string'
+                  ? tool.content
+                  : Array.isArray(tool.content)
+                  ? JSON.stringify(tool.content)
+                  : JSON.stringify(tool.content);
               const contentPreview = contentStr.substring(0, 200);
               console.log(
                 `[Chat API] Tool message ${idx + 1} after extraction:`,
                 {
-                  toolCallId: toolAny.toolCallId,
-                  toolName: toolAny.toolName,
-                  contentType: typeof toolAny.content,
-                  contentIsArray: Array.isArray(toolAny.content),
+                  toolCallId: tool.toolCallId,
+                  toolName: tool.toolName,
+                  contentType: typeof tool.content,
+                  contentIsArray: Array.isArray(tool.content),
                   contentLength: contentStr.length,
                   contentPreview,
                   hasYouTubeTranscript: contentStr.includes('FULL TRANSCRIPT'),
@@ -993,12 +992,11 @@ export async function POST(req: NextRequest) {
           );
           if (toolMessagesForModel.length > 0) {
             toolMessagesForModel.forEach((tool, idx) => {
-              const toolAny = tool as any;
               if (
-                Array.isArray(toolAny.content) &&
-                toolAny.content.length > 0
+                Array.isArray(tool.content) &&
+                tool.content.length > 0
               ) {
-                const firstItem = toolAny.content[0];
+                const firstItem = tool.content[0];
                 if (firstItem?.result && typeof firstItem.result === 'string') {
                   const transcriptPreview = firstItem.result.substring(0, 300);
                   console.log(
@@ -1006,8 +1004,8 @@ export async function POST(req: NextRequest) {
                       idx + 1
                     } content that model will see:`,
                     {
-                      toolCallId: toolAny.toolCallId,
-                      toolName: toolAny.toolName,
+                      toolCallId: tool.toolCallId,
+                      toolName: tool.toolName,
                       resultLength: firstItem.result.length,
                       resultPreview: transcriptPreview,
                       hasFullTranscript:

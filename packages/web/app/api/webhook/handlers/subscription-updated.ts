@@ -5,7 +5,7 @@ import { updateUserSubscriptionData } from '../utils';
 import Stripe from 'stripe';
 import { trackLoopsEvent } from '@/lib/services/loops';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-06-20',
 });
 

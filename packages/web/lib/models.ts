@@ -18,19 +18,19 @@ const RESPONSES_MODEL_NAME = process.env.RESPONSES_MODEL_NAME || MODEL_NAME;
 function createModel(provider: string, modelName: string): LanguageModel {
   switch (provider) {
     case 'google':
-      return google(modelName) as LanguageModel;
+      return google(modelName);
 
     case 'anthropic':
       return anthropic(modelName) as LanguageModel;
 
     case 'groq':
-      return groq(modelName) as LanguageModel;
+      return groq(modelName);
 
     case 'mistral':
-      return mistral(modelName) as LanguageModel;
+      return mistral(modelName);
 
     case 'deepseek':
-      return deepseek(modelName) as LanguageModel;
+      return deepseek(modelName);
 
     case 'openai':
     default:
