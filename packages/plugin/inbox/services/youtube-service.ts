@@ -23,7 +23,6 @@ export {
   getOriginalContent,
   isPendingYouTubeFormat,
   isYoutubeTemplate,
-  isYoutubeVideoTemplate,
   formatTimedTranscript,
   formatTranscriptTimestamp,
   linkifyYouTubeChannelSection,
@@ -279,8 +278,7 @@ function getChannelInfoFromYtInitialData(data: unknown): {
       const channel = simpleText.trim();
       const channelUrl = buildYouTubeChannelUrl(
         getBrowseEndpointFromNavigationEndpoint(
-          videoOwner?.navigationEndpoint ??
-            (title as Record<string, unknown>).navigationEndpoint
+          videoOwner?.navigationEndpoint ?? title.navigationEndpoint
         )
       );
       return { channel, channelUrl };

@@ -545,7 +545,7 @@ async function recommendNameStep(
     isYoutubeTemplate(documentType);
 
   const newName = useYoutubeTitle
-    ? [{ title: context.youtubeContent!.title }]
+    ? [{ title: context.youtubeContent.title }]
     : await context.plugin.recommendName(
         getOriginalContent(context.content),
         context.containerFile.basename
